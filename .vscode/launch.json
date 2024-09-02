@@ -1,0 +1,48 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Blossom",
+            "cwd": "home/isaac/Documents/Blossom",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "Blossom (profile mode)",
+            "cwd": "home/isaac/Documents/Blossom",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "Blossom (release mode)",
+            "cwd": "home/isaac/Documents/Blossom",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "BlossomRewrite",
+            "cwd": "home/isaac/Documents/BlossomRewrite",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "BlossomRewrite (profile mode)",
+            "cwd": "home/isaac/Documents/BlossomRewrite",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "BlossomRewrite (release mode)",
+            "cwd": "home/isaac/Documents/BlossomRewrite",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}
