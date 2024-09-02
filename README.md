@@ -56,3 +56,21 @@ Contributions are always welcome! Please ensure your pull request description cl
 
 <img src="https://media.discordapp.net/attachments/1227813910816755746/1280310519235870833/IMG_4233.png?ex=66d79d96&is=66d64c16&hm=c4656bf55ccb461a4ca578867702fff7913a03943d4ef1566b3ab8d6a9efaf3f&=&format=webp&quality=lossless&width=329&height=657
 " width="350" height="auto">
+
+## License
+
+Blossom is licensed under the GNU General Public License v3.0 (GPLv3).
+
+This means you are free to:
+- Use the software for any purpose
+- Change the software to suit your needs
+- Share the software with your friends and neighbors
+- Share the changes you make
+
+Under the following conditions:
+- If you distribute this software or any derivative works, you must do so under the GPLv3 license
+- You must provide the source code for any modifications
+- You must preserve the copyright and license notices
+
+For more details, see the [LICENSE](LICENSE) file in this repository or visit the [GNU website](https://www.gnu.org/licenses/gpl-3.0.en.html).
+
