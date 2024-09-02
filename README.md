@@ -1,4 +1,6 @@
 
+<img src="https://github.com/WindingMotor/Blossom-Player/blob/main/assets/BlossomLogo.svg" width="350" height="auto">
+
 # Blossom 🌸
 
 Blossom is a simple Flutter/Dart-based music player designed for playing local mp3 and flac files on mobile devices. It's still a work in progress!
