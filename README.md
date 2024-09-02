@@ -48,5 +48,9 @@ Contributions are always welcome! Please ensure your pull request description cl
 
 ## Preview
 
-<img src="/readmeimages/SongListPage.png" alt="Song List Page" width="350" height="auto">
+<img src="https://media.discordapp.net/attachments/1227813910816755746/1280310520141844633/IMG_4231.png?ex=66d79d97&is=66d64c17&hm=29198c88f22366ec206a21ba9f8c59fbaeb7c8807127138090ffaca70e29fd99&=&format=webp&quality=lossless&width=326&height=656" width="350" height="auto">
 
+<img src="https://media.discordapp.net/attachments/1227813910816755746/1280310692720676989/IMG_4234.png?ex=66d79dc0&is=66d64c40&hm=89de7e19a29f5757e0775087efe985fcd09ebe52e288aff493aa8c04c130d67d&=&format=webp&quality=lossless&width=336&height=657" width="350" height="auto">
+
+<img src="https://media.discordapp.net/attachments/1227813910816755746/1280310519235870833/IMG_4233.png?ex=66d79d96&is=66d64c16&hm=c4656bf55ccb461a4ca578867702fff7913a03943d4ef1566b3ab8d6a9efaf3f&=&format=webp&quality=lossless&width=329&height=657
+" width="350" height="auto">
