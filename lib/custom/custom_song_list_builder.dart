@@ -7,14 +7,14 @@ class SongListBuilder extends StatefulWidget {
   final List<Music> songs;
   final bool isPlayingList;
   final void Function(Music)? onTap;
-  final bool isPlaylist; 
+  final bool isPlaylist;
 
   const SongListBuilder({
     Key? key,
     required this.songs,
     this.isPlayingList = false,
     this.onTap,
-    this.isPlaylist = false, 
+    this.isPlaylist = false,
   }) : super(key: key);
 
   @override
@@ -22,6 +22,7 @@ class SongListBuilder extends StatefulWidget {
 }
 
 class _SongListBuilderState extends State<SongListBuilder> {
+  final ScrollController _scrollController = ScrollController();
   Set<Music> selectedSongs = {};
   int? lastSelectedIndex;
 
@@ -29,39 +30,43 @@ class _SongListBuilderState extends State<SongListBuilder> {
   Widget build(BuildContext context) {
     return Consumer<NPlayer>(
       builder: (context, player, child) {
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: widget.songs.length + (selectedSongs.isNotEmpty ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index == lastSelectedIndex && selectedSongs.isNotEmpty) {
-              return Column(
-                children: [
-                  _SongListTile(
-                    song: widget.songs[index],
-                    isCurrentSong:
-                        widget.songs[index] == player.getCurrentSong(),
-                    isSelected: selectedSongs.contains(widget.songs[index]),
-                    player: player,
-                    onTap: _handleTap,
-                    onLongPress: () => _handleLongPress(index),
-                  ),
-                  _buildPlaylistCard(player),
-                ],
-              );
-            } else if (index < widget.songs.length) {
-              return _SongListTile(
-                song: widget.songs[index],
-                isCurrentSong: widget.songs[index] == player.getCurrentSong(),
-                isSelected: selectedSongs.contains(widget.songs[index]),
-                player: player,
-                onTap: _handleTap,
-                onLongPress: () => _handleLongPress(index),
-              );
-            } else {
-              return _buildPlaylistCard(player);
-            }
-          },
+        return Scrollbar(
+          controller: _scrollController,
+          child: ListView.builder(
+            controller: _scrollController,
+            shrinkWrap: true,
+            physics: const AlwaysScrollableScrollPhysics(),
+            itemCount: widget.songs.length + (selectedSongs.isNotEmpty ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index == lastSelectedIndex && selectedSongs.isNotEmpty) {
+                return Column(
+                  children: [
+                    _SongListTile(
+                      song: widget.songs[index],
+                      isCurrentSong:
+                          widget.songs[index] == player.getCurrentSong(),
+                      isSelected: selectedSongs.contains(widget.songs[index]),
+                      player: player,
+                      onTap: _handleTap,
+                      onLongPress: () => _handleLongPress(index),
+                    ),
+                    _buildPlaylistCard(player),
+                  ],
+                );
+              } else if (index < widget.songs.length) {
+                return _SongListTile(
+                  song: widget.songs[index],
+                  isCurrentSong: widget.songs[index] == player.getCurrentSong(),
+                  isSelected: selectedSongs.contains(widget.songs[index]),
+                  player: player,
+                  onTap: _handleTap,
+                  onLongPress: () => _handleLongPress(index),
+                );
+              } else {
+                return _buildPlaylistCard(player);
+              }
+            },
+          ),
         );
       },
     );
@@ -103,42 +108,40 @@ class _SongListBuilderState extends State<SongListBuilder> {
     });
   }
 
-
-
-Widget _buildPlaylistCard(NPlayer player) {
-  return Card(
-    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    color: Theme.of(context).cardColor,
-    child: Padding(
-      padding: EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ActionChip(
-                label: Text('Deselect All'),
-                avatar: Icon(Icons.deselect,
-                    color: Theme.of(context).colorScheme.secondary),
-                onPressed: () {
-                  setState(() {
-                    selectedSongs.clear();
-                    lastSelectedIndex = null;
-                  });
-                },
-              ),
-              ...player.playlists
-                  .map((playlist) => _buildPlaylistChip(player, playlist)),
-            ],
-          ),
-        ],
+  Widget _buildPlaylistCard(NPlayer player) {
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Theme.of(context).cardColor,
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ActionChip(
+                  label: Text('Deselect All'),
+                  avatar: Icon(Icons.deselect,
+                      color: Theme.of(context).colorScheme.secondary),
+                  onPressed: () {
+                    setState(() {
+                      selectedSongs.clear();
+                      lastSelectedIndex = null;
+                    });
+                  },
+                ),
+                ...player.playlists
+                    .map((playlist) => _buildPlaylistChip(player, playlist)),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildPlaylistChip(NPlayer player, String playlist) {
     bool allSongsInPlaylist =

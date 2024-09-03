@@ -19,8 +19,10 @@ class CustomScrollbarPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final scrollbarSize = max(size.width, thumbWidth);
-    final thumbExtent = scrollbarSize / metrics.viewportDimension * metrics.viewportDimension;
-    final thumbOffset = scrollbarSize / metrics.viewportDimension * metrics.pixels;
+    final thumbExtent =
+        scrollbarSize / metrics.viewportDimension * metrics.viewportDimension;
+    final thumbOffset =
+        scrollbarSize / metrics.viewportDimension * metrics.pixels;
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -44,17 +46,20 @@ class CustomScrollbarPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(size.width - scrollbarSize - textPainter.width - 8, thumbOffset - 20));
+      textPainter.paint(
+          canvas,
+          Offset(size.width - scrollbarSize - textPainter.width - 8,
+              thumbOffset - 20));
     }
   }
 
   @override
   bool shouldRepaint(CustomScrollbarPainter oldDelegate) {
     return metrics != oldDelegate.metrics ||
-           thumbColor != oldDelegate.thumbColor ||
-           thumbWidth != oldDelegate.thumbWidth ||
-           isThumbPressed != oldDelegate.isThumbPressed ||
-           currentPosition != oldDelegate.currentPosition;
+        thumbColor != oldDelegate.thumbColor ||
+        thumbWidth != oldDelegate.thumbWidth ||
+        isThumbPressed != oldDelegate.isThumbPressed ||
+        currentPosition != oldDelegate.currentPosition;
   }
 }
 
@@ -77,7 +82,8 @@ class _CustomScrollbarState extends State<CustomScrollbar> {
   String _currentPosition = '';
 
   void _updatePosition() {
-    final itemCount = widget.scrollController.position.maxScrollExtent ~/ 50; // Assuming each item is 50 pixels high
+    final itemCount = widget.scrollController.position.maxScrollExtent ~/
+        50; // Assuming each item is 50 pixels high
     final currentItem = (widget.scrollController.offset / 50).round() + 1;
     setState(() {
       _currentPosition = '$currentItem / $itemCount';
@@ -100,12 +106,18 @@ class _CustomScrollbarState extends State<CustomScrollbar> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return GestureDetector(
-                  onVerticalDragStart: (_) => setState(() => _isThumbPressed = true),
-                  onVerticalDragEnd: (_) => setState(() => _isThumbPressed = false),
+                  onVerticalDragStart: (_) =>
+                      setState(() => _isThumbPressed = true),
+                  onVerticalDragEnd: (_) =>
+                      setState(() => _isThumbPressed = false),
                   onVerticalDragUpdate: (details) {
-                    final scrollableSize = widget.scrollController.position.maxScrollExtent;
-                    final thumbMoveDistance = details.delta.dy / constraints.maxHeight * scrollableSize;
-                    widget.scrollController.jumpTo(widget.scrollController.offset + thumbMoveDistance);
+                    final scrollableSize =
+                        widget.scrollController.position.maxScrollExtent;
+                    final thumbMoveDistance = details.delta.dy /
+                        constraints.maxHeight *
+                        scrollableSize;
+                    widget.scrollController.jumpTo(
+                        widget.scrollController.offset + thumbMoveDistance);
                   },
                   child: CustomPaint(
                     painter: CustomScrollbarPainter(

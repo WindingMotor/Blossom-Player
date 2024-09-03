@@ -78,4 +78,3 @@ class FloatingBottomNavigationBar extends StatelessWidget {
     );
   }
 }
-

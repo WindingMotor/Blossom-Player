@@ -1,3 +1,4 @@
+import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,12 +10,21 @@ class Settings {
     _prefs = await SharedPreferences.getInstance();
   }
 
-
 // Song directory
-static Future<String> getSongDir() async {
-  final directory = await getApplicationDocumentsDirectory();
-  return directory.path;
-}
+
+  static Future<String> getSongDir() async {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      final directory = await getApplicationDocumentsDirectory();
+      final blossomMediaDir = Directory('${directory.path}/BlossomMedia');
+      if (!await blossomMediaDir.exists()) {
+        await blossomMediaDir.create(recursive: true);
+      }
+      return blossomMediaDir.path;
+    } else {
+      final directory = await getApplicationDocumentsDirectory();
+      return directory.path;
+    }
+  }
 
   // Last playing song
   static String? get lastPlayingSong => _prefs.getString('lastPlayingSong');
@@ -39,32 +49,36 @@ static Future<String> getSongDir() async {
       _prefs.setString('themeMode', mode);
 
 // Artist sort preference
-static String get artistSortBy => _prefs.getString('artistSortBy') ?? 'name';
-static bool get artistSortAscending => _prefs.getBool('artistSortAscending') ?? true;
-static Future<void> setArtistSort(String sortBy, bool ascending) async {
-  await _prefs.setString('artistSortBy', sortBy);
-  await _prefs.setBool('artistSortAscending', ascending);
-}
+  static String get artistSortBy => _prefs.getString('artistSortBy') ?? 'name';
+  static bool get artistSortAscending =>
+      _prefs.getBool('artistSortAscending') ?? true;
+  static Future<void> setArtistSort(String sortBy, bool ascending) async {
+    await _prefs.setString('artistSortBy', sortBy);
+    await _prefs.setBool('artistSortAscending', ascending);
+  }
 
 // Album sort preference
-static String get albumSortBy {
-  String sortBy = _prefs.getString('albumSortBy') ?? 'name';
-  if (!['name', 'year', 'artist'].contains(sortBy)) {
-    sortBy = 'name'; // Default to 'name' if an invalid value is stored
+  static String get albumSortBy {
+    String sortBy = _prefs.getString('albumSortBy') ?? 'name';
+    if (!['name', 'year', 'artist'].contains(sortBy)) {
+      sortBy = 'name'; // Default to 'name' if an invalid value is stored
+    }
+    return sortBy;
   }
-  return sortBy;
-}
-static bool get albumSortAscending => _prefs.getBool('albumSortAscending') ?? true;
-static bool get albumOrganizeByFolder => _prefs.getBool('albumOrganizeByFolder') ?? false;
-static Future<void> setAlbumSort(String sortBy, bool ascending, bool organizeByFolder) async {
-  if (['name', 'year', 'artist'].contains(sortBy)) {
-    await _prefs.setString('albumSortBy', sortBy);
-  } else {
-    await _prefs.setString('albumSortBy', 'name'); // Default to 'name' if an invalid value is provided
+
+  static bool get albumSortAscending =>
+      _prefs.getBool('albumSortAscending') ?? true;
+  static bool get albumOrganizeByFolder =>
+      _prefs.getBool('albumOrganizeByFolder') ?? false;
+  static Future<void> setAlbumSort(
+      String sortBy, bool ascending, bool organizeByFolder) async {
+    if (['name', 'year', 'artist'].contains(sortBy)) {
+      await _prefs.setString('albumSortBy', sortBy);
+    } else {
+      await _prefs.setString('albumSortBy',
+          'name'); // Default to 'name' if an invalid value is provided
+    }
+    await _prefs.setBool('albumSortAscending', ascending);
+    await _prefs.setBool('albumOrganizeByFolder', organizeByFolder);
   }
-  await _prefs.setBool('albumSortAscending', ascending);
-  await _prefs.setBool('albumOrganizeByFolder', organizeByFolder);
 }
-
-}
-

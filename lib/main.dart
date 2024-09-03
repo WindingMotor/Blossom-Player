@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:blossom/custom/custom_appbar.dart';
+import 'package:blossom/custom/custom_navbar.dart';
 import 'package:blossom/tools/downloader.dart';
 import 'package:blossom/pages/loading_page.dart';
 import 'package:blossom/audio/nplaylist.dart';
@@ -45,7 +46,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MetadataGod.initialize();
   await Settings.init();
-  await PlaylistManager.load(); 
+  await PlaylistManager.load();
 
   await requestPermissions();
 
@@ -79,12 +80,12 @@ void main() async {
     });
   }
 
-runApp(
-  ChangeNotifierProvider(
-    create: (context) => NPlayer(),
-    child: const MyApp(),
-  ),
-);
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => NPlayer(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -99,7 +100,8 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.black.withOpacity(0.8),
         cardColor: Colors.grey.shade900.withOpacity(0.2),
         appBarTheme: AppBarTheme(color: Colors.black.withOpacity(0.8)),
-        popupMenuTheme: PopupMenuThemeData(color: Colors.black.withOpacity(0.8)),
+        popupMenuTheme:
+            PopupMenuThemeData(color: Colors.black.withOpacity(0.8)),
         splashColor: Colors.pink.shade300.withOpacity(0.5),
         colorScheme: const ColorScheme.dark(
           primary: Colors.pink,
@@ -120,7 +122,8 @@ class MainStructure extends StatefulWidget {
   _MainStructureState createState() => _MainStructureState();
 }
 
-class _MainStructureState extends State<MainStructure> with SingleTickerProviderStateMixin {
+class _MainStructureState extends State<MainStructure>
+    with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
   late PageController _pageController;
 
@@ -140,42 +143,52 @@ class _MainStructureState extends State<MainStructure> with SingleTickerProvider
     setState(() => _currentIndex = index);
   }
 
-List<Widget> _getPages() {
-  List<Widget> pages = [
-    const SongLibrary(),
-    const PlaylistPage(), 
-    const SongAlbums(),
-    const ArtistsPage(),
-  ];
+  List<Widget> _getPages() {
+    List<Widget> pages = [
+      const SongLibrary(),
+      const PlaylistPage(),
+      const SongAlbums(),
+      const ArtistsPage(),
+    ];
 
-  if (!kIsWeb &&
-      (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
-    pages.add(const Downloader());
+    if (!kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      pages.add(const Downloader());
+    }
+
+    return pages;
   }
 
-  return pages;
-}
-
-String _getAppBarTitle() {
-  switch (_currentIndex) {
-    case 0:
-      return 'Song Library';
-    case 1:
-      return 'Playlists'; 
-    case 2:
-      return 'Albums';
-    case 3:
-      return 'Artists';
-    case 4:
-      return 'Downloader';
-    default:
-      return 'Blossom';
+  String _getAppBarTitle() {
+    switch (_currentIndex) {
+      case 0:
+        return 'Song Library';
+      case 1:
+        return 'Playlists';
+      case 2:
+        return 'Albums';
+      case 3:
+        return 'Artists';
+      case 4:
+        return 'Downloader';
+      default:
+        return 'Blossom';
+    }
   }
-}
-  
- @override
+
+  double _getPlayerBottomPosition() {
+    if (Platform.isAndroid || Platform.isIOS) {
+      return 45;
+    } else {
+      return 5;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final pages = _getPages();
+    final isDesktop =
+        !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
     return Scaffold(
       appBar: !Platform.isIOS && !Platform.isAndroid
@@ -192,7 +205,6 @@ String _getAppBarTitle() {
           : null,
       body: Stack(
         children: [
-          // Optimized PageView for better performance
           PageView.builder(
             controller: _pageController,
             itemCount: pages.length,
@@ -200,16 +212,48 @@ String _getAppBarTitle() {
             onPageChanged: _onPageChanged,
             physics: const ClampingScrollPhysics(),
           ),
-          // Floating NPlayerWidget
-          const Positioned(
+          Positioned(
             left: 0,
             right: 0,
-            bottom: 45,
+            bottom: _getPlayerBottomPosition(),
             child: NPlayerWidget(),
           ),
         ],
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() => _currentIndex = index);
+          _pageController.jumpToPage(index);
+        },
+        items: [
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.library_music),
+            label: 'Library',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.playlist_play),
+            label: 'Playlists',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.album),
+            label: 'Albums',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Artists',
+          ),
+          if (isDesktop)
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.download),
+              label: 'Downloader',
+            ),
+        ],
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        selectedItemColor: Theme.of(context).colorScheme.secondary,
+        unselectedItemColor: Colors.grey,
+      ),
     );
   }
-
 }

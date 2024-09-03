@@ -235,8 +235,8 @@ class _DownloaderState extends State<Downloader> {
       final exitCode = await process.exitCode;
 
       if (exitCode == 0) {
-        setState(() => _output +=
-            'Playlist downloaded successfully to ${songDir}\n');
+        setState(() =>
+            _output += 'Playlist downloaded successfully to ${songDir}\n');
         _showDownloadCompleteDialog();
       } else {
         setState(() =>
@@ -320,6 +320,11 @@ class _DownloaderState extends State<Downloader> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          IconButton(
+                            icon: const Icon(Icons.download),
+                            onPressed: _downloadPlaylist,
+                          )
                         ],
                       ),
                     ),

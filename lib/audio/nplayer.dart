@@ -42,7 +42,6 @@ class Music {
     List<String>? playlists, // Make this parameter optional
   }) : playlists = playlists ?? []; // Initialize with an empty list if null
 
-
   // Add a method to create a Music object from JSON
   factory Music.fromJson(Map<String, dynamic> json) {
     return Music(
@@ -81,7 +80,7 @@ class Music {
     };
   }
 
-    void updatePlaylists(List<String> newPlaylists) {
+  void updatePlaylists(List<String> newPlaylists) {
     playlists = List.from(newPlaylists);
   }
 }
@@ -110,8 +109,6 @@ class NPlayer extends ChangeNotifier {
   bool _isStoppingInProgress = false;
 
   List<String> get playlists => PlaylistManager.playlistNames;
-
-
 
   // SECTION: Constructor and Initialization
   NPlayer() {
@@ -365,7 +362,8 @@ class NPlayer extends ChangeNotifier {
     await _playSelectedSongs(artistSongs, selectedSong);
   }
 
-  Future<void> playPlaylistFromIndex(List<Music> playlistSongs, int index) async {
+  Future<void> playPlaylistFromIndex(
+      List<Music> playlistSongs, int index) async {
     _log("Playing playlist from index: $index");
     _playingSongs = List.from(playlistSongs);
     _currentSongIndex = index;
@@ -378,7 +376,6 @@ class NPlayer extends ChangeNotifier {
     notifyListeners();
     _log("Now playing: ${_playingSongs[index].title} from playlist");
   }
-
 
   Future<void> _playSelectedSongs(List<Music> songs, Music selectedSong) async {
     _playingSongs = List.from(songs);
@@ -474,7 +471,7 @@ class NPlayer extends ChangeNotifier {
     notifyListeners();
   }
 
- Future<void> _loadSongs() async {
+  Future<void> _loadSongs() async {
     try {
       final directoryPath = await Settings.getSongDir();
       _log("Starting to load songs from: $directoryPath");
@@ -489,9 +486,9 @@ class NPlayer extends ChangeNotifier {
       }
       await _processDirectory(directory);
       _log("Finished loading songs. Total songs: ${_allSongs.length}");
-      
+
       // Load playlist information for each song
-  for (var song in _allSongs) {
+      for (var song in _allSongs) {
         song.playlists.clear();
         for (var playlist in playlists) {
           if (PlaylistManager.getPlaylistSongs(playlist).contains(song.title)) {
@@ -507,7 +504,6 @@ class NPlayer extends ChangeNotifier {
       _log("Error while loading songs: $e");
     }
   }
-
 
   Future _processDirectory(Directory directory) async {
     await for (final entity in directory.list(followLinks: false)) {
@@ -557,7 +553,6 @@ class NPlayer extends ChangeNotifier {
 
 // SECTION: Playlist
 
-
   Future<void> _loadPlaylists() async {
     await PlaylistManager.load();
     await _loadSongs();
@@ -574,16 +569,15 @@ class NPlayer extends ChangeNotifier {
     notifyListeners();
   }
 
-
-Future<void> addSongToPlaylist(String playlistName, Music song) async {
-  if (!PlaylistManager.getPlaylistSongs(playlistName).contains(song.title)) {
-    await PlaylistManager.addSongToPlaylist(playlistName, song.title);
-    if (!song.playlists.contains(playlistName)) {
-      song.playlists.add(playlistName);
+  Future<void> addSongToPlaylist(String playlistName, Music song) async {
+    if (!PlaylistManager.getPlaylistSongs(playlistName).contains(song.title)) {
+      await PlaylistManager.addSongToPlaylist(playlistName, song.title);
+      if (!song.playlists.contains(playlistName)) {
+        song.playlists.add(playlistName);
+      }
+      notifyListeners();
     }
-    notifyListeners();
   }
-}
 
   Future<void> removeSongFromPlaylist(String playlistName, Music song) async {
     await PlaylistManager.removeSongFromPlaylist(playlistName, song.title);
@@ -734,13 +728,16 @@ Future<void> addSongToPlaylist(String playlistName, Music song) async {
 
   // SECTION: Utility Methods
   Future<bool> requestStoragePermission() async {
-    _log("Requesting storage permission");
-    var status = await Permission.storage.status;
-    if (!status.isGranted) {
-      status = await Permission.storage.request();
+    if (Platform.isAndroid || Platform.isIOS) {
+      _log("Requesting storage permission");
+      var status = await Permission.storage.status;
+      if (!status.isGranted) {
+        status = await Permission.storage.request();
+      }
+      _log("Storage permission ${status.isGranted ? 'granted' : 'denied'}");
+      return status.isGranted;
     }
-    _log("Storage permission ${status.isGranted ? 'granted' : 'denied'}");
-    return status.isGranted;
+    return true; // Always return true for desktop platforms
   }
 
   Future<List<FileSystemEntity>> listFiles() async {
