@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:blossom/audio/audio_handler.dart';
 import 'package:blossom/audio/nplaylist.dart';
+import 'package:blossom/audio/nserver.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fuzzy/fuzzy.dart';
@@ -113,8 +114,30 @@ class NPlayer extends ChangeNotifier {
 
   List<String> get playlists => PlaylistManager.playlistNames;
 
-  final _songChangeController = StreamController<void>.broadcast();
+  NServer? _server;
+  NServer? get server => _server;
+
+  bool _isServerOn = false;
+
+  bool get isServerOn => _isServerOn;
+  final StreamController<void> _songChangeController = StreamController<void>.broadcast();
   Stream<void> get songChangeStream => _songChangeController.stream;
+
+ void notifySongChange() {
+    _songChangeController.add(null);
+  }
+  
+ Future<void> toggleServer() async {
+    if (_isServerOn) {
+      await _server?.stop();
+      _server = null;
+    } else {
+      _server = NServer(this);
+      await _server!.start();
+    }
+    _isServerOn = !_isServerOn;
+    notifyListeners();
+  }
 
 
   // SECTION: Constructor and Initialization
@@ -237,7 +260,7 @@ class NPlayer extends ChangeNotifier {
     await Settings.setLastPlayingSong(selectedSong.path);
     await _updateMetadata();
     await _updatePlaybackState(playing: true);
-    _songChangeController.add(null);
+notifySongChange();
     notifyListeners();
   }
 
@@ -329,7 +352,7 @@ class NPlayer extends ChangeNotifier {
       await _updateMetadata();
       await _updatePlaybackState(playing: true);
       await _audioHandler.play();
-      _songChangeController.add(null);
+notifySongChange();
       notifyListeners();
     } else {
       _log("No songs to play");
@@ -353,7 +376,7 @@ class NPlayer extends ChangeNotifier {
         await _updateMetadata();
         await _updatePlaybackState(playing: true);
         await _audioHandler.play();
-       _songChangeController.add(null);
+notifySongChange();
         notifyListeners();
       }
     } else {
@@ -801,6 +824,7 @@ class NPlayer extends ChangeNotifier {
         await nextSong();
         break;
     }
+notifySongChange();
   }
 
   void _log(String message) {
@@ -810,8 +834,8 @@ class NPlayer extends ChangeNotifier {
   @override
   void dispose() {
     _log("Disposing NPlayer");
-    _audioPlayer.dispose();
     _songChangeController.close();
+    _audioPlayer.dispose();
     super.dispose();
   }
 

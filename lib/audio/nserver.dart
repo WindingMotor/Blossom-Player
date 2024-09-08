@@ -8,7 +8,6 @@ import 'package:blossom/audio/nplayer.dart';
 import 'package:metadata_god/metadata_god.dart';
 import 'package:http/http.dart' as http;
 
-
 class NServer {
   HttpServer? _server;
   final NPlayer _nplayer;
@@ -159,9 +158,11 @@ class NServer {
 
   static Future<bool> isValidServer(String ip) async {
     try {
-      final response = await http.get(Uri.parse('http://$ip:8080'))
+      final response = await http
+          .get(Uri.parse('http://$ip:8080'))
           .timeout(Duration(seconds: 5));
-      return response.statusCode == 200 && response.body.contains('Blossom Music Server');
+      return response.statusCode == 200 &&
+          response.body.contains('Blossom Music Server');
     } catch (_) {
       return false;
     }
@@ -175,4 +176,6 @@ class NServer {
       throw Exception('Failed to load metadata');
     }
   }
+
+  void notifySongChange() {}
 }

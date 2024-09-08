@@ -1,4 +1,6 @@
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
@@ -13,35 +15,44 @@ class ServerPage extends StatefulWidget {
 }
 
 class _ServerPageState extends State<ServerPage> {
-  NServer? _server;
   String _status = 'Server not started';
   List<String> _availableServers = [];
   bool _isScanning = false;
-  bool _isServerRunning = false;
   final TextEditingController _ipController = TextEditingController();
-
-  @override
+  StreamSubscription? _songChangeSubscription;
+  
+ @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateServerStatus();
+      _listenToSongChanges();
+    });
   }
+
+  void _updateServerStatus() {
+    final nplayer = Provider.of<NPlayer>(context, listen: false);
+    setState(() {
+      _status = nplayer.isServerOn
+          ? 'Server running on ${nplayer.server!.currentIp}:8080'
+          : 'Server not started';
+    });
+  }
+
+    void _listenToSongChanges() {
+    final nplayer = Provider.of<NPlayer>(context, listen: false);
+    _songChangeSubscription = nplayer.songChangeStream.listen((_) {
+      setState(() {
+        // Update UI if needed when song changes
+      });
+    });
+  }
+
 
   Future<void> _toggleServer() async {
     final nplayer = Provider.of<NPlayer>(context, listen: false);
-    
-    if (_isServerRunning) {
-      _server?.stop();
-      setState(() {
-        _isServerRunning = false;
-        _status = 'Server stopped';
-      });
-    } else {
-      _server = NServer(nplayer);
-      await _server!.start();
-      setState(() {
-        _isServerRunning = true;
-        _status = 'Server running on ${_server!.currentIp}:8080';
-      });
-    }
+    await nplayer.toggleServer();
+    _updateServerStatus();
   }
 
   Future<void> _scanForServers() async {
@@ -91,9 +102,9 @@ class _ServerPageState extends State<ServerPage> {
           ),
           ElevatedButton(
             onPressed: _toggleServer,
-            child: Text(_isServerRunning ? 'Stop Server' : 'Start Server'),
+            child: Text(nplayer.isServerOn ? 'Stop Server' : 'Start Server'),
           ),
-          if (_isServerRunning && currentSong != null)
+          if (nplayer.isServerOn && currentSong != null)
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Text('Currently streaming: ${currentSong.title} by ${currentSong.artist}'),
@@ -133,7 +144,6 @@ class _ServerPageState extends State<ServerPage> {
 
   @override
   void dispose() {
-    _server?.stop();
     super.dispose();
   }
 }
