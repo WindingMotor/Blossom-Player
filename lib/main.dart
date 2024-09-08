@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:blossom/custom/custom_appbar.dart';
-import 'package:blossom/custom/custom_navbar.dart';
 import 'package:blossom/pages/server_page.dart';
 import 'package:blossom/tools/downloader.dart';
 import 'package:blossom/pages/loading_page.dart';
@@ -247,10 +246,10 @@ class _MainStructureState extends State<MainStructure>
             icon: Icon(Icons.person),
             label: 'Artists',
           ),
-                  const BottomNavigationBarItem(
-          icon: Icon(Icons.wifi),
-          label: 'Server Scan',
-        ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.wifi),
+            label: 'Server Scan',
+          ),
           if (isDesktop)
             const BottomNavigationBarItem(
               icon: Icon(Icons.download),

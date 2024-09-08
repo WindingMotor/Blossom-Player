@@ -119,26 +119,33 @@ class NPlayer extends ChangeNotifier {
 
   bool _isServerOn = false;
 
+  bool _isPlayingFromServer = false;
+  bool get isPlayingFromServer => _isPlayingFromServer;
+  WebSocket? _serverSocket;
+  String? _serverIP;
+  Timer? _serverCheckTimer;
+
   bool get isServerOn => _isServerOn;
-  final StreamController<void> _songChangeController = StreamController<void>.broadcast();
+  final StreamController<void> _songChangeController =
+      StreamController<void>.broadcast();
   Stream<void> get songChangeStream => _songChangeController.stream;
 
- void notifySongChange() {
+  void notifySongChange() {
     _songChangeController.add(null);
   }
-  
- Future<void> toggleServer() async {
+
+  Future<void> toggleServer() async {
     if (_isServerOn) {
       await _server?.stop();
       _server = null;
+      _isServerOn = false;
     } else {
       _server = NServer(this);
       await _server!.start();
+      _isServerOn = _server!.isRunning;
     }
-    _isServerOn = !_isServerOn;
     notifyListeners();
   }
-
 
   // SECTION: Constructor and Initialization
   NPlayer() {
@@ -260,7 +267,7 @@ class NPlayer extends ChangeNotifier {
     await Settings.setLastPlayingSong(selectedSong.path);
     await _updateMetadata();
     await _updatePlaybackState(playing: true);
-notifySongChange();
+    notifySongChange();
     notifyListeners();
   }
 
@@ -352,7 +359,13 @@ notifySongChange();
       await _updateMetadata();
       await _updatePlaybackState(playing: true);
       await _audioHandler.play();
-notifySongChange();
+      notifySongChange();
+      if (_serverSocket != null) {
+        _serverSocket!.add(json.encode({
+          'type': 'skip',
+          'direction': 'next',
+        }));
+      }
       notifyListeners();
     } else {
       _log("No songs to play");
@@ -376,7 +389,13 @@ notifySongChange();
         await _updateMetadata();
         await _updatePlaybackState(playing: true);
         await _audioHandler.play();
-notifySongChange();
+        notifySongChange();
+        if (_serverSocket != null) {
+          _serverSocket!.add(json.encode({
+            'type': 'skip',
+            'direction': 'previous',
+          }));
+        }
         notifyListeners();
       }
     } else {
@@ -485,6 +504,12 @@ notifySongChange();
     _log("Seeking to position: $position");
     await _audioPlayer.seek(position);
     _currentPosition = position;
+    if (_serverSocket != null) {
+      _serverSocket!.add(json.encode({
+        'type': 'seek',
+        'position': position.inMilliseconds,
+      }));
+    }
     notifyListeners();
   }
 
@@ -809,22 +834,27 @@ notifySongChange();
   }
 
   Future<void> _handleSongCompletion() async {
-    _log("Handling song completion");
-    switch (_repeatMode) {
-      case 'off':
-        await nextSong();
-        break;
-      case 'one':
-        if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
-          await _audioPlayer
-              .play(DeviceFileSource(_playingSongs[_currentSongIndex!].path));
-        }
-        break;
-      case 'all':
-        await nextSong();
-        break;
+    if (_isPlayingFromServer) {
+      await _fetchAndUpdateServerSong();
+      notifySongChange();
+    } else {
+      _log("Handling song completion");
+      switch (_repeatMode) {
+        case 'off':
+          await nextSong();
+          break;
+        case 'one':
+          if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
+            await _audioPlayer
+                .play(DeviceFileSource(_playingSongs[_currentSongIndex!].path));
+          }
+          break;
+        case 'all':
+          await nextSong();
+          break;
+      }
+      notifySongChange();
     }
-notifySongChange();
   }
 
   void _log(String message) {
@@ -836,72 +866,175 @@ notifySongChange();
     _log("Disposing NPlayer");
     _songChangeController.close();
     _audioPlayer.dispose();
+    _serverCheckTimer?.cancel();
     super.dispose();
   }
 
-Future<Map<String, dynamic>> _fetchMetadata(String serverIP) async {
-  final url = 'http://$serverIP:8080/metadata';
-  final response = await http.get(Uri.parse(url));
-  if (response.statusCode == 200) {
-    return json.decode(response.body);
-  } else {
-    throw Exception('Failed to load metadata');
-  }
-}
-
-Future<void> playFromServer(String serverIP) async {
-  if (serverIP.isEmpty) {
-    print('Error: Server IP is empty');
-    return;
-  }
-
-  final streamUrl = 'http://$serverIP:8080/stream';
-  final metadataUrl = 'http://$serverIP:8080/metadata';
-  print('Attempting to play from URL: $streamUrl');
-  
-  try {
-    // Fetch metadata first
-    final response = await http.get(Uri.parse(metadataUrl));
+  Future<Map<String, dynamic>> _fetchMetadata(String serverIP) async {
+    final url = 'http://$serverIP:8080/metadata';
+    final response = await http.get(Uri.parse(url));
     if (response.statusCode == 200) {
-      final metadata = json.decode(response.body);
-      
-      // Create a Music object with the fetched metadata
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load metadata');
+    }
+  }
+
+  Future connectToServer(String serverIP) async {
+    print('Attempting to connect to server: $serverIP');
+    try {
+      _serverIP = serverIP;
+      final wsUrl = Uri.parse('ws://$serverIP:8080/ws');
+      print('Connecting to WebSocket URL: $wsUrl');
+      _serverSocket = await WebSocket.connect(wsUrl.toString())
+          .timeout(Duration(seconds: 10));
+      print('WebSocket connected successfully');
+
+      _serverSocket!.listen(
+        _handleServerUpdate,
+        onError: (error) {
+          print('WebSocket error: $error');
+        },
+        onDone: () {
+          print('WebSocket connection closed');
+        },
+      );
+
+      // Request the current song from the server
+      _serverSocket!.add(json.encode({'type': 'getCurrentSong'}));
+
+      // Enable stream playing using the old method
+      await enableStreamPlaying(serverIP);
+
+      print('Connected to server: $serverIP');
+      notifyListeners();
+    } catch (e) {
+      print('Error connecting to server: $e');
+      _serverIP = null;
+      _serverSocket = null;
+      rethrow;
+    }
+  }
+
+  void _handleServerUpdate(dynamic message) {
+    print('Received message from server: $message');
+    if (message == null) {
+      print('Received null message from server');
+      return;
+    }
+
+    Map? data;
+    try {
+      data = json.decode(message);
+    } catch (e) {
+      print('Error decoding message: $e');
+      return;
+    }
+
+    if (data == null) {
+      print('Decoded data is null');
+      return;
+    }
+
+    switch (data['type']) {
+      case 'songChange':
+        print('Received songChange event: ${data['song']}');
+        if (data['song'] != null) {
+          _handleSongChange(Music.fromJson(data['song']));
+        } else {
+          print('Received songChange event with null song data');
+        }
+        break;
+      case 'seek':
+        if (data['position'] != null) {
+          seek(Duration(milliseconds: data['position']));
+        }
+        break;
+      default:
+        print('Unknown message type: ${data['type']}');
+    }
+  }
+
+  void _handleSongChange(Music newSong) {
+    // Keep playing the current song
+    Music? currentSong = getCurrentSong();
+
+    // Attempt to play the new song
+    _audioPlayer.play(UrlSource(newSong.path));
+
+    // Start a timer to check if the new song is playing
+    Timer(Duration(seconds: 1), () {
+      if (_audioPlayer.state == PlayerState.playing) {
+        // If the new song is playing after 1 second, update the player state
+        _playingSongs = [newSong];
+        _currentSongIndex = 0;
+        _isPlaying = true;
+        _currentPosition = Duration.zero;
+        _updateMetadata();
+        _updatePlaybackState(playing: true);
+        notifySongChange();
+        notifyListeners();
+      } else {
+        // If the new song isn't playing after 1 second, revert to the previous song
+        if (currentSong != null) {
+          _audioPlayer.play(DeviceFileSource(currentSong.path));
+        }
+        print('Failed to play new song, reverting to previous song');
+      }
+    });
+  }
+
+  Future enableStreamPlaying(String serverIP) async {
+    _serverIP = serverIP;
+    _isPlayingFromServer = true;
+    await _fetchAndUpdateServerSong();
+    _serverCheckTimer = Timer.periodic(
+      Duration(seconds: 5),
+      (_) => _fetchAndUpdateServerSong(),
+    );
+    notifyListeners();
+  }
+
+  Future<void> disableStreamPlaying() async {
+    _isPlayingFromServer = false;
+    _serverIP = null;
+    _serverCheckTimer?.cancel();
+    notifyListeners();
+  }
+
+  Future _fetchAndUpdateServerSong() async {
+    if (!_isPlayingFromServer || _serverIP == null) return;
+    try {
+      final metadata = await NServer.getRemoteMetadata(_serverIP!);
       final serverSong = Music(
-        path: streamUrl,
+        path: 'http://$_serverIP:8080/stream',
         folderName: 'Server',
         lastModified: DateTime.now(),
         title: metadata['title'] ?? 'Unknown Title',
         album: metadata['album'] ?? 'Unknown Album',
         artist: metadata['artist'] ?? 'Unknown Artist',
-        duration: (metadata['duration'] as num?)?.toInt() ?? 0, // Convert to int
-        picture: metadata['picture'] != null ? base64Decode(metadata['picture']) : null,
+        duration: (metadata['duration'] as num?)?.toInt() ?? 0,
+        picture: metadata['picture'] != null
+            ? base64Decode(metadata['picture'])
+            : null,
         year: metadata['year']?.toString() ?? '',
         genre: metadata['genre'] ?? 'Unknown Genre',
-        size: 0, // We don't have this information from the server
+        size: 0,
       );
 
-      // Add the server song to the playing list
-      _playingSongs = [serverSong];
-      _currentSongIndex = 0;
-
-      // Play the stream
-      await _audioPlayer.play(UrlSource(streamUrl));
-      _isPlaying = true;
-      _currentPosition = Duration.zero;
-
-      // Update metadata and playback state
-      await _updateMetadata();
-      await _updatePlaybackState(playing: true);
-
-      notifyListeners();
-      print('Successfully started playing from server');
-    } else {
-      throw Exception('Failed to load metadata: ${response.statusCode}');
+      if (_playingSongs.isEmpty || _playingSongs[0].path != serverSong.path) {
+        _playingSongs = [serverSong];
+        _currentSongIndex = 0;
+        await _audioPlayer.play(UrlSource(serverSong.path));
+        _isPlaying = true;
+        _currentPosition = Duration.zero;
+        await _updateMetadata();
+        await _updatePlaybackState(playing: true);
+        notifySongChange();
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error fetching server song: $e');
     }
-  } catch (e) {
-    print('Error playing from server: $e');
-    // Handle the error (e.g., show an error message to the user)
   }
-}
-
 }

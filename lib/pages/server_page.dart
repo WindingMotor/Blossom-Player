@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -20,8 +19,8 @@ class _ServerPageState extends State<ServerPage> {
   bool _isScanning = false;
   final TextEditingController _ipController = TextEditingController();
   StreamSubscription? _songChangeSubscription;
-  
- @override
+
+  @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -39,7 +38,7 @@ class _ServerPageState extends State<ServerPage> {
     });
   }
 
-    void _listenToSongChanges() {
+  void _listenToSongChanges() {
     final nplayer = Provider.of<NPlayer>(context, listen: false);
     _songChangeSubscription = nplayer.songChangeStream.listen((_) {
       setState(() {
@@ -48,11 +47,28 @@ class _ServerPageState extends State<ServerPage> {
     });
   }
 
-
   Future<void> _toggleServer() async {
     final nplayer = Provider.of<NPlayer>(context, listen: false);
-    await nplayer.toggleServer();
-    _updateServerStatus();
+    try {
+      await nplayer.toggleServer();
+      _updateServerStatus();
+      if (nplayer.isServerOn) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('Server started on ${nplayer.server!.currentIp}:8080')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Server stopped')),
+        );
+      }
+    } catch (e) {
+      print('Error toggling server: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to toggle server: $e')),
+      );
+    }
   }
 
   Future<void> _scanForServers() async {
@@ -81,10 +97,17 @@ class _ServerPageState extends State<ServerPage> {
 
   void _connectToServer(String ip) {
     final nplayer = Provider.of<NPlayer>(context, listen: false);
-    nplayer.playFromServer(ip);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Connecting to server: $ip')),
-    );
+    nplayer.connectToServer(ip).then((_) {
+      print('Successfully connected to server: $ip');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Connected to server: $ip')),
+      );
+    }).catchError((error) {
+      print('Error connecting to server: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to connect to server: $error')),
+      );
+    });
   }
 
   @override
@@ -104,10 +127,14 @@ class _ServerPageState extends State<ServerPage> {
             onPressed: _toggleServer,
             child: Text(nplayer.isServerOn ? 'Stop Server' : 'Start Server'),
           ),
-          if (nplayer.isServerOn && currentSong != null)
+          if (nplayer.isPlayingFromServer)
             Padding(
               padding: const EdgeInsets.all(8.0),
-              child: Text('Currently streaming: ${currentSong.title} by ${currentSong.artist}'),
+              child: Text(
+                currentSong != null
+                    ? 'Currently streaming: ${currentSong.title} by ${currentSong.artist}'
+                    : 'No song currently playing',
+              ),
             ),
           Padding(
             padding: const EdgeInsets.all(8.0),
@@ -144,6 +171,7 @@ class _ServerPageState extends State<ServerPage> {
 
   @override
   void dispose() {
+    _songChangeSubscription?.cancel();
     super.dispose();
   }
 }
