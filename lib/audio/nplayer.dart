@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'dart:io';
 import 'dart:ui';
@@ -12,6 +14,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:http/http.dart' as http;
 
 class Music {
   final String path;
@@ -109,6 +112,10 @@ class NPlayer extends ChangeNotifier {
   bool _isStoppingInProgress = false;
 
   List<String> get playlists => PlaylistManager.playlistNames;
+
+  final _songChangeController = StreamController<void>.broadcast();
+  Stream<void> get songChangeStream => _songChangeController.stream;
+
 
   // SECTION: Constructor and Initialization
   NPlayer() {
@@ -230,6 +237,7 @@ class NPlayer extends ChangeNotifier {
     await Settings.setLastPlayingSong(selectedSong.path);
     await _updateMetadata();
     await _updatePlaybackState(playing: true);
+    _songChangeController.add(null);
     notifyListeners();
   }
 
@@ -321,6 +329,7 @@ class NPlayer extends ChangeNotifier {
       await _updateMetadata();
       await _updatePlaybackState(playing: true);
       await _audioHandler.play();
+      _songChangeController.add(null);
       notifyListeners();
     } else {
       _log("No songs to play");
@@ -344,6 +353,7 @@ class NPlayer extends ChangeNotifier {
         await _updateMetadata();
         await _updatePlaybackState(playing: true);
         await _audioHandler.play();
+       _songChangeController.add(null);
         notifyListeners();
       }
     } else {
@@ -801,6 +811,73 @@ class NPlayer extends ChangeNotifier {
   void dispose() {
     _log("Disposing NPlayer");
     _audioPlayer.dispose();
+    _songChangeController.close();
     super.dispose();
   }
+
+Future<Map<String, dynamic>> _fetchMetadata(String serverIP) async {
+  final url = 'http://$serverIP:8080/metadata';
+  final response = await http.get(Uri.parse(url));
+  if (response.statusCode == 200) {
+    return json.decode(response.body);
+  } else {
+    throw Exception('Failed to load metadata');
+  }
+}
+
+Future<void> playFromServer(String serverIP) async {
+  if (serverIP.isEmpty) {
+    print('Error: Server IP is empty');
+    return;
+  }
+
+  final streamUrl = 'http://$serverIP:8080/stream';
+  final metadataUrl = 'http://$serverIP:8080/metadata';
+  print('Attempting to play from URL: $streamUrl');
+  
+  try {
+    // Fetch metadata first
+    final response = await http.get(Uri.parse(metadataUrl));
+    if (response.statusCode == 200) {
+      final metadata = json.decode(response.body);
+      
+      // Create a Music object with the fetched metadata
+      final serverSong = Music(
+        path: streamUrl,
+        folderName: 'Server',
+        lastModified: DateTime.now(),
+        title: metadata['title'] ?? 'Unknown Title',
+        album: metadata['album'] ?? 'Unknown Album',
+        artist: metadata['artist'] ?? 'Unknown Artist',
+        duration: (metadata['duration'] as num?)?.toInt() ?? 0, // Convert to int
+        picture: metadata['picture'] != null ? base64Decode(metadata['picture']) : null,
+        year: metadata['year']?.toString() ?? '',
+        genre: metadata['genre'] ?? 'Unknown Genre',
+        size: 0, // We don't have this information from the server
+      );
+
+      // Add the server song to the playing list
+      _playingSongs = [serverSong];
+      _currentSongIndex = 0;
+
+      // Play the stream
+      await _audioPlayer.play(UrlSource(streamUrl));
+      _isPlaying = true;
+      _currentPosition = Duration.zero;
+
+      // Update metadata and playback state
+      await _updateMetadata();
+      await _updatePlaybackState(playing: true);
+
+      notifyListeners();
+      print('Successfully started playing from server');
+    } else {
+      throw Exception('Failed to load metadata: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error playing from server: $e');
+    // Handle the error (e.g., show an error message to the user)
+  }
+}
+
 }

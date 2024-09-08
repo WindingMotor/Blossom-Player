@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:blossom/custom/custom_appbar.dart';
 import 'package:blossom/custom/custom_navbar.dart';
+import 'package:blossom/pages/server_page.dart';
 import 'package:blossom/tools/downloader.dart';
 import 'package:blossom/pages/loading_page.dart';
 import 'package:blossom/audio/nplaylist.dart';
@@ -149,6 +150,7 @@ class _MainStructureState extends State<MainStructure>
       const PlaylistPage(),
       const SongAlbums(),
       const ArtistsPage(),
+      const ServerPage(), // Add the new page
     ];
 
     if (!kIsWeb &&
@@ -170,6 +172,8 @@ class _MainStructureState extends State<MainStructure>
       case 3:
         return 'Artists';
       case 4:
+        return 'Stream';
+      case 5:
         return 'Downloader';
       default:
         return 'Blossom';
@@ -243,6 +247,10 @@ class _MainStructureState extends State<MainStructure>
             icon: Icon(Icons.person),
             label: 'Artists',
           ),
+                  const BottomNavigationBarItem(
+          icon: Icon(Icons.wifi),
+          label: 'Server Scan',
+        ),
           if (isDesktop)
             const BottomNavigationBarItem(
               icon: Icon(Icons.download),
