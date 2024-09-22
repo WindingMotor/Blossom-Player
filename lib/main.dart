@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:blossom/audio/nplayer_widget_desktop.dart';
 import 'package:blossom/custom/custom_appbar.dart';
 import 'package:blossom/pages/server_page.dart';
 import 'package:blossom/tools/downloader.dart';
@@ -183,7 +184,7 @@ class _MainStructureState extends State<MainStructure>
     if (Platform.isAndroid || Platform.isIOS) {
       return 45;
     } else {
-      return 5;
+      return 0;
     }
   }
 
@@ -192,6 +193,7 @@ class _MainStructureState extends State<MainStructure>
     final pages = _getPages();
     final isDesktop =
         !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    final enableTesting = false;
 
     return Scaffold(
       appBar: !Platform.isIOS && !Platform.isAndroid
@@ -219,7 +221,9 @@ class _MainStructureState extends State<MainStructure>
             left: 0,
             right: 0,
             bottom: _getPlayerBottomPosition(),
-            child: NPlayerWidget(),
+            child: isDesktop
+                ? const NPlayerWidgetDesktop()
+                : const NPlayerWidget(),
           ),
         ],
       ),

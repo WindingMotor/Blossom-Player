@@ -22,9 +22,15 @@ class SongListBuilder extends StatefulWidget {
 }
 
 class _SongListBuilderState extends State<SongListBuilder> {
-  final ScrollController _scrollController = ScrollController();
   Set<Music> selectedSongs = {};
   int? lastSelectedIndex;
+  ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,10 +38,9 @@ class _SongListBuilderState extends State<SongListBuilder> {
       builder: (context, player, child) {
         return Scrollbar(
           controller: _scrollController,
+          thumbVisibility: true, // Always show the scrollbar
           child: ListView.builder(
             controller: _scrollController,
-            shrinkWrap: true,
-            physics: const AlwaysScrollableScrollPhysics(),
             itemCount: widget.songs.length + (selectedSongs.isNotEmpty ? 1 : 0),
             itemBuilder: (context, index) {
               if (index == lastSelectedIndex && selectedSongs.isNotEmpty) {
@@ -79,11 +84,9 @@ class _SongListBuilderState extends State<SongListBuilder> {
       } else {
         final player = Provider.of<NPlayer>(context, listen: false);
         if (widget.isPlaylist) {
-          // If it's a playlist, play the song within the playlist context
           int index = widget.songs.indexOf(song);
           player.playPlaylistFromIndex(widget.songs, index);
         } else {
-          // Otherwise, play as before
           widget.isPlayingList
               ? player.playSpecificSong(song)
               : player.playSong(widget.songs.indexOf(song));

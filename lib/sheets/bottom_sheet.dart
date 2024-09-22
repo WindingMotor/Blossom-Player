@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
 import '../custom/custom_song_list_builder.dart';
 
-class MusicBottomSheet extends StatelessWidget {
+class MusicBottomSheet extends StatefulWidget {
   final String title;
   final String subtitle;
   final int itemCount;
   final List<Music> songs;
   final Function(Music) onPlayPressed;
   final Widget? image;
-  final bool isPlaylist; // Add this line
+  final bool isPlaylist;
 
   const MusicBottomSheet({
     Key? key,
@@ -20,121 +21,183 @@ class MusicBottomSheet extends StatelessWidget {
     required this.songs,
     required this.onPlayPressed,
     this.image,
-    this.isPlaylist = false, // Add this line
+    this.isPlaylist = false,
   }) : super(key: key);
+
+  @override
+  _MusicBottomSheetState createState() => _MusicBottomSheetState();
+}
+
+class _MusicBottomSheetState extends State<MusicBottomSheet>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<NPlayer>(context, listen: false);
 
-    // Calculate total playtime
-    final totalDuration = songs.fold<Duration>(
+    final totalDuration = widget.songs.fold<Duration>(
       Duration.zero,
       (total, song) => total + Duration(milliseconds: song.duration),
     );
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.5),
-            blurRadius: 10,
-            spreadRadius: 5,
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, (1 - _animation.value) * 100),
+          child: Opacity(
+            opacity: _animation.value,
+            child: child,
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const SizedBox(width: 16),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 60,
-                    height: 60,
-                    child: image ?? const Icon(Icons.album, size: 60),
+        );
+      },
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Theme.of(context).scaffoldBackgroundColor,
+              Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
+            ],
+          ),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 10,
+              spreadRadius: 5,
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 5,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(2.5),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: () => Navigator.pop(context),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+                  const SizedBox(width: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 60,
+                      height: 60,
+                      child: widget.image ?? const Icon(Icons.album, size: 60),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.title,
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                         ),
-                      ),
-                      Text(
-                        subtitle,
-                        style: TextStyle(color: Colors.grey[400]),
-                      ),
+                        Text(
+                          widget.subtitle,
+                          style: TextStyle(color: Colors.grey[400]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.play_circle_fill_rounded),
+                    onPressed: () {
+                      // Get song list and first song in list, then play it
+                    },
+                    color: Theme.of(context).colorScheme.secondary,
+                    iconSize: 48,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Card(
+                color: Theme.of(context).cardColor,
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatItem(
+                          context, 'Songs', widget.itemCount.toString()),
+                      _buildStatItem(
+                          context,
+                          'Albums',
+                          widget.songs
+                              .map((s) => s.album)
+                              .toSet()
+                              .length
+                              .toString()),
+                      _buildStatItem(context, 'Total Time',
+                          _formatDuration(totalDuration)),
                     ],
                   ),
                 ),
-IconButton(
-  icon: const Icon(Icons.play_circle_fill_rounded),
-  onPressed: () {
-    // Find the index of the first song in the playlist
-    int firstSongIndex = player.allSongs.indexWhere((song) => song.title == songs.first.title);
-    if (firstSongIndex != -1) {
-      player.playPlaylistFromIndex(songs, firstSongIndex);
-      Navigator.pop(context);
-    } else {
-      // Handle the case where the song is not found
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to play playlist: First song not found')),
-      );
-    }
-  },
-  color: Theme.of(context).colorScheme.secondary,
-  iconSize: 48,
-),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Card(
-              color: Theme.of(context).cardColor,
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatItem(context, 'Songs', itemCount.toString()),
-                    _buildStatItem(context, 'Albums', songs.map((s) => s.album).toSet().length.toString()),
-                    _buildStatItem(context, 'Total Time', _formatDuration(totalDuration)),
-                  ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ScrollConfiguration(
+                behavior: DesktopScrollBehavior(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: SongListBuilder(
+                    songs: widget.songs,
+                    isPlayingList: true,
+                    onTap: widget.onPlayPressed,
+                    isPlaylist: widget.isPlaylist,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-   Expanded(
-            child: SongListBuilder(
-              songs: songs,
-              isPlayingList: true,
-              onTap: onPlayPressed,
-              isPlaylist: isPlaylist, // Add this line
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -167,4 +230,12 @@ IconButton(
     String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
     return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
+}
+
+class DesktopScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+      };
 }
