@@ -41,7 +41,6 @@ class SettingsPage extends StatelessWidget {
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -56,7 +55,7 @@ class SettingsPage extends StatelessWidget {
               _buildSection(
                 'Music Library',
                 [
-                  _buildInfoTile('Add songs to your library', 'Put files into the Blossom folder'),
+                  _buildInfoTile('To add songs to your library', 'Put files into the Blossom folder in files'),
                   _buildButton(
                     'Copy Files to Blossom Folder',
                     () => _copyFilesToBlossomFolder(context),
@@ -90,44 +89,13 @@ class SettingsPage extends StatelessWidget {
                   ),
                 ],
               ),
-              _buildSection(
-                'Sorting Preferences',
-                [
-_buildDropdownTile(
-  'Album Sort By',
-  Settings.albumSortBy,
-  ['name', 'year', 'artist'],
-  (String value) => Settings.setAlbumSort(value, Settings.albumSortAscending, Settings.albumOrganizeByFolder),
-),
-                  _buildSwitchTile(
-                    'Artist Sort Order',
-                    Settings.artistSortAscending,
-                    (bool value) => Settings.setArtistSort(Settings.artistSortBy, value),
-                  ),
-                  _buildDropdownTile(
-                    'Album Sort By',
-                    Settings.albumSortBy,
-                    ['name', 'year', 'artist'],
-                    (String value) => Settings.setAlbumSort(value, Settings.albumSortAscending, Settings.albumOrganizeByFolder),
-                  ),
-                  _buildSwitchTile(
-                    'Album Sort Order',
-                    Settings.albumSortAscending,
-                    (bool value) => Settings.setAlbumSort(Settings.albumSortBy, value, Settings.albumOrganizeByFolder),
-                  ),
-                  _buildSwitchTile(
-                    'Organize Albums by Folder',
-                    Settings.albumOrganizeByFolder,
-                    (bool value) => Settings.setAlbumSort(Settings.albumSortBy, Settings.albumSortAscending, value),
-                  ),
-                ],
-              ),
             ],
           );
         },
       ),
     );
   }
+
 
   Widget _buildSection(String title, List<Widget> children) {
     return Column(

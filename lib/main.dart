@@ -127,6 +127,7 @@ class _MainStructureState extends State<MainStructure>
     with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
   late PageController _pageController;
+  final bool enableTesting = false;
 
   @override
   void initState() {
@@ -144,45 +145,48 @@ class _MainStructureState extends State<MainStructure>
     setState(() => _currentIndex = index);
   }
 
-  List<Widget> _getPages() {
-    List<Widget> pages = [
-      const SongLibrary(),
-      const PlaylistPage(),
-      const SongAlbums(),
-      const ArtistsPage(),
-      const ServerPage(), // Add the new page
-    ];
+List<Widget> _getPages() {
+  List<Widget> pages = [
+    const SongLibrary(),
+    const PlaylistPage(),
+    const SongAlbums(),
+    const ArtistsPage(),
+  ];
 
-    if (!kIsWeb &&
-        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
-      pages.add(const Downloader());
-    }
-
-    return pages;
+  if (enableTesting) {
+    pages.add(const ServerPage());
   }
 
-  String _getAppBarTitle() {
-    switch (_currentIndex) {
-      case 0:
-        return 'Song Library';
-      case 1:
-        return 'Playlists';
-      case 2:
-        return 'Albums';
-      case 3:
-        return 'Artists';
-      case 4:
-        return 'Stream';
-      case 5:
-        return 'Downloader';
-      default:
-        return 'Blossom';
-    }
+  if (!kIsWeb &&
+      (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+    pages.add(const Downloader());
   }
+
+  return pages;
+}
+
+String _getAppBarTitle() {
+  switch (_currentIndex) {
+    case 0:
+      return 'Song Library';
+    case 1:
+      return 'Playlists';
+    case 2:
+      return 'Albums';
+    case 3:
+      return 'Artists';
+    case 4:
+      return enableTesting ? 'Stream' : 'Downloader';
+    case 5:
+      return 'Downloader';
+    default:
+      return 'Blossom';
+  }
+}
 
   double _getPlayerBottomPosition() {
     if (Platform.isAndroid || Platform.isIOS) {
-      return 45;
+      return 10;
     } else {
       return 0;
     }
@@ -193,7 +197,6 @@ class _MainStructureState extends State<MainStructure>
     final pages = _getPages();
     final isDesktop =
         !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-    final enableTesting = false;
 
     return Scaffold(
       appBar: !Platform.isIOS && !Platform.isAndroid
@@ -233,33 +236,34 @@ class _MainStructureState extends State<MainStructure>
           setState(() => _currentIndex = index);
           _pageController.jumpToPage(index);
         },
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.library_music),
-            label: 'Library',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.playlist_play),
-            label: 'Playlists',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.album),
-            label: 'Albums',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Artists',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.wifi),
-            label: 'Server Scan',
-          ),
-          if (isDesktop)
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.download),
-              label: 'Downloader',
-            ),
-        ],
+          items: [
+    const BottomNavigationBarItem(
+      icon: Icon(Icons.library_music),
+      label: 'Library',
+    ),
+    const BottomNavigationBarItem(
+      icon: Icon(Icons.playlist_play),
+      label: 'Playlists',
+    ),
+    const BottomNavigationBarItem(
+      icon: Icon(Icons.album),
+      label: 'Albums',
+    ),
+    const BottomNavigationBarItem(
+      icon: Icon(Icons.person),
+      label: 'Artists',
+    ),
+    if (enableTesting)
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.wifi),
+        label: 'Server Scan',
+      ),
+    if (isDesktop)
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.download),
+        label: 'Downloader',
+      ),
+  ],
         type: BottomNavigationBarType.fixed,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         selectedItemColor: Theme.of(context).colorScheme.secondary,

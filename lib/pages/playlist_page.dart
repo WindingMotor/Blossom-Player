@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:blossom/audio/nplayer.dart';
 import 'package:blossom/sheets/bottom_sheet.dart';
@@ -12,6 +15,17 @@ class PlaylistPage extends StatefulWidget {
 
 class _PlaylistPageState extends State<PlaylistPage> {
   String _searchQuery = '';
+
+
+  Future<void> _selectPlaylistImage(BuildContext context, NPlayer player, String playlist) async {
+    final ImagePicker _picker = ImagePicker();
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
+      File imageFile = File(image.path);
+      await player.setPlaylistImage(playlist, imageFile);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,19 +70,22 @@ class _PlaylistPageState extends State<PlaylistPage> {
                 interactive: true,
                 thickness: 8,
                 radius: const Radius.circular(4),
-                child: ListView.builder(
+ child: ListView.builder(
                   itemCount: filteredPlaylists.length,
                   itemBuilder: (context, index) {
                     String playlist = filteredPlaylists[index];
                     List<Music> playlistSongs = player.getPlaylistSongs(playlist);
+                    String? imagePath = player.getPlaylistImagePath(playlist);
                     return _PlaylistListTile(
                       playlist: playlist,
                       songCount: playlistSongs.length,
+                      imagePath: imagePath,
                       onTap: () {
                         _showPlaylistBottomSheet(context, player, playlist, playlistSongs);
                       },
                       onPlay: () => player.playPlaylistFromIndex(playlistSongs, 0),
                       onDelete: () => _showDeletePlaylistDialog(context, player, playlist),
+                      onImageTap: () => _selectPlaylistImage(context, player, playlist),
                     );
                   },
                 ),
@@ -86,6 +103,7 @@ void _showPlaylistBottomSheet(BuildContext context, NPlayer player, String playl
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (BuildContext context) {
+      String? playlistImagePath = player.getPlaylistImagePath(playlistName);
       return MusicBottomSheet(
         title: playlistName,
         subtitle: '${songs.length} songs',
@@ -96,9 +114,11 @@ void _showPlaylistBottomSheet(BuildContext context, NPlayer player, String playl
           player.playPlaylistFromIndex(songs, index);
           Navigator.pop(context);
         },
-        image: songs.isNotEmpty && songs.first.picture != null
+        image: playlistImagePath != null
+          ? Image.file(File(playlistImagePath), fit: BoxFit.cover)
+          : (songs.isNotEmpty && songs.first.picture != null
             ? Image.memory(songs.first.picture!, fit: BoxFit.cover)
-            : null,
+            : null),
         isPlaylist: true,
       );
     },
@@ -170,17 +190,21 @@ void _showPlaylistBottomSheet(BuildContext context, NPlayer player, String playl
 class _PlaylistListTile extends StatelessWidget {
   final String playlist;
   final int songCount;
+  final String? imagePath;
   final VoidCallback onTap;
   final VoidCallback onPlay;
   final VoidCallback onDelete;
+  final VoidCallback onImageTap;
 
   const _PlaylistListTile({
     Key? key,
     required this.playlist,
     required this.songCount,
+    this.imagePath,
     required this.onTap,
     required this.onPlay,
     required this.onDelete,
+    required this.onImageTap,
   }) : super(key: key);
 
   @override
@@ -193,14 +217,19 @@ class _PlaylistListTile extends StatelessWidget {
       ),
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: ListTile(
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            width: 48,
-            height: 48,
-            child: Container(
-              color: Colors.grey[800],
-              child: Icon(Icons.playlist_play, color: Colors.grey[600]),
+        leading: GestureDetector(
+          onTap: onImageTap,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: imagePath != null
+                  ? Image.file(File(imagePath!), fit: BoxFit.cover)
+                  : Container(
+                      color: Colors.grey[800],
+                      child: Icon(Icons.playlist_play, color: Colors.grey[600]),
+                    ),
             ),
           ),
         ),

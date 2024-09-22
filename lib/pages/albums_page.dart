@@ -82,13 +82,6 @@ class _SongAlbumsState extends State<SongAlbums> {
           },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh Library',
-            onPressed: () {
-              _initializeAlbumList();
-            },
-          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.sort),
             tooltip: 'Sort by',

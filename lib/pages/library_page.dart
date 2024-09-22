@@ -81,15 +81,9 @@ class _SongLibraryState extends State<SongLibrary> {
   padding: EdgeInsets.symmetric(horizontal: 10),
   child: GestureDetector(
     behavior: HitTestBehavior.translucent,
-    child: Scrollbar(
-      thumbVisibility: true,
-      interactive: true,
-      thickness: 8,
-      radius: const Radius.circular(4),
-      child: SongListBuilder(
+    child: SongListBuilder(
         songs: player.sortedSongs,
       ),
-    ),
   ),
 ),
         );

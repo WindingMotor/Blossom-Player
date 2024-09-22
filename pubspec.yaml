@@ -58,6 +58,7 @@ dependencies:
   ticker_text: ^2.1.0
   flutter_svg: ^2.0.10+1
   network_info_plus: ^6.0.1
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

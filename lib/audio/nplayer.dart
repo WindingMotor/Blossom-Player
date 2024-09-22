@@ -114,6 +114,7 @@ class NPlayer extends ChangeNotifier {
 
   List<String> get playlists => PlaylistManager.playlistNames;
 
+
   NServer? _server;
   NServer? get server => _server;
 
@@ -521,6 +522,16 @@ class NPlayer extends ChangeNotifier {
   }
 
   // SECTION: Song Loading and Management
+
+  Future<void> setPlaylistImage(String playlistName, File imageFile) async {
+    await PlaylistManager.setPlaylistImage(playlistName, imageFile);
+    notifyListeners();
+  }
+
+  String? getPlaylistImagePath(String playlistName) {
+    return PlaylistManager.getPlaylistImagePath(playlistName);
+  }
+  
   Future<void> reloadSongs() async {
     _log("Reloading songs");
     _allSongs.clear();

@@ -15,6 +15,7 @@ class NPlayerWidget extends StatefulWidget {
 
 class _NPlayerWidgetState extends State<NPlayerWidget> {
   bool _isPlayerExpanded = false;
+   double _swipeOffset = 0.0;
 
   Widget _buildMarqueeText(String text) {
     return LayoutBuilder(
@@ -253,56 +254,79 @@ IconButton(
     return const SizedBox.shrink();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<NPlayer>(
-      builder: (context, player, child) {
-        final currentSong = player.getCurrentSong();
-        if (currentSong == null) {
-          return const SizedBox.shrink();
-        }
+@override
+Widget build(BuildContext context) {
+  return Consumer<NPlayer>(
+    builder: (context, player, child) {
+      final currentSong = player.getCurrentSong();
+      if (currentSong == null) {
+        return const SizedBox.shrink();
+      }
 
-        return GestureDetector(
-          onVerticalDragEnd: (details) {
-            if (details.primaryVelocity! < 0) {
-              // Swipe up
-              setState(() => _isPlayerExpanded = true);
-            } else if (details.primaryVelocity! > 0) {
-              // Swipe down
-              setState(() => _isPlayerExpanded = false);
+      return GestureDetector(
+        onVerticalDragEnd: (details) {
+          if (details.primaryVelocity! < 0) {
+            // Swipe up
+            setState(() => _isPlayerExpanded = true);
+          } else if (details.primaryVelocity! > 0) {
+            // Swipe down
+            setState(() => _isPlayerExpanded = false);
+          }
+        },
+        onHorizontalDragUpdate: (details) {
+          setState(() {
+            _swipeOffset += details.delta.dx;
+            _swipeOffset = _swipeOffset.clamp(-100.0, 100.0);
+          });
+        },
+        onHorizontalDragEnd: (details) {
+          if (_swipeOffset.abs() > 50) {
+            if (_swipeOffset > 0) {
+              player.previousSong();
+            } else {
+              player.nextSong();
             }
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            height: _isPlayerExpanded ? MediaQuery.of(context).size.height * 0.55 : 70,
-            margin: const EdgeInsets.symmetric(horizontal: 16.0),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16.0),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
+          }
+          setState(() {
+            _swipeOffset = 0;
+          });
+        },
+                onLongPress: () {
+          player.togglePlayPause();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          transform: Matrix4.translationValues(_swipeOffset, 0, 0),
+          height: _isPlayerExpanded ? MediaQuery.of(context).size.height * 0.55 : 70,
+          margin: const EdgeInsets.symmetric(horizontal: 16.0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16.0),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16.0),
+            child: Stack(
+              children: [
+                _buildBackgroundImage(player),
+                _isPlayerExpanded
+                    ? _buildExpandedView(player)
+                    : Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: _buildSongInfo(player),
+                      ),
               ],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16.0),
-              child: Stack(
-                children: [
-                  _buildBackgroundImage(player),
-                  _isPlayerExpanded
-                      ? _buildExpandedView(player)
-                      : Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                          child: _buildSongInfo(player),
-                        ),
-                ],
-              ),
-            ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 }

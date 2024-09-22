@@ -79,13 +79,6 @@ class _ArtistsPageState extends State<ArtistsPage> {
           },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh Library',
-            onPressed: () {
-              _initializeArtistList();
-            },
-          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.sort),
             tooltip: 'Sort by',
