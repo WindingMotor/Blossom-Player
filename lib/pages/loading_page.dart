@@ -5,14 +5,17 @@ import 'dart:math';
 
 class LoadingPage extends StatefulWidget {
   final Widget child;
+  final ThemeData theme;
 
-  const LoadingPage({Key? key, required this.child}) : super(key: key);
+  const LoadingPage({Key? key, required this.child, required this.theme})
+      : super(key: key);
 
   @override
   _LoadingPageState createState() => _LoadingPageState();
 }
 
-class _LoadingPageState extends State<LoadingPage> with SingleTickerProviderStateMixin {
+class _LoadingPageState extends State<LoadingPage>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   final List<FallingBlossom> _blossoms = [];
   late AnimationController _fadeController;
@@ -25,7 +28,8 @@ class _LoadingPageState extends State<LoadingPage> with SingleTickerProviderStat
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-    _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(_fadeController);
+    _fadeAnimation =
+        Tween<double>(begin: 1.0, end: 0.0).animate(_fadeController);
 
     Timer(const Duration(seconds: 5), () {
       _fadeController.forward().then((_) {
@@ -58,6 +62,10 @@ class _LoadingPageState extends State<LoadingPage> with SingleTickerProviderStat
         startX: random.nextDouble() * size.width,
         startY: random.nextDouble() * size.height * -1,
         size: 20 + random.nextDouble() * 30,
+        colorFilter: ColorFilter.mode(
+          widget.theme.colorScheme.secondary.withOpacity(0.5),
+          BlendMode.srcIn,
+        ),
       ));
     }
   }
@@ -74,7 +82,7 @@ class _LoadingPageState extends State<LoadingPage> with SingleTickerProviderStat
               return Opacity(
                 opacity: _fadeAnimation.value,
                 child: Scaffold(
-                  backgroundColor: Colors.black,
+                  backgroundColor: widget.theme.scaffoldBackgroundColor,
                   body: Stack(
                     children: [
                       ..._blossoms,
@@ -86,6 +94,10 @@ class _LoadingPageState extends State<LoadingPage> with SingleTickerProviderStat
                               'assets/BlossomLogo.svg',
                               width: 150,
                               height: 150,
+                              colorFilter: ColorFilter.mode(
+                                widget.theme.colorScheme.secondary,
+                                BlendMode.srcIn,
+                              ),
                             ),
                             const SizedBox(height: 20),
                             Text(
@@ -93,7 +105,7 @@ class _LoadingPageState extends State<LoadingPage> with SingleTickerProviderStat
                               style: TextStyle(
                                 fontFamily: 'Magic Retro',
                                 fontSize: 38,
-                                color: Colors.pink.shade300,
+                                color: widget.theme.colorScheme.secondary,
                               ),
                             ),
                           ],
@@ -114,14 +126,22 @@ class FallingBlossom extends StatefulWidget {
   final double startX;
   final double startY;
   final double size;
+  final ColorFilter colorFilter;
 
-  const FallingBlossom({Key? key, required this.startX, required this.startY, required this.size}) : super(key: key);
+  const FallingBlossom({
+    Key? key,
+    required this.startX,
+    required this.startY,
+    required this.size,
+    required this.colorFilter,
+  }) : super(key: key);
 
   @override
   _FallingBlossomState createState() => _FallingBlossomState();
 }
 
-class _FallingBlossomState extends State<FallingBlossom> with SingleTickerProviderStateMixin {
+class _FallingBlossomState extends State<FallingBlossom>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animationY;
   late Animation<double> _animationX;
@@ -142,15 +162,20 @@ class _FallingBlossomState extends State<FallingBlossom> with SingleTickerProvid
   void didChangeDependencies() {
     super.didChangeDependencies();
     final size = MediaQuery.of(context).size;
-    
-    _animationY = Tween<double>(begin: widget.startY, end: size.height).animate(_controller);
-    
+
+    _animationY = Tween<double>(begin: widget.startY, end: size.height)
+        .animate(_controller);
+
     // Random horizontal movement
-    final endX = widget.startX + (random.nextDouble() - 0.5) * 100; // Move up to 50 pixels left or right
-    _animationX = Tween<double>(begin: widget.startX, end: endX).animate(_controller);
-    
+    final endX = widget.startX +
+        (random.nextDouble() - 0.5) * 100; // Move up to 50 pixels left or right
+    _animationX =
+        Tween<double>(begin: widget.startX, end: endX).animate(_controller);
+
     // Random rotation
-    _animationRotation = Tween<double>(begin: 0, end: random.nextDouble() * 4 * pi).animate(_controller);
+    _animationRotation =
+        Tween<double>(begin: 0, end: random.nextDouble() * 4 * pi)
+            .animate(_controller);
   }
 
   @override
@@ -167,6 +192,7 @@ class _FallingBlossomState extends State<FallingBlossom> with SingleTickerProvid
               'assets/BlossomLogo.svg',
               width: widget.size,
               height: widget.size,
+              colorFilter: widget.colorFilter,
             ),
           ),
         );

@@ -14,12 +14,12 @@ class CustomAppBar extends AppBar {
           actions: [
             if (!Platform.isMacOS)
               IconButton(
-                icon: Icon(Icons.minimize, color: Colors.pink.shade300),
+                icon: Icon(Icons.minimize),
                 onPressed: () => windowManager.minimize(),
               ),
             if (!Platform.isMacOS)
               IconButton(
-                icon: Icon(Icons.crop_square, color: Colors.pink.shade300),
+                icon: Icon(Icons.crop_square),
                 onPressed: () async {
                   if (await windowManager.isMaximized()) {
                     windowManager.unmaximize();
@@ -30,7 +30,7 @@ class CustomAppBar extends AppBar {
               ),
             if (!Platform.isMacOS)
               IconButton(
-                icon: Icon(Icons.close, color: Colors.pink.shade300),
+                icon: Icon(Icons.close),
                 onPressed: () => windowManager.close(),
               ),
           ],

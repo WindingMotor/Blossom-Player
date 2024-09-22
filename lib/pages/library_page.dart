@@ -5,14 +5,15 @@ import '../audio/nplayer.dart';
 import 'package:blossom/custom/custom_song_list_builder.dart';
 
 class SongLibrary extends StatefulWidget {
-  const SongLibrary({super.key});
+  final VoidCallback onThemeChanged;
+
+  const SongLibrary({Key? key, required this.onThemeChanged}) : super(key: key);
 
   @override
   _SongLibraryState createState() => _SongLibraryState();
 }
 
 class _SongLibraryState extends State<SongLibrary> {
-  
   @override
   void initState() {
     super.initState();
@@ -21,7 +22,7 @@ class _SongLibraryState extends State<SongLibrary> {
       player.sortSongs(sortBy: 'title', ascending: true);
     });
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Consumer<NPlayer>(
@@ -46,7 +47,9 @@ class _SongLibraryState extends State<SongLibrary> {
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => const SettingsPage(),
+                      builder: (context) => SettingsPage(
+                        onThemeChanged: widget.onThemeChanged,
+                      ),
                     ),
                   );
                 },
@@ -78,14 +81,14 @@ class _SongLibraryState extends State<SongLibrary> {
             ],
           ),
           body: Padding(
-  padding: EdgeInsets.symmetric(horizontal: 10),
-  child: GestureDetector(
-    behavior: HitTestBehavior.translucent,
-    child: SongListBuilder(
-        songs: player.sortedSongs,
-      ),
-  ),
-),
+            padding: EdgeInsets.symmetric(horizontal: 10),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              child: SongListBuilder(
+                songs: player.sortedSongs,
+              ),
+            ),
+          ),
         );
       },
     );

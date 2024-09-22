@@ -89,30 +89,188 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    Settings.init().then((_) {
+      setState(() {});
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black.withOpacity(0.8),
-        cardColor: Colors.grey.shade900.withOpacity(0.2),
-        appBarTheme: AppBarTheme(color: Colors.black.withOpacity(0.8)),
-        popupMenuTheme:
-            PopupMenuThemeData(color: Colors.black.withOpacity(0.8)),
-        splashColor: Colors.pink.shade300.withOpacity(0.5),
-        colorScheme: const ColorScheme.dark(
-          primary: Colors.pink,
-          secondary: Colors.pinkAccent,
-        ),
-      ),
-      home: LoadingPage(
-        child: const MainStructure(),
-      ),
-    );
+        debugShowCheckedModeBanner: false,
+        theme: _getThemeData(Settings.appTheme),
+        home: LoadingPage(
+          child: const MainStructure(),
+          theme: _getThemeData(Settings.appTheme),
+        ));
+  }
+
+  ThemeData _getThemeData(String appTheme) {
+    switch (appTheme) {
+      case 'light':
+        return ThemeData(
+          brightness: Brightness.light,
+          primarySwatch: Colors.pink,
+          scaffoldBackgroundColor: Colors.grey[100],
+          colorScheme: ColorScheme.light(
+            primary: Colors.pink,
+            secondary: Colors.pinkAccent,
+            surface: Colors.white,
+            background: Colors.grey[100]!,
+            onSurface: Colors.black87,
+          ),
+          cardColor: Colors.white,
+          chipTheme: ChipThemeData(
+            backgroundColor: Colors.grey[200],
+            disabledColor: Colors.grey[300],
+            selectedColor: Colors.pinkAccent,
+            secondarySelectedColor: Colors.pinkAccent,
+            labelStyle: TextStyle(color: Colors.black87),
+            secondaryLabelStyle: TextStyle(color: Colors.black87),
+            brightness: Brightness.light,
+          ),
+        );
+
+      case 'dark':
+        return ThemeData(
+          brightness: Brightness.dark,
+          primarySwatch: Colors.pink,
+          scaffoldBackgroundColor: Colors.grey[900],
+          colorScheme: ColorScheme.dark(
+            primary: Colors.pink,
+            secondary: Colors.pinkAccent,
+            surface: Colors.grey[850]!,
+            background: Colors.grey[900]!,
+            onSurface: Colors.white,
+          ),
+          cardColor: Colors.grey[850],
+          chipTheme: ChipThemeData(
+            backgroundColor: Colors.grey[800],
+            disabledColor: Colors.grey[700],
+            selectedColor: Colors.pinkAccent,
+            secondarySelectedColor: Colors.pinkAccent,
+            labelStyle: TextStyle(color: Colors.white),
+            secondaryLabelStyle: TextStyle(color: Colors.white),
+            brightness: Brightness.dark,
+          ),
+        );
+
+      case 'blue':
+        return ThemeData(
+          brightness: Brightness.dark,
+          primarySwatch: Colors.blue,
+          scaffoldBackgroundColor: Colors.blueGrey[900],
+          colorScheme: ColorScheme.dark(
+            primary: Colors.blue[400]!,
+            secondary: Colors.lightBlue[300]!,
+            surface: Colors.blueGrey[800]!,
+            background: Colors.blueGrey[900]!,
+            onSurface: Colors.white,
+          ),
+          cardColor: Colors.blueGrey[800],
+          chipTheme: ChipThemeData(
+            backgroundColor: Colors.blueGrey[700],
+            disabledColor: Colors.blueGrey[600],
+            selectedColor: Colors.lightBlue[300],
+            secondarySelectedColor: Colors.lightBlue[300],
+            labelStyle: TextStyle(color: Colors.white),
+            secondaryLabelStyle: TextStyle(color: Colors.white),
+            brightness: Brightness.dark,
+          ),
+        );
+
+      case 'green':
+        return ThemeData(
+          brightness: Brightness.dark,
+          primarySwatch: Colors.green,
+          scaffoldBackgroundColor: Color(0xFF1E3B2F),
+          colorScheme: ColorScheme.dark(
+            primary: Color(0xFF4CAF50),
+            secondary: Color(0xFF81C784),
+            surface: Color(0xFF2E4B3E),
+            background: Color(0xFF1E3B2F),
+            onSurface: Colors.white,
+          ),
+          cardColor: Color(0xFF2E4B3E),
+          chipTheme: ChipThemeData(
+            backgroundColor: Color(0xFF3E5B4E),
+            disabledColor: Color(0xFF324B42),
+            selectedColor: Color(0xFF81C784),
+            secondarySelectedColor: Color(0xFF81C784),
+            labelStyle: TextStyle(color: Colors.white),
+            secondaryLabelStyle: TextStyle(color: Colors.white),
+            brightness: Brightness.dark,
+          ),
+        );
+
+      case 'red':
+        return ThemeData(
+          brightness: Brightness.dark,
+          primarySwatch: Colors.red,
+          scaffoldBackgroundColor: Color(0xFF3B1E1E),
+          colorScheme: ColorScheme.dark(
+            primary: Color(0xFFE57373),
+            secondary: Color(0xFFFFCDD2),
+            surface: Color(0xFF4B2E2E),
+            background: Color(0xFF3B1E1E),
+            onSurface: Colors.white,
+          ),
+          cardColor: Color(0xFF4B2E2E),
+          chipTheme: ChipThemeData(
+            backgroundColor: Color(0xFF5B3E3E),
+            disabledColor: Color(0xFF4B3232),
+            selectedColor: Color(0xFFFFCDD2),
+            secondarySelectedColor: Color(0xFFFFCDD2),
+            labelStyle: TextStyle(color: Colors.white),
+            secondaryLabelStyle: TextStyle(color: Colors.white),
+            brightness: Brightness.dark,
+          ),
+        );
+      case 'oled':
+        return ThemeData(
+          brightness: Brightness.dark,
+          primarySwatch: Colors.grey,
+          scaffoldBackgroundColor: Colors.black,
+          colorScheme: ColorScheme.dark(
+            primary: Colors.white,
+            secondary: Colors.grey[800]!,
+            surface: Colors.black,
+            background: Colors.black,
+            onSurface: Colors.white,
+          ),
+          cardColor: Colors.black,
+          chipTheme: ChipThemeData(
+            backgroundColor: Colors.grey[900]!,
+            disabledColor: Colors.grey[800]!,
+            selectedColor: Colors.white,
+            secondarySelectedColor: Colors.white,
+            labelStyle: TextStyle(color: Colors.white),
+            secondaryLabelStyle: TextStyle(color: Colors.white),
+            brightness: Brightness.dark,
+          ),
+        );
+      default:
+        // 'system' theme
+        return ThemeData(
+          brightness: MediaQuery.of(context).platformBrightness,
+          primarySwatch: Colors.pink,
+          colorScheme: ColorScheme.fromSwatch(
+            primarySwatch: Colors.pink,
+            brightness: MediaQuery.of(context).platformBrightness,
+          ),
+        );
+    }
   }
 }
 
@@ -125,6 +283,10 @@ class MainStructure extends StatefulWidget {
 
 class _MainStructureState extends State<MainStructure>
     with SingleTickerProviderStateMixin {
+  void _onThemeChanged() {
+    setState(() {});
+  }
+
   int _currentIndex = 0;
   late PageController _pageController;
   final bool enableTesting = false;
@@ -145,44 +307,44 @@ class _MainStructureState extends State<MainStructure>
     setState(() => _currentIndex = index);
   }
 
-List<Widget> _getPages() {
-  List<Widget> pages = [
-    const SongLibrary(),
-    const PlaylistPage(),
-    const SongAlbums(),
-    const ArtistsPage(),
-  ];
+  List<Widget> _getPages() {
+    List<Widget> pages = [
+      SongLibrary(onThemeChanged: _onThemeChanged),
+      const PlaylistPage(),
+      const SongAlbums(),
+      const ArtistsPage(),
+    ];
 
-  if (enableTesting) {
-    pages.add(const ServerPage());
+    if (enableTesting) {
+      pages.add(const ServerPage());
+    }
+
+    if (!kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      pages.add(const Downloader());
+    }
+
+    return pages;
   }
 
-  if (!kIsWeb &&
-      (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
-    pages.add(const Downloader());
+  String _getAppBarTitle() {
+    switch (_currentIndex) {
+      case 0:
+        return 'Song Library';
+      case 1:
+        return 'Playlists';
+      case 2:
+        return 'Albums';
+      case 3:
+        return 'Artists';
+      case 4:
+        return enableTesting ? 'Stream' : 'Downloader';
+      case 5:
+        return 'Downloader';
+      default:
+        return 'Blossom';
+    }
   }
-
-  return pages;
-}
-
-String _getAppBarTitle() {
-  switch (_currentIndex) {
-    case 0:
-      return 'Song Library';
-    case 1:
-      return 'Playlists';
-    case 2:
-      return 'Albums';
-    case 3:
-      return 'Artists';
-    case 4:
-      return enableTesting ? 'Stream' : 'Downloader';
-    case 5:
-      return 'Downloader';
-    default:
-      return 'Blossom';
-  }
-}
 
   double _getPlayerBottomPosition() {
     if (Platform.isAndroid || Platform.isIOS) {
@@ -205,8 +367,7 @@ String _getAppBarTitle() {
                 _getAppBarTitle(),
                 style: const TextStyle(
                   fontFamily: 'Magic Retro',
-                  fontSize: 28,
-                  color: Color(0xFFF06292),
+                  fontSize: 25,
                 ),
               ),
             )
@@ -216,7 +377,12 @@ String _getAppBarTitle() {
           PageView.builder(
             controller: _pageController,
             itemCount: pages.length,
-            itemBuilder: (context, index) => pages[index],
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return SongLibrary(onThemeChanged: _onThemeChanged);
+              }
+              return pages[index];
+            },
             onPageChanged: _onPageChanged,
             physics: const ClampingScrollPhysics(),
           ),
@@ -236,34 +402,34 @@ String _getAppBarTitle() {
           setState(() => _currentIndex = index);
           _pageController.jumpToPage(index);
         },
-          items: [
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.library_music),
-      label: 'Library',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.playlist_play),
-      label: 'Playlists',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.album),
-      label: 'Albums',
-    ),
-    const BottomNavigationBarItem(
-      icon: Icon(Icons.person),
-      label: 'Artists',
-    ),
-    if (enableTesting)
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.wifi),
-        label: 'Server Scan',
-      ),
-    if (isDesktop)
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.download),
-        label: 'Downloader',
-      ),
-  ],
+        items: [
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.library_music),
+            label: 'Library',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.playlist_play),
+            label: 'Playlists',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.album),
+            label: 'Albums',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Artists',
+          ),
+          if (enableTesting)
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.wifi),
+              label: 'Server Scan',
+            ),
+          if (isDesktop)
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.download),
+              label: 'Downloader',
+            ),
+        ],
         type: BottomNavigationBarType.fixed,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         selectedItemColor: Theme.of(context).colorScheme.secondary,

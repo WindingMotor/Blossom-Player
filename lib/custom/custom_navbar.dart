@@ -59,7 +59,6 @@ class FloatingBottomNavigationBar extends StatelessWidget {
                   child: BottomNavigationBar(
                     elevation: 0,
                     backgroundColor: Colors.transparent,
-                    selectedItemColor: Colors.pink.shade300,
                     unselectedItemColor: Colors.grey,
                     currentIndex: currentIndex,
                     onTap: onTap,

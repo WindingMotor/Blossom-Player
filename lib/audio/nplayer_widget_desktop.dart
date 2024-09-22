@@ -34,8 +34,9 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> {
                 value: player.volume,
                 min: 0.0,
                 max: 1.0,
-                activeColor: Colors.white,
-                inactiveColor: Colors.grey.shade800,
+                activeColor: Theme.of(context).colorScheme.secondary,
+                inactiveColor:
+                    Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
                 onChanged: (newVolume) {
                   if (newVolume > 0) {
                     _lastVolume = newVolume;
@@ -85,8 +86,8 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> {
                 returnCurve: Curves.easeOut,
                 child: Text(
                   text,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 15,
                     fontWeight: FontWeight.normal,
                   ),
@@ -123,7 +124,12 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> {
               const SizedBox(height: 4),
               Text(
                 player.getCurrentSong()!.artist,
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: TextStyle(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.6),
+                    fontSize: 12),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -144,13 +150,16 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> {
       children: [
         Text(
           Utils.formatDuration(player.currentPosition.inSeconds),
-          style: const TextStyle(color: Colors.grey, fontSize: 12),
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              fontSize: 12),
         ),
         Expanded(
           child: Slider(
             value: value,
-            activeColor: Colors.white,
-            inactiveColor: Colors.grey.shade800,
+            activeColor: Theme.of(context).colorScheme.secondary,
+            inactiveColor:
+                Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
             min: 0,
             max: max,
             onChanged: (value) {
@@ -176,10 +185,12 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> {
         IconButton(
           icon: const Icon(Icons.shuffle, color: Colors.grey),
           onPressed: () => player.shuffle(),
+          color: Theme.of(context).colorScheme.onSurface,
         ),
         IconButton(
           icon: const Icon(Icons.skip_previous, color: Colors.white),
           onPressed: () => player.previousSong(),
+          color: Theme.of(context).colorScheme.onSurface,
         ),
         IconButton(
           icon: Icon(
@@ -190,14 +201,17 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> {
             size: 40,
           ),
           onPressed: () => player.togglePlayPause(),
+          color: Theme.of(context).colorScheme.onSurface,
         ),
         IconButton(
           icon: const Icon(Icons.skip_next, color: Colors.white),
           onPressed: () => player.nextSong(),
+          color: Theme.of(context).colorScheme.onSurface,
         ),
         IconButton(
           icon: const Icon(Icons.repeat, color: Colors.grey),
           onPressed: () {}, // Implement repeat functionality
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ],
     );
@@ -237,7 +251,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> {
 
         return Container(
           height: 120, // Reduced from 90 to 70
-          color: Colors.black,
+          color: Theme.of(context).colorScheme.background,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
@@ -271,13 +285,16 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> {
                             builder: (context) => const PlayingSongsSheet(),
                           );
                         },
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                       IconButton(
                         icon: const Icon(Icons.devices, color: Colors.grey),
                         onPressed: () {
                           // Implement devices functionality
                         },
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
+                      const SizedBox(width: 8),
                       _buildVolumeControls(player),
                     ],
                   ),

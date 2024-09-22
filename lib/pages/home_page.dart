@@ -12,7 +12,8 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -33,23 +34,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<NPlayer>(context);
-    final albumArt = player.allSongs.where((song) => song.picture != null).toList();
+    final albumArt =
+        player.allSongs.where((song) => song.picture != null).toList();
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsPage()),
-              );
-            },
-          ),
-        ],
+        actions: [],
       ),
       extendBodyBehindAppBar: true,
       body: Stack(
@@ -59,7 +51,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             animation: _controller,
             builder: (context, child) {
               return Transform.translate(
-                offset: Offset(-_controller.value * MediaQuery.of(context).size.width, 0),
+                offset: Offset(
+                    -_controller.value * MediaQuery.of(context).size.width, 0),
                 child: child,
               );
             },
@@ -70,7 +63,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     width: MediaQuery.of(context).size.width,
                     height: MediaQuery.of(context).size.height,
                     child: GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         childAspectRatio: 1,
                       ),
@@ -100,16 +94,30 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   style: TextStyle(
                     fontFamily: 'Magic Retro',
                     fontSize: 38,
-                    color: Colors.pink.shade300,
                   ),
                 ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildStatInkwell(context, 'Songs', player.allSongs.length.toString()),
-                    _buildStatInkwell(context, 'Albums', player.allSongs.map((s) => s.album).toSet().length.toString()),
-                    _buildStatInkwell(context, 'Artists', player.allSongs.map((s) => s.artist).toSet().length.toString()),
+                    _buildStatInkwell(
+                        context, 'Songs', player.allSongs.length.toString()),
+                    _buildStatInkwell(
+                        context,
+                        'Albums',
+                        player.allSongs
+                            .map((s) => s.album)
+                            .toSet()
+                            .length
+                            .toString()),
+                    _buildStatInkwell(
+                        context,
+                        'Artists',
+                        player.allSongs
+                            .map((s) => s.artist)
+                            .toSet()
+                            .length
+                            .toString()),
                   ],
                 ),
               ],
@@ -125,14 +133,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.pink.shade300.withOpacity(0.2),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
           children: [
             Text(
               value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white),
             ),
             const SizedBox(height: 4),
             Text(
@@ -145,4 +155,3 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 }
-

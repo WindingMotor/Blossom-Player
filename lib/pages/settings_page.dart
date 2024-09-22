@@ -1,3 +1,4 @@
+import 'package:blossom/main.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:blossom/tools/settings.dart';
@@ -8,7 +9,10 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
+  final VoidCallback onThemeChanged;
+
+  const SettingsPage({Key? key, required this.onThemeChanged})
+      : super(key: key);
 
   Future<void> _copyFilesToBlossomFolder(BuildContext context) async {
     try {
@@ -29,7 +33,8 @@ class SettingsPage extends StatelessWidget {
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Files copied to Blossom folder successfully')),
+          SnackBar(
+              content: Text('Files copied to Blossom folder successfully')),
         );
       } else {
         print('No files selected');
@@ -41,54 +46,72 @@ class SettingsPage extends StatelessWidget {
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Settings', style: TextStyle(fontFamily: 'Magic Retro', fontSize: 24)),
-        backgroundColor: Colors.black.withOpacity(0.8),
+        title: Text('Settings',
+            style: TextStyle(fontFamily: 'Magic Retro', fontSize: 24)),
+        backgroundColor: Theme.of(context).colorScheme.surface,
       ),
       body: Consumer<NPlayer>(
         builder: (context, player, child) {
           return ListView(
             children: [
               _buildSection(
-                'Music Library',
-                [
-                  _buildInfoTile('To add songs to your library', 'Put files into the Blossom folder in files'),
-                  _buildButton(
-                    'Copy Files to Blossom Folder',
-                    () => _copyFilesToBlossomFolder(context),
-                  ),
-                ],
-              ),
+                  'Music Library',
+                  [
+                    _buildInfoTile('To add songs to your library',
+                        'Put files into the Blossom folder in files', context),
+                    _buildButton(
+                      'Copy Files to Blossom Folder',
+                      () => _copyFilesToBlossomFolder(context),
+                      context,
+                    ),
+                  ],
+                  context),
               _buildSection(
-                'Playback Settings',
-                [
-                  _buildDropdownTile(
-                    'Repeat Mode',
-                    player.repeatMode,
-                    ['off', 'one', 'all'],
-                    (String value) => player.setRepeatMode(value),
-                  ),
-                  _buildSliderTile(
-                    'Default Volume',
-                    player.volume,
-                    (double value) => player.setVolume(value),
-                  ),
-                ],
-              ),
+                  'Playback Settings',
+                  [
+                    _buildDropdownTile(
+                      'Repeat Mode',
+                      player.repeatMode,
+                      ['off', 'one', 'all'],
+                      (String value) => player.setRepeatMode(value),
+                      context,
+                    ),
+                    _buildSliderTile(
+                      'Application Volume',
+                      player.volume,
+                      (double value) => player.setVolume(value),
+                      context,
+                    ),
+                  ],
+                  context),
               _buildSection(
-                'Display Settings',
-                [
-                  _buildDropdownTile(
-                    'Theme Mode',
-                    Settings.themeMode,
-                    ['system', 'light', 'dark'],
-                    (String value) => Settings.setThemeMode(value),
-                  ),
-                ],
-              ),
+                  'Display Settings',
+                  [
+                    _buildDropdownTile('App Theme', Settings.appTheme, [
+                      'system',
+                      'light',
+                      'dark',
+                      'blue',
+                      'green',
+                      'red',
+                      'oled'
+                    ], (String value) async {
+                      await Settings.setAppTheme(value);
+                      print('New theme set: $value');
+                      onThemeChanged();
+                      // Force a rebuild of the entire app
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (context) => MyApp()),
+                        (Route<dynamic> route) => false,
+                      );
+                    }, context),
+                  ],
+                  context),
             ],
           );
         },
@@ -96,8 +119,8 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-
-  Widget _buildSection(String title, List<Widget> children) {
+  Widget _buildSection(
+      String title, List<Widget> children, BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -105,7 +128,11 @@ class SettingsPage extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           child: Text(
             title,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.pinkAccent),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.secondary,
+            ),
           ),
         ),
         ...children,
@@ -114,15 +141,17 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoTile(String title, String subtitle) {
+  Widget _buildInfoTile(String title, String subtitle, BuildContext context) {
     return ListTile(
       title: Text(title),
       subtitle: Text(subtitle),
-      leading: Icon(Icons.info_outline, color: Colors.pinkAccent),
+      leading: Icon(Icons.info_outline,
+          color: Theme.of(context).colorScheme.secondary),
     );
   }
 
-  Widget _buildButton(String text, VoidCallback onPressed) {
+  Widget _buildButton(
+      String text, VoidCallback onPressed, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: ElevatedButton(
@@ -130,36 +159,41 @@ class SettingsPage extends StatelessWidget {
         child: Text(text),
         style: ElevatedButton.styleFrom(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: Theme.of(context).colorScheme.secondary,
+          foregroundColor: Theme.of(context).colorScheme.onSecondary,
         ),
       ),
     );
   }
 
-Widget _buildDropdownTile(String title, String currentValue, List<String> items, Function(String) onChanged) {
-  // Ensure currentValue is in the items list
-  if (!items.contains(currentValue)) {
-    currentValue = items.first; // Default to the first item if current value is not in the list
-  }
-  
-  return ListTile(
-    title: Text(title),
-    trailing: DropdownButton<String>(
-      value: currentValue,
-      onChanged: (String? newValue) {
-        if (newValue != null) onChanged(newValue);
-      },
-      items: items.map<DropdownMenuItem<String>>((String value) {
-        return DropdownMenuItem<String>(
-          value: value,
-          child: Text(value.capitalize()),
-        );
-      }).toList(),
-      dropdownColor: Colors.grey.shade900,
-    ),
-  );
-}
+  Widget _buildDropdownTile(String title, String currentValue,
+      List<String> items, Function(String) onChanged, BuildContext context) {
+    // Ensure currentValue is in the items list
+    if (!items.contains(currentValue)) {
+      currentValue = items
+          .first; // Default to the first item if current value is not in the list
+    }
 
-  Widget _buildSliderTile(String title, double value, Function(double) onChanged) {
+    return ListTile(
+      title: Text(title),
+      trailing: DropdownButton<String>(
+        value: currentValue,
+        onChanged: (String? newValue) {
+          if (newValue != null) onChanged(newValue);
+        },
+        items: items.map<DropdownMenuItem<String>>((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Text(value.capitalize()),
+          );
+        }).toList(),
+        dropdownColor: Theme.of(context).colorScheme.surface,
+      ),
+    );
+  }
+
+  Widget _buildSliderTile(String title, double value,
+      Function(double) onChanged, BuildContext context) {
     return ListTile(
       title: Text(title),
       subtitle: Slider(
@@ -169,17 +203,18 @@ Widget _buildDropdownTile(String title, String currentValue, List<String> items,
         divisions: 20,
         label: (value * 100).round().toString(),
         onChanged: onChanged,
-        activeColor: Colors.pinkAccent,
+        activeColor: Theme.of(context).colorScheme.secondary,
       ),
     );
   }
 
-  Widget _buildSwitchTile(String title, bool value, Function(bool) onChanged) {
+  Widget _buildSwitchTile(String title, bool value, Function(bool) onChanged,
+      BuildContext context) {
     return SwitchListTile(
       title: Text(title),
       value: value,
       onChanged: onChanged,
-      activeColor: Colors.pinkAccent,
+      activeColor: Theme.of(context).colorScheme.secondary,
     );
   }
 }

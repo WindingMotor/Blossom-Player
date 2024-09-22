@@ -81,4 +81,8 @@ class Settings {
     await _prefs.setBool('albumSortAscending', ascending);
     await _prefs.setBool('albumOrganizeByFolder', organizeByFolder);
   }
+
+  static String get appTheme => _prefs.getString('appTheme') ?? 'system';
+  static Future<void> setAppTheme(String theme) =>
+      _prefs.setString('appTheme', theme);
 }

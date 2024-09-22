@@ -112,9 +112,11 @@ class _SongListBuilderState extends State<SongListBuilder> {
   }
 
   Widget _buildPlaylistCard(NPlayer player) {
+    final theme = Theme.of(context);
+
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Theme.of(context).cardColor,
+      color: theme.cardColor,
       child: Padding(
         padding: EdgeInsets.all(12),
         child: Column(
@@ -127,8 +129,8 @@ class _SongListBuilderState extends State<SongListBuilder> {
               children: [
                 ActionChip(
                   label: Text('Deselect All'),
-                  avatar: Icon(Icons.deselect,
-                      color: Theme.of(context).colorScheme.secondary),
+                  avatar:
+                      Icon(Icons.deselect, color: theme.colorScheme.secondary),
                   onPressed: () {
                     setState(() {
                       selectedSongs.clear();
@@ -147,6 +149,7 @@ class _SongListBuilderState extends State<SongListBuilder> {
   }
 
   Widget _buildPlaylistChip(NPlayer player, String playlist) {
+    final theme = Theme.of(context);
     bool allSongsInPlaylist =
         selectedSongs.every((song) => song.playlists.contains(playlist));
     bool someSongsInPlaylist =
@@ -156,7 +159,7 @@ class _SongListBuilderState extends State<SongListBuilder> {
       label: Text(playlist),
       avatar: Icon(
         allSongsInPlaylist ? Icons.playlist_add_check : Icons.playlist_add,
-        color: Theme.of(context).colorScheme.secondary,
+        color: theme.colorScheme.secondary,
       ),
       onPressed: () {
         if (allSongsInPlaylist) {
@@ -173,8 +176,8 @@ class _SongListBuilderState extends State<SongListBuilder> {
         setState(() {});
       },
       backgroundColor: someSongsInPlaylist
-          ? Theme.of(context).colorScheme.secondary.withOpacity(0.2)
-          : null,
+          ? theme.colorScheme.secondary.withOpacity(0.2)
+          : theme.chipTheme.backgroundColor,
     );
   }
 }
@@ -199,10 +202,13 @@ class _SongListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+
     return Card(
       color: isSelected
-          ? Theme.of(context).colorScheme.secondary.withOpacity(0.2)
-          : Theme.of(context).cardColor,
+          ? theme.colorScheme.secondary.withOpacity(0.2)
+          : theme.cardColor,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
@@ -217,29 +223,34 @@ class _SongListTile extends StatelessWidget {
             child: song.picture != null
                 ? Image.memory(song.picture!, fit: BoxFit.cover)
                 : Container(
-                    color: Colors.grey[800],
-                    child: Icon(Icons.music_note, color: Colors.grey[600]),
+                    color: theme.colorScheme.surface,
+                    child: Icon(Icons.music_note,
+                        color: theme.colorScheme.onSurface),
                   ),
           ),
         ),
         title: Text(
           song.title,
-          style: TextStyle(
+          style: textTheme.bodyLarge?.copyWith(
             fontWeight: isCurrentSong ? FontWeight.bold : FontWeight.normal,
             color: isCurrentSong
-                ? Theme.of(context).colorScheme.secondary
-                : Colors.white,
+                ? theme.colorScheme.secondary
+                : theme.colorScheme.onSurface,
           ),
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
           '${song.artist} • ${song.genre}',
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.6),
+          ),
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Text(
           Utils.formatMilliseconds(song.duration),
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.6),
+          ),
         ),
         onTap: () => onTap(song),
         onLongPress: onLongPress,
