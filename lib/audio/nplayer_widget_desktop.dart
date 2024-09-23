@@ -251,7 +251,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> {
 
         return Container(
           height: 120, // Reduced from 90 to 70
-          color: Theme.of(context).colorScheme.background,
+          color: Theme.of(context).colorScheme.surface,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(

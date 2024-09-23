@@ -10,6 +10,7 @@ import 'package:blossom/audio/nserver.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fuzzy/fuzzy.dart';
+import 'package:headset_connection_event/headset_event.dart';
 import 'package:metadata_god/metadata_god.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -134,6 +135,10 @@ class NPlayer extends ChangeNotifier {
   Timer? _debounceTimer;
   final Duration _debounceDuration = Duration(milliseconds: 300);
 
+  final HeadsetEvent _headsetPlugin = HeadsetEvent();
+  bool _isHeadphonesConnected = false;
+  bool get isHeadphonesConnected => _isHeadphonesConnected;
+
   void notifySongChange() {
     _songChangeController.add(null);
   }
@@ -160,6 +165,7 @@ class NPlayer extends ChangeNotifier {
     _initializeFromSettings();
     listFiles();
     sortSongs(sortBy: 'title', ascending: true);
+    _initHeadsetDetection();
   }
 
   Future<void> _initializeAudioHandler() async {
@@ -208,6 +214,18 @@ class NPlayer extends ChangeNotifier {
       _handleSongCompletion();
     });
   }
+
+void _initHeadsetDetection() {
+  _headsetPlugin.getCurrentState.then((val) {
+    _isHeadphonesConnected = val == HeadsetState.CONNECT;
+    notifyListeners();
+  });
+
+  _headsetPlugin.setListener((val) {
+    _isHeadphonesConnected = val == HeadsetState.CONNECT;
+    notifyListeners();
+  });
+}
 
   // SECTION: Getters
   List<Music> get allSongs => _allSongs;
@@ -589,39 +607,41 @@ class NPlayer extends ChangeNotifier {
     }
   }
 
-  Future<void> _processAudioFile(File file) async {
-    _log("Processing file: ${file.path}");
-    try {
-      final metadata = await MetadataGod.readMetadata(file: file.path);
-      String title = metadata.title ?? path.basenameWithoutExtension(file.path);
-      String album = metadata.album ?? 'Unknown Album';
-      String artist = metadata.artist ?? 'Unknown Artist';
-      Uint8List? picture = metadata.picture?.data;
-      String year = metadata.year?.toString() ?? '';
-      String genre = metadata.genre ?? 'Unknown Genre';
-      DateTime lastModified = await file.lastModified();
+Future<void> _processAudioFile(File file) async {
+  _log("Processing file: ${file.path}");
+  try {
+    final metadata = await MetadataGod.readMetadata(file: file.path);
+    String title = metadata.title ?? path.basenameWithoutExtension(file.path);
+    String album = metadata.album ?? 'Unknown Album';
+    String artist = metadata.artist ?? 'Unknown Artist';
+    Uint8List? picture = metadata.picture?.data;
+    String year = metadata.year?.toString() ?? '';
+    String genre = metadata.genre ?? 'Unknown Genre';
+    
+    // Get last modified date using FileStat
+    FileStat fileStat = await file.stat();
+    DateTime lastModifiedDate = fileStat.modified;
 
-      final music = Music(
-        path: file.path,
-        folderName: path.basename(path.dirname(file.path)),
-        title: title,
-        album: album,
-        artist: artist,
-        duration: metadata.durationMs?.round() ?? 0,
-        picture: picture,
-        year: year,
-        genre: genre,
-        size: await file.length(),
-        lastModified: lastModified,
-        // playlists is not provided here, so it will use the default empty list
-      );
+    final music = Music(
+      path: file.path,
+      folderName: path.basename(path.dirname(file.path)),
+      title: title,
+      album: album,
+      artist: artist,
+      duration: metadata.durationMs?.round() ?? 0,
+      picture: picture,
+      year: year,
+      genre: genre,
+      size: fileStat.size,
+      lastModified: lastModifiedDate,
+    );
 
-      _allSongs.add(music);
-      _log("Added song: $title by $artist");
-    } catch (e) {
-      _log('Error parsing file ${file.path}: $e');
-    }
+    _allSongs.add(music);
+    _log("Added song: $title by $artist");
+  } catch (e) {
+    _log('Error parsing file ${file.path}: $e');
   }
+}
 
 // SECTION: Playlist
 

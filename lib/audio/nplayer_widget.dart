@@ -85,6 +85,13 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
             ],
           ),
         ),
+                if (player.isHeadphonesConnected)
+          Icon(
+            Icons.headset,
+            color: Colors.white,
+            size: 20,
+          ),
+        const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.skip_previous_rounded, color: Colors.white),
           tooltip: 'Previous',
@@ -261,7 +268,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
             colorOpacity: 0.5,
             overlay: Container(
                 color:
-                    Theme.of(context).colorScheme.background.withOpacity(0.3)),
+                    Theme.of(context).colorScheme.surface.withOpacity(0.3)),
             child: Image.memory(
               player.getCurrentSong()!.picture!,
               width: double.infinity,

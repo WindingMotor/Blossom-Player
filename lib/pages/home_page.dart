@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:blossom/pages/settings_page.dart';
 import 'package:provider/provider.dart';
 import 'package:blossom/audio/nplayer.dart';
 
