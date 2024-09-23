@@ -99,12 +99,14 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet> with SingleTicker
                     behavior: DesktopScrollBehavior(),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: SongListBuilder(
-                        songs: player.playingSongs,
-                        isPlayingList: true,
-                        onTap: (song) => player.playSpecificSong(song),
-                        isPlaylist: false,
-                      ),
+                      child: OrientationBuilder(
+                builder: (context, orientation) {
+                  return SongListBuilder(
+                    songs: player.playingSongs,
+                    orientation: orientation,
+                  );
+                },
+              ),
                     ),
                   ),
                 ),

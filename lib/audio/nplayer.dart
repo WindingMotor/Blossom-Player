@@ -131,6 +131,9 @@ class NPlayer extends ChangeNotifier {
       StreamController<void>.broadcast();
   Stream<void> get songChangeStream => _songChangeController.stream;
 
+  Timer? _debounceTimer;
+  final Duration _debounceDuration = Duration(milliseconds: 300);
+
   void notifySongChange() {
     _songChangeController.add(null);
   }
@@ -659,13 +662,26 @@ class NPlayer extends ChangeNotifier {
     return _allSongs.where((song) => songNames.contains(song.title)).toList();
   }
 
+Future<void> refreshPlaylists() async {
+  await PlaylistManager.load();
+  notifyListeners();
+}
+
   // SECTION: Search and Sort
-  void setSearchQuery(String query) {
+ void setSearchQuery(String query) {
     _log("Setting search query: $query");
     _searchQuery = query.toLowerCase();
-    _filterAndSortSongs();
+    
+    // Cancel the previous timer if it exists
+    _debounceTimer?.cancel();
+    
+    // Start a new timer
+    _debounceTimer = Timer(_debounceDuration, () {
+      _filterAndSortSongs();
+    });
   }
 
+ 
   void _filterAndSortSongs() {
     _log("Filtering and sorting songs");
     if (_searchQuery.isEmpty) {
@@ -678,20 +694,25 @@ class NPlayer extends ChangeNotifier {
             WeightedKey(
                 name: 'title',
                 getter: (Music song) => song.title.toLowerCase(),
-                weight: 8),
+                weight: 60),
             WeightedKey(
                 name: 'artist',
                 getter: (Music song) => song.artist.toLowerCase(),
-                weight: 4),
+                weight: 30),
+            /*
             WeightedKey(
                 name: 'album',
                 getter: (Music song) => song.album.toLowerCase(),
-                weight: 5),
+                weight: 20),
             WeightedKey(
                 name: 'genre',
                 getter: (Music song) => song.genre.toLowerCase(),
-                weight: 1),
+                weight: 10),
+              */
           ],
+          
+          threshold: 0.6,
+          distance: 25,
         ),
       );
 
@@ -703,6 +724,7 @@ class NPlayer extends ChangeNotifier {
 
     notifyListeners();
   }
+
 
   void _applySorting() {
     _log("Applying sorting: by $_sortBy, ascending: $_sortAscending");

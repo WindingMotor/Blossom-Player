@@ -84,8 +84,13 @@ class _SongLibraryState extends State<SongLibrary> {
             padding: EdgeInsets.symmetric(horizontal: 10),
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
-              child: SongListBuilder(
-                songs: player.sortedSongs,
+              child: OrientationBuilder(
+                builder: (context, orientation) {
+                  return SongListBuilder(
+                    songs: player.sortedSongs,
+                    orientation: orientation,
+                  );
+                },
               ),
             ),
           ),
@@ -93,20 +98,21 @@ class _SongLibraryState extends State<SongLibrary> {
       },
     );
   }
+
+  PopupMenuItem<String> _buildPopupMenuItem(String value, IconData icon) {
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 8),
+          Text(_capitalize(value)),
+        ],
+      ),
+    );
+  }
 }
 
-PopupMenuItem<String> _buildPopupMenuItem(String value, IconData icon) {
-  return PopupMenuItem<String>(
-    value: value,
-    child: Row(
-      children: [
-        Icon(icon, size: 20),
-        const SizedBox(width: 8),
-        Text(_capitalize(value)),
-      ],
-    ),
-  );
-}
 
 String _capitalize(String s) {
   if (s.isEmpty) return s;

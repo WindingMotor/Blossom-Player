@@ -8,6 +8,7 @@ class SongListBuilder extends StatefulWidget {
   final bool isPlayingList;
   final void Function(Music)? onTap;
   final bool isPlaylist;
+  final Orientation? orientation;
 
   const SongListBuilder({
     Key? key,
@@ -15,6 +16,7 @@ class SongListBuilder extends StatefulWidget {
     this.isPlayingList = false,
     this.onTap,
     this.isPlaylist = false,
+    required this.orientation,
   }) : super(key: key);
 
   @override
@@ -33,49 +35,81 @@ class _SongListBuilderState extends State<SongListBuilder> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer<NPlayer>(
-      builder: (context, player, child) {
-        return Scrollbar(
-          controller: _scrollController,
-          thumbVisibility: true, // Always show the scrollbar
-          child: ListView.builder(
-            controller: _scrollController,
-            itemCount: widget.songs.length + (selectedSongs.isNotEmpty ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index == lastSelectedIndex && selectedSongs.isNotEmpty) {
-                return Column(
-                  children: [
-                    _SongListTile(
-                      song: widget.songs[index],
-                      isCurrentSong:
-                          widget.songs[index] == player.getCurrentSong(),
-                      isSelected: selectedSongs.contains(widget.songs[index]),
-                      player: player,
-                      onTap: _handleTap,
-                      onLongPress: () => _handleLongPress(index),
-                    ),
-                    _buildPlaylistCard(player),
-                  ],
-                );
-              } else if (index < widget.songs.length) {
-                return _SongListTile(
-                  song: widget.songs[index],
-                  isCurrentSong: widget.songs[index] == player.getCurrentSong(),
-                  isSelected: selectedSongs.contains(widget.songs[index]),
-                  player: player,
-                  onTap: _handleTap,
-                  onLongPress: () => _handleLongPress(index),
-                );
-              } else {
-                return _buildPlaylistCard(player);
-              }
-            },
-          ),
-        );
+Widget build(BuildContext context) {
+  return Consumer<NPlayer>(
+    builder: (context, player, child) {
+      return Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        child: widget.orientation == Orientation.landscape
+            ? _buildGridView(player)
+            : _buildListView(player),
+      );
+    },
+  );
+}
+
+  Widget _buildListView(NPlayer player) {
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: widget.songs.length + (selectedSongs.isNotEmpty ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == lastSelectedIndex && selectedSongs.isNotEmpty) {
+          return Column(
+            children: [
+              _SongListTile(
+                song: widget.songs[index],
+                isCurrentSong: widget.songs[index] == player.getCurrentSong(),
+                isSelected: selectedSongs.contains(widget.songs[index]),
+                player: player,
+                onTap: _handleTap,
+                onLongPress: () => _handleLongPress(index),
+              ),
+              _buildPlaylistCard(player),
+            ],
+          );
+        } else if (index < widget.songs.length) {
+          return _SongListTile(
+            song: widget.songs[index],
+            isCurrentSong: widget.songs[index] == player.getCurrentSong(),
+            isSelected: selectedSongs.contains(widget.songs[index]),
+            player: player,
+            onTap: _handleTap,
+            onLongPress: () => _handleLongPress(index),
+          );
+        } else {
+          return _buildPlaylistCard(player);
+        }
       },
     );
   }
+
+ Widget _buildGridView(NPlayer player) {
+  return GridView.builder(
+    controller: _scrollController,
+    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 4,  // Increase to 4 columns
+      childAspectRatio: 2.5,  // Adjust for a more compact layout
+      crossAxisSpacing: 8,  // Add some horizontal spacing
+      mainAxisSpacing: 8,  // Add some vertical spacing
+    ),
+    itemCount: widget.songs.length + (selectedSongs.isNotEmpty ? 1 : 0),
+    itemBuilder: (context, index) {
+      if (index < widget.songs.length) {
+        return _SongGridTile(
+          song: widget.songs[index],
+          isCurrentSong: widget.songs[index] == player.getCurrentSong(),
+          isSelected: selectedSongs.contains(widget.songs[index]),
+          player: player,
+          onTap: _handleTap,
+          onLongPress: () => _handleLongPress(index),
+        );
+      } else {
+        return _buildPlaylistCard(player);
+      }
+    },
+  );
+}
 
   void _handleTap(Music song) {
     if (selectedSongs.isEmpty) {
@@ -255,6 +289,101 @@ class _SongListTile extends StatelessWidget {
         onTap: () => onTap(song),
         onLongPress: onLongPress,
         selected: isSelected,
+      ),
+    );
+  }
+}
+
+class _SongGridTile extends StatelessWidget {
+  final Music song;
+  final bool isCurrentSong;
+  final bool isSelected;
+  final NPlayer player;
+  final Function(Music) onTap;
+  final VoidCallback onLongPress;
+
+  const _SongGridTile({
+    Key? key,
+    required this.song,
+    required this.isCurrentSong,
+    required this.isSelected,
+    required this.player,
+    required this.onTap,
+    required this.onLongPress,
+  }) : super(key: key);
+
+ 
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+
+    return Card(
+      color: isSelected
+          ? theme.colorScheme.secondary.withOpacity(0.2)
+          : theme.cardColor,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: InkWell(
+        onTap: () => onTap(song),
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: song.picture != null
+                          ? Image.memory(song.picture!, fit: BoxFit.cover)
+                          : Container(
+                              color: theme.colorScheme.surface,
+                              child: Icon(Icons.music_note,
+                                  color: theme.colorScheme.onSurface, size: 20),
+                            ),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          song.title,
+                          style: textTheme.bodySmall?.copyWith(
+                            fontWeight: isCurrentSong ? FontWeight.bold : FontWeight.normal,
+                            color: isCurrentSong
+                                ? theme.colorScheme.secondary
+                                : theme.colorScheme.onSurface,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          song.artist,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            fontSize: 10,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

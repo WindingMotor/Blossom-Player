@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -16,7 +15,6 @@ class PlaylistPage extends StatefulWidget {
 class _PlaylistPageState extends State<PlaylistPage> {
   String _searchQuery = '';
 
-
   Future<void> _selectPlaylistImage(BuildContext context, NPlayer player, String playlist) async {
     final ImagePicker _picker = ImagePicker();
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -24,6 +22,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
     if (image != null) {
       File imageFile = File(image.path);
       await player.setPlaylistImage(playlist, imageFile);
+      setState(() {}); // Trigger a rebuild to reflect the new image
     }
   }
 
@@ -63,33 +62,22 @@ class _PlaylistPageState extends State<PlaylistPage> {
           ),
           body: Padding(
             padding: EdgeInsets.symmetric(horizontal: 10),
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              child: Scrollbar(
-                thumbVisibility: true,
-                interactive: true,
-                thickness: 8,
-                radius: const Radius.circular(4),
- child: ListView.builder(
-                  itemCount: filteredPlaylists.length,
-                  itemBuilder: (context, index) {
-                    String playlist = filteredPlaylists[index];
-                    List<Music> playlistSongs = player.getPlaylistSongs(playlist);
-                    String? imagePath = player.getPlaylistImagePath(playlist);
-                    return _PlaylistListTile(
-                      playlist: playlist,
-                      songCount: playlistSongs.length,
-                      imagePath: imagePath,
-                      onTap: () {
-                        _showPlaylistBottomSheet(context, player, playlist, playlistSongs);
-                      },
-                      onPlay: () => player.playPlaylistFromIndex(playlistSongs, 0),
-                      onDelete: () => _showDeletePlaylistDialog(context, player, playlist),
-                      onImageTap: () => _selectPlaylistImage(context, player, playlist),
-                    );
-                  },
-                ),
-              ),
+            child: ListView.builder(
+              itemCount: filteredPlaylists.length,
+              itemBuilder: (context, index) {
+                String playlist = filteredPlaylists[index];
+                List<Music> playlistSongs = player.getPlaylistSongs(playlist);
+                String? imagePath = player.getPlaylistImagePath(playlist);
+                return _PlaylistListTile(
+                  playlist: playlist,
+                  songCount: playlistSongs.length,
+                  imagePath: imagePath,
+                  onTap: () => _showPlaylistBottomSheet(context, player, playlist, playlistSongs),
+                  onPlay: () => player.playPlaylistFromIndex(playlistSongs, 0),
+                  onDelete: () => _showDeletePlaylistDialog(context, player, playlist),
+                  onImageTap: () => _selectPlaylistImage(context, player, playlist),
+                );
+              },
             ),
           ),
         );
@@ -97,39 +85,40 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
   }
 
-void _showPlaylistBottomSheet(BuildContext context, NPlayer player, String playlistName, List<Music> songs) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (BuildContext context) {
-      String? playlistImagePath = player.getPlaylistImagePath(playlistName);
-      return MusicBottomSheet(
-        title: playlistName,
-        subtitle: '${songs.length} songs',
-        itemCount: songs.length,
-        songs: songs,
-        onPlayPressed: (song) {
-          int index = songs.indexOf(song);
-          player.playPlaylistFromIndex(songs, index);
-          Navigator.pop(context);
-        },
-        image: playlistImagePath != null
-          ? Image.file(File(playlistImagePath), fit: BoxFit.cover)
-          : (songs.isNotEmpty && songs.first.picture != null
-            ? Image.memory(songs.first.picture!, fit: BoxFit.cover)
-            : null),
-        isPlaylist: true,
-      );
-    },
-  );
-}
+  void _showPlaylistBottomSheet(BuildContext context, NPlayer player, String playlistName, List<Music> songs) {
+    String? playlistImagePath = player.getPlaylistImagePath(playlistName);
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) {
+        return MusicBottomSheet(
+          title: playlistName,
+          subtitle: '${songs.length} songs',
+          itemCount: songs.length,
+          songs: songs,
+          onPlayPressed: (song) {
+            int index = songs.indexOf(song);
+            player.playPlaylistFromIndex(songs, index);
+            Navigator.pop(sheetContext);
+          },
+          image: playlistImagePath != null
+            ? Image.file(File(playlistImagePath), fit: BoxFit.cover)
+            : (songs.isNotEmpty && songs.first.picture != null
+              ? Image.memory(songs.first.picture!, fit: BoxFit.cover)
+              : null),
+          isPlaylist: true,
+        );
+      },
+    );
+  }
 
   void _showCreatePlaylistDialog(BuildContext context, NPlayer player) {
     TextEditingController controller = TextEditingController();
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: Text('Create New Playlist'),
           content: TextField(
@@ -140,7 +129,7 @@ void _showPlaylistBottomSheet(BuildContext context, NPlayer player, String playl
             TextButton(
               child: Text('Cancel'),
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
               },
             ),
             TextButton(
@@ -148,7 +137,8 @@ void _showPlaylistBottomSheet(BuildContext context, NPlayer player, String playl
               onPressed: () {
                 if (controller.text.isNotEmpty) {
                   player.createPlaylist(controller.text);
-                  Navigator.of(context).pop();
+                  Navigator.of(dialogContext).pop();
+                  setState(() {}); // Trigger a rebuild to show the new playlist
                 }
               },
             ),
@@ -158,11 +148,10 @@ void _showPlaylistBottomSheet(BuildContext context, NPlayer player, String playl
     );
   }
 
-  void _showDeletePlaylistDialog(
-      BuildContext context, NPlayer player, String playlist) {
+  void _showDeletePlaylistDialog(BuildContext context, NPlayer player, String playlist) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: Text('Delete Playlist'),
           content: Text('Are you sure you want to delete "$playlist"?'),
@@ -170,14 +159,15 @@ void _showPlaylistBottomSheet(BuildContext context, NPlayer player, String playl
             TextButton(
               child: Text('Cancel'),
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
               },
             ),
             TextButton(
               child: Text('Delete'),
               onPressed: () {
                 player.deletePlaylist(playlist);
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
+                setState(() {}); // Trigger a rebuild to reflect the deleted playlist
               },
             ),
           ],

@@ -142,9 +142,19 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
                   ),
                   IconButton(
                     icon: const Icon(Icons.play_circle_fill_rounded),
-                    onPressed: () {
-                      // Get song list and first song in list, then play it
-                    },
+  onPressed: () {
+    if (widget.songs.isNotEmpty) {
+
+      
+      // Get the first song in the list
+      Music firstSong = widget.songs.first;
+      
+      // Call the onPlayPressed function with the first song
+      widget.onPlayPressed(firstSong);
+    }
+
+
+  },
                     color: Theme.of(context).colorScheme.secondary,
                     iconSize: 48,
                   ),
@@ -187,12 +197,16 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
                 behavior: DesktopScrollBehavior(),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: SongListBuilder(
+                  child: OrientationBuilder(
+                builder: (context, orientation) {
+                  return SongListBuilder(
                     songs: widget.songs,
-                    isPlayingList: true,
+                    orientation: orientation,
                     onTap: widget.onPlayPressed,
                     isPlaylist: widget.isPlaylist,
-                  ),
+                  );
+                },
+              ),
                 ),
               ),
             ),

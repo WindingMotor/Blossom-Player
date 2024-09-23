@@ -16,7 +16,8 @@ class _SongAlbumsState extends State<SongAlbums> {
   late bool _sortAscending;
   late bool _organizeByFolder;
   String _searchQuery = '';
-  List<AlbumInfo> _albumList = [];
+  List _albumList = [];
+  final ScrollController _scrollController = ScrollController(); // Added ScrollController
 
   @override
   void initState() {
@@ -39,13 +40,11 @@ class _SongAlbumsState extends State<SongAlbums> {
     Settings.setAlbumSort(_sortBy, _sortAscending, _organizeByFolder);
   }
 
-
   void _initializeAlbumList() {
     final player = Provider.of<NPlayer>(context, listen: false);
     final albumMap = _organizeByFolder
         ? _organizeByFolderFunc(player.allSongs)
         : _groupSongsByAlbum(player.allSongs);
-
     _albumList = albumMap.entries.map((entry) {
       return AlbumInfo(
         name: entry.key,
@@ -53,7 +52,6 @@ class _SongAlbumsState extends State<SongAlbums> {
         firstSong: entry.value.first,
       );
     }).toList();
-
     _sortAlbums();
     setState(() {});
   }
@@ -82,25 +80,25 @@ class _SongAlbumsState extends State<SongAlbums> {
           },
         ),
         actions: [
-          PopupMenuButton<String>(
+          PopupMenuButton(
             icon: const Icon(Icons.sort),
             tooltip: 'Sort by',
-          onSelected: (String value) {
-        setState(() {
-          if (value == 'organize_by_folder') {
-            _organizeByFolder = !_organizeByFolder;
-            _initializeAlbumList();
-          } else {
-            if (_sortBy == value) {
-              _sortAscending = !_sortAscending;
-            } else {
-              _sortBy = value;
-              _sortAscending = true;
-            }
-            _sortAlbums();
-          }
-          _saveSortPreferences();
-        });
+            onSelected: (String value) {
+              setState(() {
+                if (value == 'organize_by_folder') {
+                  _organizeByFolder = !_organizeByFolder;
+                  _initializeAlbumList();
+                } else {
+                  if (_sortBy == value) {
+                    _sortAscending = !_sortAscending;
+                  } else {
+                    _sortBy = value;
+                    _sortAscending = true;
+                  }
+                  _sortAlbums();
+                  _saveSortPreferences();
+                }
+              });
             },
             itemBuilder: (BuildContext context) => [
               _buildPopupMenuItem('name', Icons.abc_rounded),
@@ -122,16 +120,16 @@ class _SongAlbumsState extends State<SongAlbums> {
           const SizedBox(width: 15),
         ],
       ),
-          body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 10),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
-          child: Scrollbar(
-            thumbVisibility: true,
-            interactive: true,
-            thickness: 8,
-            radius: const Radius.circular(4),
+          child: Scrollbar( // Added Scrollbar
+            controller: _scrollController, // Connected ScrollController
+            thumbVisibility: true, // Optional: Always show scrollbar
             child: ListView.builder(
+              controller: _scrollController, // Connected ScrollController
+              padding: const EdgeInsets.only(top: 10), // Added top padding
               itemCount: filteredList.length,
               itemBuilder: (context, index) {
                 final album = filteredList[index];
@@ -150,7 +148,6 @@ class _SongAlbumsState extends State<SongAlbums> {
 
   void _showAlbumSongs(BuildContext context, AlbumInfo album) {
     final player = Provider.of<NPlayer>(context, listen: false);
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -208,7 +205,7 @@ class _SongAlbumsState extends State<SongAlbums> {
   }
 
   PopupMenuItem<String> _buildPopupMenuItem(String value, IconData icon) {
-    return PopupMenuItem<String>(
+    return PopupMenuItem(
       value: value,
       child: Row(
         children: [
@@ -234,7 +231,6 @@ extension StringExtension on String {
     return "${this[0].toUpperCase()}${substring(1)}";
   }
 }
-
 
 class _AlbumListTile extends StatelessWidget {
   final AlbumInfo album;

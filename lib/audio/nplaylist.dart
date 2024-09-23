@@ -35,9 +35,27 @@ class PlaylistManager {
     return List<String>.from(_playlists[playlistName]?['songs'] ?? []);
   }
 
-  static String? getPlaylistImagePath(String playlistName) {
-    return _playlists[playlistName]?['imagePath'];
+static String? getPlaylistImagePath(String playlistName) {
+  String? imagePath = _playlists[playlistName]?['imagePath'];
+  if (imagePath != null && File(imagePath).existsSync()) {
+    return imagePath;
+  } else {
+    // Try to find an image with the playlist name in the _playlistArtDir
+    Directory dir = Directory(_playlistArtDir);
+    if (dir.existsSync()) {
+      List<FileSystemEntity> files = dir.listSync();
+      for (var file in files) {
+        if (file is File && path.basenameWithoutExtension(file.path) == playlistName) {
+          _playlists[playlistName]!['imagePath'] = file.path;
+          save(); // Update the saved playlist data
+          return file.path;
+        }
+      }
+    }
   }
+  print ('No image found for playlist: $playlistName');
+  return null;
+}
 
   static Future<void> createPlaylist(String name, {String? imagePath}) async {
     if (!_playlists.containsKey(name)) {
@@ -72,10 +90,11 @@ class PlaylistManager {
     }
   }
 
-  static Future<void> setPlaylistImage(String playlistName, File imageFile) async {
-    String newImagePath = path.join(_playlistArtDir, '$playlistName${path.extension(imageFile.path)}');
-    await imageFile.copy(newImagePath);
-    _playlists[playlistName]!['imagePath'] = newImagePath;
-    await save();
-  }
+static Future<void> setPlaylistImage(String playlistName, File imageFile) async {
+  String extension = path.extension(imageFile.path);
+  String newImagePath = path.join(_playlistArtDir, '$playlistName$extension');
+  await imageFile.copy(newImagePath);
+  _playlists[playlistName]!['imagePath'] = newImagePath;
+  await save();
+}
 }
