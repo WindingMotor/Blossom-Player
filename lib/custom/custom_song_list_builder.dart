@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:blossom/tools/utils.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
@@ -35,19 +38,26 @@ class _SongListBuilderState extends State<SongListBuilder> {
   }
 
   @override
-Widget build(BuildContext context) {
-  return Consumer<NPlayer>(
-    builder: (context, player, child) {
-      return Scrollbar(
-        controller: _scrollController,
-        thumbVisibility: true,
-        child: widget.orientation == Orientation.landscape
-            ? _buildGridView(player)
-            : _buildListView(player),
-      );
-    },
-  );
-}
+  Widget build(BuildContext context) {
+    return Consumer<NPlayer>(
+      builder: (context, player, child) {
+        return Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: true,
+          child: _shouldUseGridView(context)
+              ? _buildGridView(player)
+              : _buildListView(player),
+        );
+      },
+    );
+  }
+
+  bool _shouldUseGridView(BuildContext context) {
+    bool isMobileDevice = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    bool isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    return isMobileDevice && isLandscape;
+  }
 
   Widget _buildListView(NPlayer player) {
     return ListView.builder(
@@ -84,32 +94,32 @@ Widget build(BuildContext context) {
     );
   }
 
- Widget _buildGridView(NPlayer player) {
-  return GridView.builder(
-    controller: _scrollController,
-    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: 4,  // Increase to 4 columns
-      childAspectRatio: 2.5,  // Adjust for a more compact layout
-      crossAxisSpacing: 8,  // Add some horizontal spacing
-      mainAxisSpacing: 8,  // Add some vertical spacing
-    ),
-    itemCount: widget.songs.length + (selectedSongs.isNotEmpty ? 1 : 0),
-    itemBuilder: (context, index) {
-      if (index < widget.songs.length) {
-        return _SongGridTile(
-          song: widget.songs[index],
-          isCurrentSong: widget.songs[index] == player.getCurrentSong(),
-          isSelected: selectedSongs.contains(widget.songs[index]),
-          player: player,
-          onTap: _handleTap,
-          onLongPress: () => _handleLongPress(index),
-        );
-      } else {
-        return _buildPlaylistCard(player);
-      }
-    },
-  );
-}
+  Widget _buildGridView(NPlayer player) {
+    return GridView.builder(
+      controller: _scrollController,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4, // Increase to 4 columns
+        childAspectRatio: 2.5, // Adjust for a more compact layout
+        crossAxisSpacing: 8, // Add some horizontal spacing
+        mainAxisSpacing: 8, // Add some vertical spacing
+      ),
+      itemCount: widget.songs.length + (selectedSongs.isNotEmpty ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index < widget.songs.length) {
+          return _SongGridTile(
+            song: widget.songs[index],
+            isCurrentSong: widget.songs[index] == player.getCurrentSong(),
+            isSelected: selectedSongs.contains(widget.songs[index]),
+            player: player,
+            onTap: _handleTap,
+            onLongPress: () => _handleLongPress(index),
+          );
+        } else {
+          return _buildPlaylistCard(player);
+        }
+      },
+    );
+  }
 
   void _handleTap(Music song) {
     if (selectedSongs.isEmpty) {
@@ -312,7 +322,6 @@ class _SongGridTile extends StatelessWidget {
     required this.onLongPress,
   }) : super(key: key);
 
- 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -359,7 +368,9 @@ class _SongGridTile extends StatelessWidget {
                         Text(
                           song.title,
                           style: textTheme.bodySmall?.copyWith(
-                            fontWeight: isCurrentSong ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isCurrentSong
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                             color: isCurrentSong
                                 ? theme.colorScheme.secondary
                                 : theme.colorScheme.onSurface,

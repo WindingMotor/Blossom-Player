@@ -294,6 +294,9 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
               setState(() => _isPlayerExpanded = false);
             }
           },
+          onTap: () {
+            setState(() => _isPlayerExpanded = !_isPlayerExpanded);
+          },
           onHorizontalDragUpdate: (details) {
             setState(() {
               _swipeOffset += details.delta.dx;
