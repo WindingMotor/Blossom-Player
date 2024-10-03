@@ -17,7 +17,7 @@ Blossom is a simple Flutter/Dart-based music player designed for playing local m
 - [ ] Desktop app layout optimizations
 - [ ] Importing via cloud services
 - [ ] Live streaming audio to other Blossom clients
-- [ ] Sharing libary controls
+- [ ] Sharing songs controls 
 - [ ] Tuner & sound customization
 - [ ] Manager page
 
