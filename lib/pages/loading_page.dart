@@ -33,9 +33,11 @@ class _LoadingPageState extends State<LoadingPage>
 
     Timer(const Duration(seconds: 5), () {
       _fadeController.forward().then((_) {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       });
     });
   }

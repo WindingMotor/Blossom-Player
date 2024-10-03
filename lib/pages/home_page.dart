@@ -35,7 +35,6 @@ class _HomePageState extends State<HomePage>
     final player = Provider.of<NPlayer>(context);
     final albumArt =
         player.allSongs.where((song) => song.picture != null).toList();
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,

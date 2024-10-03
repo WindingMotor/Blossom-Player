@@ -85,12 +85,14 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
             ],
           ),
         ),
-                if (player.isHeadphonesConnected)
+        /*
+        if (player.isHeadphonesConnected)
           Icon(
             Icons.headset,
             color: Colors.white,
             size: 20,
           ),
+          */
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.skip_previous_rounded, color: Colors.white),
@@ -267,8 +269,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
             blurColor: Colors.black,
             colorOpacity: 0.5,
             overlay: Container(
-                color:
-                    Theme.of(context).colorScheme.surface.withOpacity(0.3)),
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.3)),
             child: Image.memory(
               player.getCurrentSong()!.picture!,
               width: double.infinity,
@@ -295,20 +296,28 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
           onVerticalDragEnd: (details) {
             if (details.primaryVelocity! < 0) {
               // Swipe up
-              setState(() => _isPlayerExpanded = true);
+              if (mounted) {
+                setState(() => _isPlayerExpanded = true);
+              }
             } else if (details.primaryVelocity! > 0) {
               // Swipe down
-              setState(() => _isPlayerExpanded = false);
+              if (mounted) {
+                setState(() => _isPlayerExpanded = false);
+              }
             }
           },
           onTap: () {
-            setState(() => _isPlayerExpanded = !_isPlayerExpanded);
+            if (mounted) {
+              setState(() => _isPlayerExpanded = !_isPlayerExpanded);
+            }
           },
           onHorizontalDragUpdate: (details) {
-            setState(() {
-              _swipeOffset += details.delta.dx;
-              _swipeOffset = _swipeOffset.clamp(-100.0, 100.0);
-            });
+            if (mounted) {
+              setState(() {
+                _swipeOffset += details.delta.dx;
+                _swipeOffset = _swipeOffset.clamp(-100.0, 100.0);
+              });
+            }
           },
           onHorizontalDragEnd: (details) {
             if (_swipeOffset.abs() > 50) {
@@ -318,9 +327,11 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
                 player.nextSong();
               }
             }
-            setState(() {
-              _swipeOffset = 0;
-            });
+            if (mounted) {
+              setState(() {
+                _swipeOffset = 0;
+              });
+            }
           },
           onLongPress: () {
             player.togglePlayPause();

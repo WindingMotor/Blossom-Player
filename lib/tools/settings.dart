@@ -66,6 +66,15 @@ class Settings {
     return sortBy;
   }
 
+  // Library sort preference
+  static String get songSortBy => _prefs.getString('songSortBy') ?? 'title';
+  static bool get songSortAscending => _prefs.getBool('songSortAscending') ?? true;
+
+  static Future<void> setLibrarySongSort(String sortBy, bool ascending) async {
+    await _prefs.setString('songSortBy', sortBy);
+    await _prefs.setBool('songSortAscending', ascending);
+  }
+
   static bool get albumSortAscending =>
       _prefs.getBool('albumSortAscending') ?? true;
   static bool get albumOrganizeByFolder =>
@@ -85,4 +94,6 @@ class Settings {
   static String get appTheme => _prefs.getString('appTheme') ?? 'system';
   static Future<void> setAppTheme(String theme) =>
       _prefs.setString('appTheme', theme);
+
+      
 }

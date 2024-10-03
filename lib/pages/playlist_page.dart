@@ -13,16 +13,39 @@ class PlaylistPage extends StatefulWidget {
 }
 
 class _PlaylistPageState extends State<PlaylistPage> {
+  bool _isMounted = false;
   String _searchQuery = '';
 
-  Future<void> _selectPlaylistImage(BuildContext context, NPlayer player, String playlist) async {
+  Future<void> _selectPlaylistImage(
+      BuildContext context, NPlayer player, String playlist) async {
     final ImagePicker _picker = ImagePicker();
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    
-    if (image != null) {
+
+    if (image != null && _isMounted) {
       File imageFile = File(image.path);
       await player.setPlaylistImage(playlist, imageFile);
-      setState(() {}); // Trigger a rebuild to reflect the new image
+      if (mounted) {
+        _safeSetState(() {}); // Trigger a rebuild to reflect the new image
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _isMounted = true;
+  }
+
+  @override
+  void dispose() {
+    _isMounted = false;
+    super.dispose();
+  }
+
+  // Use this method instead of directly calling setState
+  void _safeSetState(VoidCallback fn) {
+    if (_isMounted) {
+      setState(fn);
     }
   }
 
@@ -45,9 +68,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
               ),
               style: const TextStyle(color: Colors.white),
               onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
+                if (mounted) {
+                  _safeSetState(() {
+                    _searchQuery = value;
+                  });
+                }
               },
             ),
             actions: [
@@ -72,10 +97,13 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   playlist: playlist,
                   songCount: playlistSongs.length,
                   imagePath: imagePath,
-                  onTap: () => _showPlaylistBottomSheet(context, player, playlist, playlistSongs),
+                  onTap: () => _showPlaylistBottomSheet(
+                      context, player, playlist, playlistSongs),
                   onPlay: () => player.playPlaylistFromIndex(playlistSongs, 0),
-                  onDelete: () => _showDeletePlaylistDialog(context, player, playlist),
-                  onImageTap: () => _selectPlaylistImage(context, player, playlist),
+                  onDelete: () =>
+                      _showDeletePlaylistDialog(context, player, playlist),
+                  onImageTap: () =>
+                      _selectPlaylistImage(context, player, playlist),
                 );
               },
             ),
@@ -85,9 +113,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
   }
 
-  void _showPlaylistBottomSheet(BuildContext context, NPlayer player, String playlistName, List<Music> songs) {
+  void _showPlaylistBottomSheet(BuildContext context, NPlayer player,
+      String playlistName, List<Music> songs) {
     String? playlistImagePath = player.getPlaylistImagePath(playlistName);
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -104,10 +133,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
             Navigator.pop(sheetContext);
           },
           image: playlistImagePath != null
-            ? Image.file(File(playlistImagePath), fit: BoxFit.cover)
-            : (songs.isNotEmpty && songs.first.picture != null
-              ? Image.memory(songs.first.picture!, fit: BoxFit.cover)
-              : null),
+              ? Image.file(File(playlistImagePath), fit: BoxFit.cover)
+              : (songs.isNotEmpty && songs.first.picture != null
+                  ? Image.memory(songs.first.picture!, fit: BoxFit.cover)
+                  : null),
           isPlaylist: true,
         );
       },
@@ -138,7 +167,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
                 if (controller.text.isNotEmpty) {
                   player.createPlaylist(controller.text);
                   Navigator.of(dialogContext).pop();
-                  setState(() {}); // Trigger a rebuild to show the new playlist
+                  if (mounted) {
+                    setState(
+                        () {}); // Trigger a rebuild to show the new playlist
+                  }
                 }
               },
             ),
@@ -148,7 +180,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
   }
 
-  void _showDeletePlaylistDialog(BuildContext context, NPlayer player, String playlist) {
+  void _showDeletePlaylistDialog(
+      BuildContext context, NPlayer player, String playlist) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -167,7 +200,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
               onPressed: () {
                 player.deletePlaylist(playlist);
                 Navigator.of(dialogContext).pop();
-                setState(() {}); // Trigger a rebuild to reflect the deleted playlist
+                setState(
+                    () {}); // Trigger a rebuild to reflect the deleted playlist
               },
             ),
           ],

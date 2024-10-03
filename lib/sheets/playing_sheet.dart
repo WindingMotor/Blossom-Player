@@ -1,9 +1,8 @@
 import 'package:blossom/sheets/bottom_sheet.dart';
+import 'package:blossom/song_list/song_list_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
-import '../custom/custom_song_list_builder.dart';
-
 class PlayingSongsSheet extends StatefulWidget {
   const PlayingSongsSheet({Key? key}) : super(key: key);
 
@@ -11,7 +10,8 @@ class PlayingSongsSheet extends StatefulWidget {
   _PlayingSongsSheetState createState() => _PlayingSongsSheetState();
 }
 
-class _PlayingSongsSheetState extends State<PlayingSongsSheet> with SingleTickerProviderStateMixin {
+class _PlayingSongsSheetState extends State<PlayingSongsSheet>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -71,7 +71,8 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet> with SingleTicker
                   Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
                 ],
               ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.5),
@@ -100,13 +101,17 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet> with SingleTicker
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: OrientationBuilder(
-                builder: (context, orientation) {
-                  return SongListBuilder(
-                    songs: player.playingSongs,
-                    orientation: orientation,
-                  );
-                },
-              ),
+                        builder: (context, orientation) {
+                          return SongListBuilder(
+                            songs: player.playingSongs,
+                            orientation: orientation,
+                            isPlayingList: true, // Add this line
+                            onTap: (song) {
+                              player.playSpecificSong(song);
+                            },
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -117,7 +122,6 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet> with SingleTicker
       },
     );
   }
-
 
   Widget _buildHeader(BuildContext context, NPlayer player, Music currentSong) {
     return Padding(
@@ -147,8 +151,8 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet> with SingleTicker
                 Text(
                   'Now Playing',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
                 Text(
                   currentSong.title,
@@ -168,8 +172,8 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet> with SingleTicker
     );
   }
 
-
-  Widget _buildStats(BuildContext context, NPlayer player, Duration totalDuration) {
+  Widget _buildStats(
+      BuildContext context, NPlayer player, Duration totalDuration) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Card(
@@ -183,9 +187,18 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet> with SingleTicker
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatItem(context, 'Songs', player.playingSongs.length.toString()),
-              _buildStatItem(context, 'Albums', player.playingSongs.map((s) => s.album).toSet().length.toString()),
-              _buildStatItem(context, 'Total Time', _formatDuration(totalDuration)),
+              _buildStatItem(
+                  context, 'Songs', player.playingSongs.length.toString()),
+              _buildStatItem(
+                  context,
+                  'Albums',
+                  player.playingSongs
+                      .map((s) => s.album)
+                      .toSet()
+                      .length
+                      .toString()),
+              _buildStatItem(
+                  context, 'Total Time', _formatDuration(totalDuration)),
             ],
           ),
         ),

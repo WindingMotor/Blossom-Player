@@ -60,10 +60,16 @@ class SettingsPage extends StatelessWidget {
           return ListView(
             children: [
               _buildSection(
-                  'Music Library',
+                  'Library',
                   [
                     _buildInfoTile('To add songs to your library',
-                        'Put files into the Blossom folder in files', context),
+                        'Put files into the Blossom folder in Files', context),
+                    _buildInfoTile(
+                      'Files can also be placed into folders for organizing.', 
+                      'Blossom will search for files in the folders and add them to the library.',
+                      context
+                    ),
+                    SizedBox(height: 8),
                     _buildButton(
                       'Copy Files to Blossom Folder',
                       () => _copyFilesToBlossomFolder(context),
@@ -72,7 +78,7 @@ class SettingsPage extends StatelessWidget {
                   ],
                   context),
               _buildSection(
-                  'Playback Settings',
+                  'Playback',
                   [
                     _buildDropdownTile(
                       'Repeat Mode',
@@ -89,29 +95,39 @@ class SettingsPage extends StatelessWidget {
                     ),
                   ],
                   context),
-              _buildSection(
-                  'Display Settings',
-                  [
-                    _buildDropdownTile('App Theme', Settings.appTheme, [
-                      'system',
-                      'light',
-                      'dark',
-                      'blue',
-                      'green',
-                      'red',
-                      'oled'
-                    ], (String value) async {
-                      await Settings.setAppTheme(value);
-                      print('New theme set: $value');
-                      onThemeChanged();
-                      // Force a rebuild of the entire app
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (context) => MyApp()),
-                        (Route<dynamic> route) => false,
-                      );
-                    }, context),
-                  ],
-                  context),
+_buildSection(
+  'Appearance',
+  [
+    _buildDropdownTile('App Theme', Settings.appTheme, [
+      'light',
+      'dark',
+      'oled',
+      '-', // This will be used as a separator
+      'slate',
+      'ocean',
+      'forest',
+      'algae',
+      '-', // Another separator
+      'sunset',
+      'rose',
+      'pink',
+      'lavender',
+      'orange',
+    ], (String value) async {
+      if (value != '-') { // Ignore separator selection
+        await Settings.setAppTheme(value);
+        print('New theme set: $value');
+        onThemeChanged();
+        // Force a rebuild of the entire app
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => MyApp()),
+          (Route<dynamic> route) => false,
+        );
+      }
+    }, context),
+  ],
+  context
+),
             ],
           );
         },

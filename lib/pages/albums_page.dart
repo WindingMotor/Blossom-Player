@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:blossom/custom/custom_searchbar.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -16,8 +19,9 @@ class _SongAlbumsState extends State<SongAlbums> {
   late bool _sortAscending;
   late bool _organizeByFolder;
   String _searchQuery = '';
-  List _albumList = [];
-  final ScrollController _scrollController = ScrollController(); // Added ScrollController
+  List<AlbumInfo> _albumList = [];
+  final ScrollController _scrollController = ScrollController();
+  Timer? _scrollDebounce;
 
   @override
   void initState() {
@@ -28,12 +32,21 @@ class _SongAlbumsState extends State<SongAlbums> {
     });
   }
 
+  @override
+  void dispose() {
+    _scrollDebounce?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   void _loadSortPreferences() {
-    setState(() {
-      _sortBy = Settings.albumSortBy;
-      _sortAscending = Settings.albumSortAscending;
-      _organizeByFolder = Settings.albumOrganizeByFolder;
-    });
+    if (mounted) {
+      setState(() {
+        _sortBy = Settings.albumSortBy;
+        _sortAscending = Settings.albumSortAscending;
+        _organizeByFolder = Settings.albumOrganizeByFolder;
+      });
+    }
   }
 
   void _saveSortPreferences() {
@@ -53,52 +66,63 @@ class _SongAlbumsState extends State<SongAlbums> {
       );
     }).toList();
     _sortAlbums();
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _debouncedScroll(void Function() callback) {
+    if (_scrollDebounce?.isActive ?? false) _scrollDebounce!.cancel();
+    _scrollDebounce = Timer(const Duration(milliseconds: 180), callback);
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification) {
+      if (mounted) {
+        _debouncedScroll(() {
+          setState(() {});
+        });
+      }
+    }
+    return false;
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredList = _searchQuery.isEmpty
-        ? _albumList
-        : _albumList
-            .where((album) => album.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-            .toList();
+    final filteredList = _filterAlbums();
 
     return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          decoration: const InputDecoration(
-            hintText: 'Search albums...',
-            border: InputBorder.none,
-            hintStyle: TextStyle(color: Colors.white70),
-          ),
-          style: const TextStyle(color: Colors.white),
-          onChanged: (value) {
+      appBar: CustomSearchBar(
+        hintText: 'Search albums...',
+        onChanged: (value) {
+          if (mounted) {
             setState(() {
               _searchQuery = value;
             });
-          },
-        ),
+          }
+        },
         actions: [
           PopupMenuButton(
             icon: const Icon(Icons.sort),
             tooltip: 'Sort by',
             onSelected: (String value) {
-              setState(() {
-                if (value == 'organize_by_folder') {
-                  _organizeByFolder = !_organizeByFolder;
-                  _initializeAlbumList();
-                } else {
-                  if (_sortBy == value) {
-                    _sortAscending = !_sortAscending;
+              if (mounted) {
+                setState(() {
+                  if (value == 'organize_by_folder') {
+                    _organizeByFolder = !_organizeByFolder;
+                    _initializeAlbumList();
                   } else {
-                    _sortBy = value;
-                    _sortAscending = true;
+                    if (_sortBy == value) {
+                      _sortAscending = !_sortAscending;
+                    } else {
+                      _sortBy = value;
+                      _sortAscending = true;
+                    }
+                    _sortAlbums();
+                    _saveSortPreferences();
                   }
-                  _sortAlbums();
-                  _saveSortPreferences();
-                }
-              });
+                });
+              }
             },
             itemBuilder: (BuildContext context) => [
               _buildPopupMenuItem('name', Icons.abc_rounded),
@@ -109,9 +133,15 @@ class _SongAlbumsState extends State<SongAlbums> {
                 value: 'organize_by_folder',
                 child: Row(
                   children: [
-                    Icon(_organizeByFolder ? Icons.album_rounded : Icons.folder_rounded, size: 20),
+                    Icon(
+                        _organizeByFolder
+                            ? Icons.album_rounded
+                            : Icons.folder_rounded,
+                        size: 20),
                     const SizedBox(width: 8),
-                    Text(_organizeByFolder ? 'Group by Album' : 'Organize by Folder'),
+                    Text(_organizeByFolder
+                        ? 'Group by Album'
+                        : 'Organize by Folder'),
                   ],
                 ),
               ),
@@ -122,18 +152,21 @@ class _SongAlbumsState extends State<SongAlbums> {
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10),
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          child: Scrollbar( // Added Scrollbar
-            controller: _scrollController, // Connected ScrollController
-            thumbVisibility: true, // Optional: Always show scrollbar
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _handleScrollNotification,
+          child: Scrollbar(
+            controller: _scrollController,
+            thumbVisibility: true,
             child: ListView.builder(
-              controller: _scrollController, // Connected ScrollController
-              padding: const EdgeInsets.only(top: 10), // Added top padding
+              controller: _scrollController,
+              padding: const EdgeInsets.only(top: 10),
               itemCount: filteredList.length,
+              itemExtent: 80.0,
+              cacheExtent: 1000,
               itemBuilder: (context, index) {
                 final album = filteredList[index];
                 return _AlbumListTile(
+                  key: ValueKey(album.name),
                   album: album,
                   organizeByFolder: _organizeByFolder,
                   onTap: () => _showAlbumSongs(context, album),
@@ -146,6 +179,18 @@ class _SongAlbumsState extends State<SongAlbums> {
     );
   }
 
+  List<AlbumInfo> _filterAlbums() {
+    if (_searchQuery.isEmpty) {
+      return _albumList;
+    }
+    final lowercaseQuery = _searchQuery.toLowerCase();
+    return _albumList
+        .where((album) =>
+            album.name.toLowerCase().contains(lowercaseQuery) ||
+            album.firstSong.artist.toLowerCase().contains(lowercaseQuery))
+        .toList();
+  }
+
   void _showAlbumSongs(BuildContext context, AlbumInfo album) {
     final player = Provider.of<NPlayer>(context, listen: false);
     showModalBottomSheet(
@@ -154,7 +199,8 @@ class _SongAlbumsState extends State<SongAlbums> {
       backgroundColor: Colors.transparent,
       builder: (context) => MusicBottomSheet(
         title: album.name,
-        subtitle: '${album.songs.length} songs • ${_organizeByFolder ? 'Folder' : album.firstSong.artist}',
+        subtitle:
+            '${album.songs.length} songs • ${_organizeByFolder ? 'Folder' : album.firstSong.artist}',
         itemCount: album.songs.length,
         songs: album.songs,
         onPlayPressed: (song) => player.playAlbum(album.songs, song),
@@ -169,7 +215,9 @@ class _SongAlbumsState extends State<SongAlbums> {
     _albumList.sort((a, b) {
       switch (_sortBy) {
         case 'name':
-          return _sortAscending ? a.name.compareTo(b.name) : b.name.compareTo(a.name);
+          return _sortAscending
+              ? a.name.compareTo(b.name)
+              : b.name.compareTo(a.name);
         case 'songs':
           return _sortAscending
               ? a.songs.length.compareTo(b.songs.length)

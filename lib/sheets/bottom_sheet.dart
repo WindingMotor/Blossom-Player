@@ -1,8 +1,8 @@
+import 'package:blossom/song_list/song_list_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
-import '../custom/custom_song_list_builder.dart';
 
 class MusicBottomSheet extends StatefulWidget {
   final String title;
@@ -32,6 +32,7 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
+  late NPlayer _player;
 
   @override
   void initState() {
@@ -45,6 +46,8 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
       curve: Curves.easeOut,
     );
     _controller.forward();
+
+    _player = Provider.of<NPlayer>(context, listen: false);
   }
 
   @override
@@ -55,8 +58,6 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
 
   @override
   Widget build(BuildContext context) {
-    final player = Provider.of<NPlayer>(context, listen: false);
-
     final totalDuration = widget.songs.fold<Duration>(
       Duration.zero,
       (total, song) => total + Duration(milliseconds: song.duration),
@@ -142,19 +143,15 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
                   ),
                   IconButton(
                     icon: const Icon(Icons.play_circle_fill_rounded),
-  onPressed: () {
-    if (widget.songs.isNotEmpty) {
+                    onPressed: () {
+                      if (widget.songs.isNotEmpty) {
+                        // Get the first song in the list
+                        Music firstSong = widget.songs.first;
 
-      
-      // Get the first song in the list
-      Music firstSong = widget.songs.first;
-      
-      // Call the onPlayPressed function with the first song
-      widget.onPlayPressed(firstSong);
-    }
-
-
-  },
+                        // Call the onPlayPressed function with the first song
+                        widget.onPlayPressed(firstSong);
+                      }
+                    },
                     color: Theme.of(context).colorScheme.secondary,
                     iconSize: 48,
                   ),
@@ -198,15 +195,15 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: OrientationBuilder(
-                builder: (context, orientation) {
-                  return SongListBuilder(
-                    songs: widget.songs,
-                    orientation: orientation,
-                    onTap: widget.onPlayPressed,
-                    isPlaylist: widget.isPlaylist,
-                  );
-                },
-              ),
+                    builder: (context, orientation) {
+                      return SongListBuilder(
+                        songs: widget.songs,
+                        orientation: orientation,
+                        onTap: widget.onPlayPressed,
+                        isPlaylist: widget.isPlaylist,
+                      );
+                    },
+                  ),
                 ),
               ),
             ),

@@ -1,4 +1,7 @@
 
+import 'dart:async';
+
+import 'package:blossom/custom/custom_searchbar.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +20,8 @@ class _ArtistsPageState extends State<ArtistsPage> {
   late bool _sortAscending;
   String _searchQuery = '';
   List<ArtistInfo> _artistList = [];
+  final ScrollController _scrollController = ScrollController();
+  Timer? _scrollDebounce;
 
   @override
   void initState() {
@@ -27,20 +32,26 @@ class _ArtistsPageState extends State<ArtistsPage> {
     });
   }
 
+  @override
+  void dispose() {
+    _scrollDebounce?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   void _loadSortPreferences() {
     setState(() {
       _sortBy = Settings.artistSortBy;
       _sortAscending = Settings.artistSortAscending;
     });
   }
-  
+
   void _initializeArtistList() {
     final player = Provider.of<NPlayer>(context, listen: false);
     final artistMap = <String, List<Music>>{};
     for (final song in player.allSongs) {
       artistMap.putIfAbsent(song.artist, () => []).add(song);
     }
-
 
     _artistList = artistMap.entries.map((entry) {
       return ArtistInfo(
@@ -55,44 +66,47 @@ class _ArtistsPageState extends State<ArtistsPage> {
     setState(() {});
   }
 
+  void _debouncedScroll(void Function() callback) {
+    if (_scrollDebounce?.isActive ?? false) _scrollDebounce!.cancel();
+    _scrollDebounce = Timer(const Duration(milliseconds: 180), callback);
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification) {
+      _debouncedScroll(() {
+        setState(() {});
+      });
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final filteredList = _searchQuery.isEmpty
-        ? _artistList
-        : _artistList
-            .where((artist) => artist.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-            .toList();
+    final filteredList = _filterArtists();
 
     return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          decoration: const InputDecoration(
-            hintText: 'Search artists...',
-            border: InputBorder.none,
-            hintStyle: TextStyle(color: Colors.white70),
-          ),
-          style: const TextStyle(color: Colors.white),
-          onChanged: (value) {
-            setState(() {
-              _searchQuery = value;
-            });
-          },
-        ),
+      appBar: CustomSearchBar(
+        hintText: 'Search artists...',
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+          });
+        },
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.sort),
             tooltip: 'Sort by',
-      onSelected: (String value) {
-        setState(() {
-          if (_sortBy == value) {
-            _sortAscending = !_sortAscending;
-          } else {
-            _sortBy = value;
-            _sortAscending = true;
-          }
-          _sortArtists();
-          _saveSortPreferences();
-        });
+            onSelected: (String value) {
+              setState(() {
+                if (_sortBy == value) {
+                  _sortAscending = !_sortAscending;
+                } else {
+                  _sortBy = value;
+                  _sortAscending = true;
+                }
+                _sortArtists();
+                _saveSortPreferences();
+              });
             },
             itemBuilder: (BuildContext context) => [
               _buildPopupMenuItem('name', Icons.person_rounded),
@@ -106,18 +120,20 @@ class _ArtistsPageState extends State<ArtistsPage> {
       ),
       body: Padding(
         padding: EdgeInsets.symmetric(horizontal: 10),
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _handleScrollNotification,
           child: Scrollbar(
+            controller: _scrollController,
             thumbVisibility: true,
-            interactive: true,
-            thickness: 8,
-            radius: const Radius.circular(4),
             child: ListView.builder(
+              controller: _scrollController,
               itemCount: filteredList.length,
+              itemExtent: 80.0, // Assuming each item has a fixed height
+              cacheExtent: 1000, // Increase cache to reduce rebuilds
               itemBuilder: (context, index) {
                 final artist = filteredList[index];
                 return _ArtistListTile(
+                  key: ValueKey(artist.name), // Use artist name as a unique key
                   artist: artist,
                   onTap: () => _showArtistSongs(context, artist),
                 );
@@ -127,6 +143,16 @@ class _ArtistsPageState extends State<ArtistsPage> {
         ),
       ),
     );
+  }
+
+  List<ArtistInfo> _filterArtists() {
+    if (_searchQuery.isEmpty) {
+      return _artistList;
+    }
+    final lowercaseQuery = _searchQuery.toLowerCase();
+    return _artistList.where((artist) =>
+        artist.name.toLowerCase().contains(lowercaseQuery)
+    ).toList();
   }
 
   void _showArtistSongs(BuildContext context, ArtistInfo artist) {
@@ -187,10 +213,9 @@ class _ArtistsPageState extends State<ArtistsPage> {
     );
   }
   
- void _saveSortPreferences() {
+  void _saveSortPreferences() {
     Settings.setArtistSort(_sortBy, _sortAscending);
   }
-
 }
 
 class ArtistInfo {
