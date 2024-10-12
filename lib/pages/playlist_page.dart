@@ -219,7 +219,6 @@ class _PlaylistListTile extends StatelessWidget {
   final VoidCallback onPlay;
   final VoidCallback onDelete;
   final VoidCallback onImageTap;
-
   const _PlaylistListTile({
     Key? key,
     required this.playlist,

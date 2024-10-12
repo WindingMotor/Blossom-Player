@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:blossom/custom/custom_searchbar.dart';
+import 'package:blossom/sheets/server_sheet.dart';
 import 'package:blossom/song_list/song_list_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -34,6 +35,15 @@ class _SongLibraryState extends State<SongLibrary> {
     });
     print("initState lib/pages/library_page.dart");
   }
+  
+void _showServerSheet() {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => const ServerSheet(),
+  );
+}
 
   void _scrollToRandomSong() {
     final songListBuilderState = _songListBuilderKey.currentState;
@@ -74,6 +84,11 @@ class _SongLibraryState extends State<SongLibrary> {
                   );
                 },
               ),
+              IconButton(
+  icon: const Icon(Icons.hardware_rounded, color:  Colors.white), // New Server Icon
+  tooltip: 'Server',
+  onPressed: _showServerSheet, // Show the ServerSheet
+),
               IconButton(
                 icon: const Icon(Icons.shuffle),
                 tooltip: 'Scroll to random song',

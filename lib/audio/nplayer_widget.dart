@@ -1,3 +1,4 @@
+import 'package:blossom/sheets/lyrics_sheet.dart';
 import 'package:blossom/sheets/playing_sheet.dart';
 import 'package:blossom/tools/utils.dart';
 import 'package:flutter/material.dart';
@@ -293,19 +294,29 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
         }
 
         return GestureDetector(
-          onVerticalDragEnd: (details) {
-            if (details.primaryVelocity! < 0) {
-              // Swipe up
-              if (mounted) {
-                setState(() => _isPlayerExpanded = true);
-              }
-            } else if (details.primaryVelocity! > 0) {
-              // Swipe down
-              if (mounted) {
-                setState(() => _isPlayerExpanded = false);
-              }
-            }
-          },
+onVerticalDragEnd: (details) {
+  if (details.primaryVelocity! < 0) {
+    // Swipe up
+    if (mounted) {
+      setState(() => _isPlayerExpanded = true);
+    }
+  } else if (details.primaryVelocity! > 0) {
+    // Swipe down
+    if (!_isPlayerExpanded) {
+      // Show queue page
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => const PlayingSongsSheet(),
+      );
+    } else {
+      if (mounted) {
+        setState(() => _isPlayerExpanded = false);
+      }
+    }
+  }
+},
           onTap: () {
             if (mounted) {
               setState(() => _isPlayerExpanded = !_isPlayerExpanded);

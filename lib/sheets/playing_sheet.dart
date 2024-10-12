@@ -1,4 +1,5 @@
 import 'package:blossom/sheets/bottom_sheet.dart';
+import 'package:blossom/sheets/lyrics_sheet.dart';
 import 'package:blossom/song_list/song_list_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -149,7 +150,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Now Playing',
+                  'Queue',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -166,6 +167,25 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
             onPressed: () => player.shuffle(),
             iconSize: 32,
           ),
+                      IconButton(
+                        iconSize: 32,
+  icon: const Icon(Icons.lyrics_rounded, color: Colors.white),
+  tooltip: 'Lyrics',
+  onPressed: () {
+    if (player.getCurrentSong() != null) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => LyricsSheet(
+          artist: player.getCurrentSong()!.artist,
+          title: player.getCurrentSong()!.title,
+        ),
+      );
+    }
+  },
+  color: Theme.of(context).colorScheme.onSurface,
+),
           SizedBox(width: 16),
         ],
       ),

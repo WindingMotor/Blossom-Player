@@ -303,41 +303,46 @@ Future<void> _playSongFromQueue(int queueIndex) async {
     notifyListeners();
   }
 
-  Future<void> pauseSong() async {
-    if (_isPausing || !_isPlaying) return;
+Future<void> pauseSong() async {
+  if (_isPausing || !_isPlaying) return;
 
-    _isPausing = true;
-    _log("Pausing song");
+  _isPausing = true;
+  _log("Pausing song");
 
-    try {
-      await _audioPlayer.pause();
-      _isPlaying = false;
-      await _updatePlaybackState(playing: false);
-      notifyListeners();
-    } catch (e) {
-      _log("Error pausing song: $e");
-    } finally {
-      _isPausing = false;
-    }
+  try {
+    await _audioPlayer.pause();
+    _isPlaying = false;
+    await _updatePlaybackState(playing: false);
+    // Notify clients about the pause
+    _server?.notifyClients('pause', {'position': _currentPosition.inMilliseconds});
+    notifyListeners();
+  } catch (e) {
+    _log("Error pausing song: $e");
+  } finally {
+    _isPausing = false;
   }
+}
 
-  Future<void> resumeSong() async {
-    if (_isResuming || _isPlaying) return;
+Future<void> resumeSong() async {
+  if (_isResuming || _isPlaying) return;
 
-    _isResuming = true;
-    _log("Resuming song");
+  _isResuming = true;
+  _log("Resuming song");
 
-    try {
-      await _audioPlayer.resume();
-      _isPlaying = true;
-      await _updatePlaybackState(playing: true);
-      notifyListeners();
-    } catch (e) {
-      _log("Error resuming song: $e");
-    } finally {
-      _isResuming = false;
-    }
+  try {
+    await _audioPlayer.resume();
+    _isPlaying = true;
+    await _updatePlaybackState(playing: true);
+    // Notify clients about the resume
+    _server?.notifyClients('play', {'position': _currentPosition.inMilliseconds});
+    notifyListeners();
+  } catch (e) {
+    _log("Error resuming song: $e");
+  } finally {
+    _isResuming = false;
   }
+}
+
 
   Future<void> stopSong() async {
     if (_isStoppingInProgress) return;
@@ -370,20 +375,21 @@ Future<void> _playSongFromQueue(int queueIndex) async {
     }
   }
 
-  Future<void> nextSong() async {
-    _log("Moving to next song");
-    if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
-      int nextIndex;
-      if (_repeatMode == 'all') {
-        nextIndex = (_currentSongIndex! + 1) % _playingSongs.length;
-      } else {
-        nextIndex = _currentSongIndex! + 1;
-        if (nextIndex >= _playingSongs.length) {
-          await stopSong();
-          return;
-        }
+Future<void> nextSong() async {
+  _log("Moving to next song");
+  if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
+    int nextIndex;
+    if (_repeatMode == 'all') {
+      nextIndex = (_currentSongIndex! + 1) % _playingSongs.length;
+    } else {
+      nextIndex = _currentSongIndex! + 1;
+      if (nextIndex >= _playingSongs.length) {
+        await stopSong();
+        return;
       }
-      _currentSongIndex = nextIndex;
+    }
+    _currentSongIndex = nextIndex;
+    try {
       await _audioPlayer.play(DeviceFileSource(_playingSongs[nextIndex].path));
       _isPlaying = true;
       _currentPosition = Duration.zero;
@@ -391,49 +397,47 @@ Future<void> _playSongFromQueue(int queueIndex) async {
       await _updateMetadata();
       await _updatePlaybackState(playing: true);
       await _audioHandler.play();
+      // Notify clients about the skip
+      _server?.notifyClients('skip', {'direction': 'next'});
       notifySongChange();
-      if (_serverSocket != null) {
-        _serverSocket!.add(json.encode({
-          'type': 'skip',
-          'direction': 'next',
-        }));
-      }
       notifyListeners();
-    } else {
-      _log("No songs to play");
+    } catch (e) {
+      _log("Error playing next song: $e");
     }
+  } else {
+    _log("No songs to play");
   }
+}
 
-  Future<void> previousSong() async {
-    _log("Moving to previous song");
-    if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
-      if (_currentPosition.inSeconds > 3) {
-        await seek(Duration.zero);
-      } else {
-        int previousIndex = (_currentSongIndex! - 1 + _playingSongs.length) %
-            _playingSongs.length;
-        _currentSongIndex = previousIndex;
-        await _audioPlayer
-            .play(DeviceFileSource(_playingSongs[previousIndex].path));
+Future<void> previousSong() async {
+  _log("Moving to previous song");
+  if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
+    if (_currentPosition.inSeconds > 3) {
+      await seek(Duration.zero);
+    } else {
+      int previousIndex = (_currentSongIndex! - 1 + _playingSongs.length) %
+          _playingSongs.length;
+      _currentSongIndex = previousIndex;
+      try {
+        await _audioPlayer.play(DeviceFileSource(_playingSongs[previousIndex].path));
         _isPlaying = true;
         _currentPosition = Duration.zero;
         await Settings.setLastPlayingSong(_playingSongs[previousIndex].path);
         await _updateMetadata();
         await _updatePlaybackState(playing: true);
         await _audioHandler.play();
+        // Notify clients about the skip
+        _server?.notifyClients('skip', {'direction': 'previous'});
         notifySongChange();
-        if (_serverSocket != null) {
-          _serverSocket!.add(json.encode({
-            'type': 'skip',
-            'direction': 'previous',
-          }));
-        }
         notifyListeners();
+      } catch (e) {
+        _log("Error playing previous song: $e");
       }
-    } else {
-      _log("No songs to play");
     }
+  } else {
+    _log("No songs to play");
   }
+}
 
   // MARK: Album and Artist Playback
   Future<void> playAlbum(List<Music> albumSongs, Music selectedSong) async {
@@ -532,18 +536,19 @@ void reorderPlayingSongs(List<Music> newOrder) {
     notifyListeners();
   }
 
-  Future<void> seek(Duration position) async {
-    _log("Seeking to position: $position");
+Future<void> seek(Duration position) async {
+  _log("Seeking to position: $position");
+  try {
     await _audioPlayer.seek(position);
     _currentPosition = position;
-    if (_serverSocket != null) {
-      _serverSocket!.add(json.encode({
-        'type': 'seek',
-        'position': position.inMilliseconds,
-      }));
-    }
+    // Notify clients about the seek
+    _server?.notifyClients('seek', {'position': position.inMilliseconds});
     notifyListeners();
+  } catch (e) {
+    _log("Error seeking song: $e");
   }
+}
+
 
   Future<void> setRepeatMode(String mode) async {
     _log("Setting repeat mode to $mode");
