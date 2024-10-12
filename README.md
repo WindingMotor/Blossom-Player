@@ -4,6 +4,7 @@
 # Blossom 🌸
 
 Blossom is a simple Flutter/Dart-based music player designed for playing local mp3 and flac files on mobile devices. It's still a work in progress!
+*TestFlight available soon!*
 
 ## Features
 
@@ -13,13 +14,18 @@ Blossom is a simple Flutter/Dart-based music player designed for playing local m
 - [ ] Local LLM to organize songs by types
 
 ### In Progress
-- [ ] Settings Rework
-- [ ] Custom themeing and playlist art
 - [ ] Desktop app layout optimizations
-- [ ] Better artists search & filters
+- [ ] Importing via cloud services
+- [ ] Live streaming audio to other Blossom clients
+- [ ] Sharing songs controls 
+- [ ] Tuner & sound customization
+- [ ] Manager page
 
 ### Done
 - [X] Custom Playlists
+- [X] Better artists search & filters
+- [X] Settings Rework
+- [X] Custom themeing and playlist art
 - [X] Desktop app spotDL integration
 - [X] Testing & builds for iOS
 - [X] Song information json storage
