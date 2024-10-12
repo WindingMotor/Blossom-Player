@@ -25,7 +25,6 @@ class _ServerPageState extends State<ServerPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateServerStatus();
-      _listenToSongChanges();
     });
   }
 
@@ -35,15 +34,6 @@ class _ServerPageState extends State<ServerPage> {
       _status = nplayer.isServerOn
           ? 'Server running on ${nplayer.server!.currentIp}:8080'
           : 'Server not started';
-    });
-  }
-
-  void _listenToSongChanges() {
-    final nplayer = Provider.of<NPlayer>(context, listen: false);
-    _songChangeSubscription = nplayer.songChangeStream.listen((_) {
-      setState(() {
-        // Update UI if needed when song changes
-      });
     });
   }
 
@@ -96,18 +86,7 @@ class _ServerPageState extends State<ServerPage> {
   }
 
   void _connectToServer(String ip) {
-    final nplayer = Provider.of<NPlayer>(context, listen: false);
-    nplayer.connectToServer(ip).then((_) {
-      print('Successfully connected to server: $ip');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Connected to server: $ip')),
-      );
-    }).catchError((error) {
-      print('Error connecting to server: $error');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to connect to server: $error')),
-      );
-    });
+
   }
 
   @override

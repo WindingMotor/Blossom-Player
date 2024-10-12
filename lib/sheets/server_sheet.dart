@@ -26,10 +26,6 @@ class _ServerSheetState extends State<ServerSheet>
   void initState() {
     super.initState();
     _initializeAnimation();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateServerStatus();
-      _listenToSongChanges();
-    });
   }
 
   void _initializeAnimation() {
@@ -44,25 +40,10 @@ class _ServerSheetState extends State<ServerSheet>
     _controller.forward();
   }
 
-  void _updateServerStatus() {
-    final nplayer = Provider.of<NPlayer>(context, listen: false);
-    setState(() {});
-  }
-
-  void _listenToSongChanges() {
-    final nplayer = Provider.of<NPlayer>(context, listen: false);
-    _songChangeSubscription = nplayer.songChangeStream.listen((_) {
-      setState(() {
-        // Update UI if needed when song changes
-      });
-    });
-  }
-
   Future<void> _toggleServer() async {
     final nplayer = Provider.of<NPlayer>(context, listen: false);
     try {
       await nplayer.toggleServer();
-      _updateServerStatus();
       if (nplayer.isServerOn) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -123,21 +104,18 @@ class _ServerSheetState extends State<ServerSheet>
     }
   }
 
-  void _connectToServer(String ip) {
-    final nplayer = Provider.of<NPlayer>(context, listen: false);
-    nplayer.connectToServer(ip).then((_) {
-      print('Successfully connected to server: $ip');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Connected to server: $ip')),
-      );
-      Navigator.pop(context); // Close the sheet upon successful connection
-    }).catchError((error) {
-      print('Error connecting to server: $error');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to connect to server: $error')),
-      );
-    });
-  }
+void _connectToServer(String ip) {
+  final nplayer = Provider.of<NPlayer>(context, listen: false);
+  nplayer.connectToServer(ip).then((_) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Connected to server at $ip')),
+    );
+  }).catchError((error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to connect to server: $error')),
+    );
+  });
+}
 
   @override
   Widget build(BuildContext context) {

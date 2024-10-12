@@ -118,21 +118,21 @@ class NPlayer extends ChangeNotifier {
   NServer? _server;
   NServer? get server => _server;
 
+  // Server streaming state
   bool _isServerOn = false;
+  bool get isServerOn => _isServerOn;
+
+  // Server playing state
+  String? _connectedServerIp;
+  String? get connectedServerIp => _connectedServerIp;
   bool _isPlayingFromServer = false;
   bool get isPlayingFromServer => _isPlayingFromServer;
-  WebSocket? _serverSocket;
-  String? _serverIP;
-  Timer? _serverCheckTimer;
 
-  bool get isServerOn => _isServerOn;
-  final StreamController<void> _songChangeController =
-      StreamController<void>.broadcast();
-  Stream<void> get songChangeStream => _songChangeController.stream;
-
+  // Search debounce
   Timer? _debounceTimer;
   final Duration _debounceDuration = Duration(milliseconds: 300);
 
+  // Headset
   final HeadsetEvent _headsetPlugin = HeadsetEvent();
   bool _isHeadphonesConnected = false;
   bool get isHeadphonesConnected => _isHeadphonesConnected;
@@ -196,24 +196,24 @@ class NPlayer extends ChangeNotifier {
     });
   }
 
-void _initHeadsetDetection() {
-  _headsetPlugin.getCurrentState.then((val) {
-    _isHeadphonesConnected = val == HeadsetState.CONNECT;
-    notifyListeners();
-  });
+  void _initHeadsetDetection() {
+    _headsetPlugin.getCurrentState.then((val) {
+      _isHeadphonesConnected = val == HeadsetState.CONNECT;
+      notifyListeners();
+    });
 
-  _headsetPlugin.setListener((val) {
-    bool wasConnected = _isHeadphonesConnected;
-    _isHeadphonesConnected = val == HeadsetState.CONNECT;
-    
-    // If headphones were connected and are now disconnected, pause the music
-    if (wasConnected && !_isHeadphonesConnected && _isPlaying) {
-      pauseSong();
-    }
-    
-    notifyListeners();
-  });
-}
+    _headsetPlugin.setListener((val) {
+      bool wasConnected = _isHeadphonesConnected;
+      _isHeadphonesConnected = val == HeadsetState.CONNECT;
+
+      // If headphones were connected and are now disconnected, pause the music
+      if (wasConnected && !_isHeadphonesConnected && _isPlaying) {
+        pauseSong();
+      }
+
+      notifyListeners();
+    });
+  }
 
   // MARK: Getters
   List<Music> get allSongs => _allSongs;
@@ -248,35 +248,34 @@ void _initHeadsetDetection() {
   }
 
   // MARK: Playback Control
-Future<void> playSpecificSong(Music song) async {
-  _log("Attempting to play specific song: ${song.title}");
-  int index = _playingSongs.indexOf(song);
-  if (index != -1) {
-    await _playSongFromQueue(index);
-  } else {
-    _log("Song not found in the current queue");
-  }
-}
-
-Future<void> _playSongFromQueue(int queueIndex) async {
-  if (queueIndex < 0 || queueIndex >= _playingSongs.length) {
-    _log("Invalid queueIndex: $queueIndex");
-    throw RangeError('Invalid queueIndex');
+  Future<void> playSpecificSong(Music song) async {
+    _log("Attempting to play specific song: ${song.title}");
+    int index = _playingSongs.indexOf(song);
+    if (index != -1) {
+      await _playSongFromQueue(index);
+    } else {
+      _log("Song not found in the current queue");
+    }
   }
 
-  Music selectedSong = _playingSongs[queueIndex];
-  _log("Playing song from queue: ${selectedSong.title}");
+  Future<void> _playSongFromQueue(int queueIndex) async {
+    if (queueIndex < 0 || queueIndex >= _playingSongs.length) {
+      _log("Invalid queueIndex: $queueIndex");
+      throw RangeError('Invalid queueIndex');
+    }
 
-  _currentSongIndex = queueIndex;
-  await _audioPlayer.play(DeviceFileSource(selectedSong.path));
-  _isPlaying = true;
-  _currentPosition = Duration.zero;
-  await Settings.setLastPlayingSong(selectedSong.path);
-  await _updateMetadata();
-  await _updatePlaybackState(playing: true);
-  notifySongChange();
-  notifyListeners();
-}
+    Music selectedSong = _playingSongs[queueIndex];
+    _log("Playing song from queue: ${selectedSong.title}");
+
+    _currentSongIndex = queueIndex;
+    await _audioPlayer.play(DeviceFileSource(selectedSong.path));
+    _isPlaying = true;
+    _currentPosition = Duration.zero;
+    await Settings.setLastPlayingSong(selectedSong.path);
+    await _updateMetadata();
+    await _updatePlaybackState(playing: true);
+    notifyListeners();
+  }
 
   Future<void> playSong(int sortedIndex) async {
     if (sortedIndex < 0 || sortedIndex >= _sortedSongs.length) {
@@ -299,50 +298,44 @@ Future<void> _playSongFromQueue(int queueIndex) async {
     await Settings.setLastPlayingSong(selectedSong.path);
     await _updateMetadata();
     await _updatePlaybackState(playing: true);
-    notifySongChange();
     notifyListeners();
   }
 
-Future<void> pauseSong() async {
-  if (_isPausing || !_isPlaying) return;
+  Future<void> pauseSong() async {
+    if (_isPausing || !_isPlaying) return;
 
-  _isPausing = true;
-  _log("Pausing song");
+    _isPausing = true;
+    _log("Pausing song");
 
-  try {
-    await _audioPlayer.pause();
-    _isPlaying = false;
-    await _updatePlaybackState(playing: false);
-    // Notify clients about the pause
-    _server?.notifyClients('pause', {'position': _currentPosition.inMilliseconds});
-    notifyListeners();
-  } catch (e) {
-    _log("Error pausing song: $e");
-  } finally {
-    _isPausing = false;
+    try {
+      await _audioPlayer.pause();
+      _isPlaying = false;
+      await _updatePlaybackState(playing: false);
+      notifyListeners();
+    } catch (e) {
+      _log("Error pausing song: $e");
+    } finally {
+      _isPausing = false;
+    }
   }
-}
 
-Future<void> resumeSong() async {
-  if (_isResuming || _isPlaying) return;
+  Future<void> resumeSong() async {
+    if (_isResuming || _isPlaying) return;
 
-  _isResuming = true;
-  _log("Resuming song");
+    _isResuming = true;
+    _log("Resuming song");
 
-  try {
-    await _audioPlayer.resume();
-    _isPlaying = true;
-    await _updatePlaybackState(playing: true);
-    // Notify clients about the resume
-    _server?.notifyClients('play', {'position': _currentPosition.inMilliseconds});
-    notifyListeners();
-  } catch (e) {
-    _log("Error resuming song: $e");
-  } finally {
-    _isResuming = false;
+    try {
+      await _audioPlayer.resume();
+      _isPlaying = true;
+      await _updatePlaybackState(playing: true);
+      notifyListeners();
+    } catch (e) {
+      _log("Error resuming song: $e");
+    } finally {
+      _isResuming = false;
+    }
   }
-}
-
 
   Future<void> stopSong() async {
     if (_isStoppingInProgress) return;
@@ -375,69 +368,78 @@ Future<void> resumeSong() async {
     }
   }
 
-Future<void> nextSong() async {
-  _log("Moving to next song");
-  if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
-    int nextIndex;
-    if (_repeatMode == 'all') {
-      nextIndex = (_currentSongIndex! + 1) % _playingSongs.length;
+  Future<void> nextSong() async {
+    if (_isPlayingFromServer) {
+      // Send request to server to play next song
+      await http.get(Uri.parse('http://$_connectedServerIp:8080/next'));
+      await _startServerStreamPlayback();
     } else {
-      nextIndex = _currentSongIndex! + 1;
-      if (nextIndex >= _playingSongs.length) {
-        await stopSong();
-        return;
+      _log("Moving to next song");
+      if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
+        int nextIndex;
+        if (_repeatMode == 'all') {
+          nextIndex = (_currentSongIndex! + 1) % _playingSongs.length;
+        } else {
+          nextIndex = _currentSongIndex! + 1;
+          if (nextIndex >= _playingSongs.length) {
+            await stopSong();
+            return;
+          }
+        }
+        _currentSongIndex = nextIndex;
+        try {
+          await _audioPlayer
+              .play(DeviceFileSource(_playingSongs[nextIndex].path));
+          _isPlaying = true;
+          _currentPosition = Duration.zero;
+          await Settings.setLastPlayingSong(_playingSongs[nextIndex].path);
+          await _updateMetadata();
+          await _updatePlaybackState(playing: true);
+          await _audioHandler.play();
+          notifyListeners();
+        } catch (e) {
+          _log("Error playing next song: $e");
+        }
+      } else {
+        _log("No songs to play");
       }
     }
-    _currentSongIndex = nextIndex;
-    try {
-      await _audioPlayer.play(DeviceFileSource(_playingSongs[nextIndex].path));
-      _isPlaying = true;
-      _currentPosition = Duration.zero;
-      await Settings.setLastPlayingSong(_playingSongs[nextIndex].path);
-      await _updateMetadata();
-      await _updatePlaybackState(playing: true);
-      await _audioHandler.play();
-      // Notify clients about the skip
-      _server?.notifyClients('skip', {'direction': 'next'});
-      notifySongChange();
-      notifyListeners();
-    } catch (e) {
-      _log("Error playing next song: $e");
-    }
-  } else {
-    _log("No songs to play");
   }
-}
 
-Future<void> previousSong() async {
-  _log("Moving to previous song");
-  if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
-    if (_currentPosition.inSeconds > 3) {
-      await seek(Duration.zero);
+  Future<void> previousSong() async {
+    if (_isPlayingFromServer) {
+      // Send request to server to play previous song
+      await http.get(Uri.parse('http://$_connectedServerIp:8080/previous'));
+      await _startServerStreamPlayback();
     } else {
-      int previousIndex = (_currentSongIndex! - 1 + _playingSongs.length) %
-          _playingSongs.length;
-      _currentSongIndex = previousIndex;
-      try {
-        await _audioPlayer.play(DeviceFileSource(_playingSongs[previousIndex].path));
-        _isPlaying = true;
-        _currentPosition = Duration.zero;
-        await Settings.setLastPlayingSong(_playingSongs[previousIndex].path);
-        await _updateMetadata();
-        await _updatePlaybackState(playing: true);
-        await _audioHandler.play();
-        // Notify clients about the skip
-        _server?.notifyClients('skip', {'direction': 'previous'});
-        notifySongChange();
-        notifyListeners();
-      } catch (e) {
-        _log("Error playing previous song: $e");
+      _log("Moving to previous song");
+      if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
+        if (_currentPosition.inSeconds > 3) {
+          await seek(Duration.zero);
+        } else {
+          int previousIndex = (_currentSongIndex! - 1 + _playingSongs.length) %
+              _playingSongs.length;
+          _currentSongIndex = previousIndex;
+          try {
+            await _audioPlayer
+                .play(DeviceFileSource(_playingSongs[previousIndex].path));
+            _isPlaying = true;
+            _currentPosition = Duration.zero;
+            await Settings.setLastPlayingSong(
+                _playingSongs[previousIndex].path);
+            await _updateMetadata();
+            await _updatePlaybackState(playing: true);
+            await _audioHandler.play();
+            notifyListeners();
+          } catch (e) {
+            _log("Error playing previous song: $e");
+          }
+        }
+      } else {
+        _log("No songs to play");
       }
     }
-  } else {
-    _log("No songs to play");
   }
-}
 
   // MARK: Album and Artist Playback
   Future<void> playAlbum(List<Music> albumSongs, Music selectedSong) async {
@@ -514,19 +516,19 @@ Future<void> previousSong() async {
     _log("Playlist shuffled and playing ${currentSong.title}");
   }
 
-void reorderPlayingSongs(List<Music> newOrder) {
-  _log("Reordering playing songs");
-  final currentSong = getCurrentSong();
-  _playingSongs = newOrder;
+  void reorderPlayingSongs(List<Music> newOrder) {
+    _log("Reordering playing songs");
+    final currentSong = getCurrentSong();
+    _playingSongs = newOrder;
 
-  if (currentSong != null) {
-    _currentSongIndex = _playingSongs.indexOf(currentSong);
-  } else {
-    _currentSongIndex = 0;
+    if (currentSong != null) {
+      _currentSongIndex = _playingSongs.indexOf(currentSong);
+    } else {
+      _currentSongIndex = 0;
+    }
+
+    notifyListeners();
   }
-
-  notifyListeners();
-}
 
   // MARK: Settings and Controls
   Future<void> setVolume(double newVolume) async {
@@ -536,19 +538,16 @@ void reorderPlayingSongs(List<Music> newOrder) {
     notifyListeners();
   }
 
-Future<void> seek(Duration position) async {
-  _log("Seeking to position: $position");
-  try {
-    await _audioPlayer.seek(position);
-    _currentPosition = position;
-    // Notify clients about the seek
-    _server?.notifyClients('seek', {'position': position.inMilliseconds});
-    notifyListeners();
-  } catch (e) {
-    _log("Error seeking song: $e");
+  Future<void> seek(Duration position) async {
+    _log("Seeking to position: $position");
+    try {
+      await _audioPlayer.seek(position);
+      _currentPosition = position;
+      notifyListeners();
+    } catch (e) {
+      _log("Error seeking song: $e");
+    }
   }
-}
-
 
   Future<void> setRepeatMode(String mode) async {
     _log("Setting repeat mode to $mode");
@@ -604,8 +603,10 @@ Future<void> seek(Duration position) async {
 
       _playingSongs = List.from(_allSongs);
 
-      Music oldestSong = _allSongs.reduce((a, b) => a.lastModified.isBefore(b.lastModified) ? a : b);
-      print('Oldest song: ${oldestSong.title} (Modified on: ${oldestSong.lastModified})');
+      Music oldestSong = _allSongs
+          .reduce((a, b) => a.lastModified.isBefore(b.lastModified) ? a : b);
+      print(
+          'Oldest song: ${oldestSong.title} (Modified on: ${oldestSong.lastModified})');
 
       notifyListeners();
     } catch (e) {
@@ -713,111 +714,110 @@ Future<void> seek(Duration position) async {
 
   // MARK: Search and Sort
 
-void setSearchQuery(String query) {
-  if (_debounceTimer?.isActive ?? false) {
-    _debounceTimer!.cancel();
-  }
-  
-  _searchQuery = query.toLowerCase();
-  
-  _debounceTimer = Timer(_debounceDuration, () {
-    _filterAndSortSongs();
-  });
-  
-  notifyListeners();
-}
-
-void _filterAndSortSongs() {
-  _log("Filtering and sorting songs");
-  if (_searchQuery.isEmpty) {
-    _sortedSongs = List.from(_allSongs);
-    _applySorting();
-  } else {
-    final fuse = Fuzzy(
-      _allSongs,
-      options: FuzzyOptions(
-        keys: [
-          WeightedKey(
-            name: 'title',
-            getter: (Music song) => song.title.toLowerCase(),
-            weight: 80,
-          ),
-          WeightedKey(
-            name: 'artist',
-            getter: (Music song) => song.artist.toLowerCase(),
-            weight: 40,
-          ),
-          WeightedKey(
-            name: 'album',
-            getter: (Music song) => song.album.toLowerCase(),
-            weight: 20,
-          ),
-        ],
-        threshold: 0.4,  // Lower threshold for more results
-        distance: 100,   // Increased distance for better fuzzy matching
-      ),
-    );
-
-    final results = fuse.search(_searchQuery);
-    
-    // Sort by score (higher score = better match)
-    results.sort((a, b) => a.score.compareTo(b.score));
-    
-    _sortedSongs = results.map((r) => r.item).toList();
-  }
-
-  notifyListeners();
-}
-
-void _applySorting() {
-  _log("Applying sorting: by $_sortBy, ascending: $_sortAscending");
-  _sortedSongs.sort((a, b) {
-    int comparison;
-    switch (_sortBy) {
-      case 'title':
-        comparison = a.title.compareTo(b.title);
-        break;
-      case 'artist':
-        comparison = a.artist.compareTo(b.artist);
-        break;
-      case 'album':
-        comparison = a.album.compareTo(b.album);
-        break;
-      case 'duration':
-        comparison = a.duration.compareTo(b.duration);
-        break;
-      case 'folder':
-        comparison = a.folderName.compareTo(b.folderName);
-        break;
-      case 'last Modified':
-        comparison = b.lastModified.compareTo(a.lastModified);
-        break;
-      case 'year':
-        // Parse years to integers for proper numerical comparison
-        int yearA = int.tryParse(a.year) ?? 0;
-        int yearB = int.tryParse(b.year) ?? 0;
-        comparison = yearA.compareTo(yearB);
-        break;
-      default:
-        comparison = a.title.compareTo(b.title);
+  void setSearchQuery(String query) {
+    if (_debounceTimer?.isActive ?? false) {
+      _debounceTimer!.cancel();
     }
-    return _sortAscending ? comparison : -comparison;
-  });
-}
 
-void sortSongs({String? sortBy, bool? ascending}) {
-  _log("Sorting songs: by ${sortBy ?? _sortBy}, ascending: ${ascending ?? _sortAscending}");
-  _sortBy = sortBy ?? _sortBy;
-  _sortAscending = ascending ?? _sortAscending;
-  _filterAndSortSongs();
-  Settings.setLibrarySongSort(_sortBy, _sortAscending); 
-}
+    _searchQuery = query.toLowerCase();
 
+    _debounceTimer = Timer(_debounceDuration, () {
+      _filterAndSortSongs();
+    });
 
+    notifyListeners();
+  }
 
-Future<void> loadSortSettings() async {
-  _sortBy = Settings.songSortBy;
-  _sortAscending = Settings.songSortAscending;
+  void _filterAndSortSongs() {
+    _log("Filtering and sorting songs");
+    if (_searchQuery.isEmpty) {
+      _sortedSongs = List.from(_allSongs);
+      _applySorting();
+    } else {
+      final fuse = Fuzzy(
+        _allSongs,
+        options: FuzzyOptions(
+          keys: [
+            WeightedKey(
+              name: 'title',
+              getter: (Music song) => song.title.toLowerCase(),
+              weight: 80,
+            ),
+            WeightedKey(
+              name: 'artist',
+              getter: (Music song) => song.artist.toLowerCase(),
+              weight: 40,
+            ),
+            WeightedKey(
+              name: 'album',
+              getter: (Music song) => song.album.toLowerCase(),
+              weight: 20,
+            ),
+          ],
+          threshold: 0.4, // Lower threshold for more results
+          distance: 100, // Increased distance for better fuzzy matching
+        ),
+      );
+
+      final results = fuse.search(_searchQuery);
+
+      // Sort by score (higher score = better match)
+      results.sort((a, b) => a.score.compareTo(b.score));
+
+      _sortedSongs = results.map((r) => r.item).toList();
+    }
+
+    notifyListeners();
+  }
+
+  void _applySorting() {
+    _log("Applying sorting: by $_sortBy, ascending: $_sortAscending");
+    _sortedSongs.sort((a, b) {
+      int comparison;
+      switch (_sortBy) {
+        case 'title':
+          comparison = a.title.compareTo(b.title);
+          break;
+        case 'artist':
+          comparison = a.artist.compareTo(b.artist);
+          break;
+        case 'album':
+          comparison = a.album.compareTo(b.album);
+          break;
+        case 'duration':
+          comparison = a.duration.compareTo(b.duration);
+          break;
+        case 'folder':
+          comparison = a.folderName.compareTo(b.folderName);
+          break;
+        case 'last Modified':
+          comparison = b.lastModified.compareTo(a.lastModified);
+          break;
+        case 'year':
+          // Parse years to integers for proper numerical comparison
+          int yearA = int.tryParse(a.year) ?? 0;
+          int yearB = int.tryParse(b.year) ?? 0;
+          comparison = yearA.compareTo(yearB);
+          break;
+        default:
+          comparison = a.title.compareTo(b.title);
+      }
+      return _sortAscending ? comparison : -comparison;
+    });
+  }
+
+  void sortSongs({String? sortBy, bool? ascending}) {
+    _log(
+        "Sorting songs: by ${sortBy ?? _sortBy}, ascending: ${ascending ?? _sortAscending}");
+    _sortBy = sortBy ?? _sortBy;
+    _sortAscending = ascending ?? _sortAscending;
+    _filterAndSortSongs();
+    Settings.setLibrarySongSort(_sortBy, _sortAscending);
+  }
+
+  Future<void> loadSortSettings() async {
+    _sortBy = Settings.songSortBy;
+    _sortAscending = Settings.songSortAscending;
   }
 
   // MARK: Metadata and Playback State
@@ -923,26 +923,20 @@ Future<void> loadSortSettings() async {
   }
 
   Future<void> _handleSongCompletion() async {
-    if (_isPlayingFromServer) {
-      await _fetchAndUpdateServerSong();
-      notifySongChange();
-    } else {
-      _log("Handling song completion");
-      switch (_repeatMode) {
-        case 'off':
-          await nextSong();
-          break;
-        case 'one':
-          if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
-            await _audioPlayer
-                .play(DeviceFileSource(_playingSongs[_currentSongIndex!].path));
-          }
-          break;
-        case 'all':
-          await nextSong();
-          break;
-      }
-      notifySongChange();
+    _log("Handling song completion");
+    switch (_repeatMode) {
+      case 'off':
+        await nextSong();
+        break;
+      case 'one':
+        if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
+          await _audioPlayer
+              .play(DeviceFileSource(_playingSongs[_currentSongIndex!].path));
+        }
+        break;
+      case 'all':
+        await nextSong();
+        break;
     }
   }
 
@@ -953,9 +947,7 @@ Future<void> loadSortSettings() async {
   @override
   void dispose() {
     _log("Disposing NPlayer");
-    _songChangeController.close();
     _audioPlayer.dispose();
-    _serverCheckTimer?.cancel();
     _debounceTimer?.cancel();
     super.dispose();
   }
@@ -974,175 +966,78 @@ Future<void> loadSortSettings() async {
     notifyListeners();
   }
 
-  void notifySongChange() {
-    _songChangeController.add(null);
-  }
-
-  Future<Map<String, dynamic>> _fetchMetadata(String serverIP) async {
-    final url = 'http://$serverIP:8080/metadata';
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('Failed to load metadata');
-    }
-  }
-
-  Future<void> connectToServer(String serverIP) async {
-    _log('Attempting to connect to server: $serverIP');
-    try {
-      _serverIP = serverIP;
-      final wsUrl = Uri.parse('ws://$serverIP:8080/ws');
-      _log('Connecting to WebSocket URL: $wsUrl');
-      _serverSocket = await WebSocket.connect(wsUrl.toString())
-          .timeout(Duration(seconds: 10));
-      _log('WebSocket connected successfully');
-
-      _serverSocket!.listen(
-        _handleServerUpdate,
-        onError: (error) {
-          _log('WebSocket error: $error');
-        },
-        onDone: () {
-          _log('WebSocket connection closed');
-        },
-      );
-
-      // Request the current song from the server
-      _serverSocket!.add(json.encode({'type': 'getCurrentSong'}));
-
-      // Enable stream playing using the old method
-      await enableStreamPlaying(serverIP);
-
-      _log('Connected to server: $serverIP');
-      notifyListeners();
-    } catch (e) {
-      _log('Error connecting to server: $e');
-      _serverIP = null;
-      _serverSocket = null;
-      rethrow;
-    }
-  }
-
-  void _handleServerUpdate(dynamic message) {
-    _log('Received message from server: $message');
-    if (message == null) {
-      _log('Received null message from server');
-      return;
+  Future<void> connectToServer(String ip) async {
+    if (!await NServer.isValidServer(ip)) {
+      throw Exception('Invalid server');
     }
 
-    Map? data;
-    try {
-      data = json.decode(message);
-    } catch (e) {
-      _log('Error decoding message: $e');
-      return;
-    }
-
-    if (data == null) {
-      _log('Decoded data is null');
-      return;
-    }
-
-    switch (data['type']) {
-      case 'songChange':
-        _log('Received songChange event: ${data['song']}');
-        if (data['song'] != null) {
-          _handleSongChange(Music.fromJson(data['song']));
-        } else {
-          _log('Received songChange event with null song data');
-        }
-        break;
-      case 'seek':
-        if (data['position'] != null) {
-          seek(Duration(milliseconds: data['position']));
-        }
-        break;
-      default:
-        _log('Unknown message type: ${data['type']}');
-    }
-  }
-
-  void _handleSongChange(Music newSong) {
-    // Keep playing the current song
-    Music? currentSong = getCurrentSong();
-
-    // Attempt to play the new song
-    _audioPlayer.play(UrlSource(newSong.path));
-
-    // Start a timer to check if the new song is playing
-    Timer(Duration(seconds: 1), () {
-      if (_audioPlayer.state == PlayerState.playing) {
-        // If the new song is playing after 1 second, update the player state
-        _playingSongs = [newSong];
-        _currentSongIndex = 0;
-        _isPlaying = true;
-        _currentPosition = Duration.zero;
-        _updateMetadata();
-        _updatePlaybackState(playing: true);
-        notifySongChange();
-        notifyListeners();
-      } else {
-        // If the new song isn't playing after 1 second, revert to the previous song
-        if (currentSong != null) {
-          _audioPlayer.play(DeviceFileSource(currentSong.path));
-        }
-        _log('Failed to play new song, reverting to previous song');
-      }
-    });
-  }
-
-  Future<void> enableStreamPlaying(String serverIP) async {
-    _serverIP = serverIP;
+    _connectedServerIp = ip;
     _isPlayingFromServer = true;
-    await _fetchAndUpdateServerSong();
-    _serverCheckTimer = Timer.periodic(
-      Duration(seconds: 5),
-      (_) => _fetchAndUpdateServerSong(),
-    );
+    await _initializeServerPlayback();
     notifyListeners();
   }
 
-  Future<void> disableStreamPlaying() async {
-    _isPlayingFromServer = false;
-    _serverIP = null;
-    _serverCheckTimer?.cancel();
+  Future<void> _initializeServerPlayback() async {
+    await _startServerStreamPlayback();
+    await _syncPositionWithServer();
+    _startServerMetadataCheck();
+  }
+
+  Future<void> _startServerStreamPlayback() async {
+    final streamUrl = 'http://$_connectedServerIp:8080/stream';
+    await _audioPlayer.play(UrlSource(streamUrl));
+    _isPlaying = true;
     notifyListeners();
   }
 
-  Future<void> _fetchAndUpdateServerSong() async {
-    if (!_isPlayingFromServer || _serverIP == null) return;
+  Future<void> _syncPositionWithServer() async {
     try {
-      final metadata = await NServer.getRemoteMetadata(_serverIP!);
-      final serverSong = Music(
-        path: 'http://$_serverIP:8080/stream',
-        folderName: 'Server',
-        lastModified: DateTime.now(),
-        title: metadata['title'] ?? 'Unknown Title',
-        album: metadata['album'] ?? 'Unknown Album',
-        artist: metadata['artist'] ?? 'Unknown Artist',
-        duration: (metadata['duration'] as num?)?.toInt() ?? 0,
-        picture: metadata['picture'] != null
-            ? base64Decode(metadata['picture'])
-            : null,
-        year: metadata['year']?.toString() ?? '',
-        genre: metadata['genre'] ?? 'Unknown Genre',
-        size: 0,
-      );
-
-      if (_playingSongs.isEmpty || _playingSongs[0].path != serverSong.path) {
-        _playingSongs = [serverSong];
-        _currentSongIndex = 0;
-        await _audioPlayer.play(UrlSource(serverSong.path));
-        _isPlaying = true;
-        _currentPosition = Duration.zero;
-        await _updateMetadata();
-        await _updatePlaybackState(playing: true);
-        notifySongChange();
-        notifyListeners();
+      final response =
+          await http.get(Uri.parse('http://$_connectedServerIp:8080/position'));
+      if (response.statusCode == 200) {
+        final positionData = json.decode(response.body);
+        final position = Duration(milliseconds: positionData['position']);
+        await _audioPlayer.seek(position);
       }
     } catch (e) {
-      _log('Error fetching server song: $e');
+      _log("Error syncing position with server: $e");
     }
   }
+
+  void _startServerMetadataCheck() {
+    Timer.periodic(Duration(seconds: 1), (_) => _checkServerMetadata());
+  }
+
+  Future<void> _checkServerMetadata() async {
+    if (!_isPlayingFromServer) return;
+
+    try {
+      final response =
+          await http.get(Uri.parse('http://$_connectedServerIp:8080/metadata'));
+      if (response.statusCode == 200) {
+        final metadata = json.decode(response.body);
+        if (metadata['title'] != getCurrentSong()?.title) {
+          await _startServerStreamPlayback();
+          await _syncPositionWithServer();
+        }
+        _updateMetadataFromServer(metadata);
+      }
+    } catch (e) {
+      _log("Error checking server metadata: $e");
+    }
+  }
+
+  void _updateMetadataFromServer(Map<String, dynamic> metadata) {
+    // Update current song metadata
+    // You might need to create a new Music object or update the existing one
+    notifyListeners();
+  }
+
+  Future<void> disconnectFromServer() async {
+  _isPlayingFromServer = false;
+  _connectedServerIp = null;
+  await stopSong();
+  notifyListeners();
+}
+
 }
