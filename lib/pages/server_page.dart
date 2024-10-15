@@ -38,6 +38,7 @@ class _ServerPageState extends State<ServerPage> {
   }
 
   Future<void> _toggleServer() async {
+    /*
     final nplayer = Provider.of<NPlayer>(context, listen: false);
     try {
       await nplayer.toggleServer();
@@ -59,6 +60,7 @@ class _ServerPageState extends State<ServerPage> {
         SnackBar(content: Text('Failed to toggle server: $e')),
       );
     }
+    */
   }
 
   Future<void> _scanForServers() async {
@@ -106,7 +108,7 @@ class _ServerPageState extends State<ServerPage> {
             onPressed: _toggleServer,
             child: Text(nplayer.isServerOn ? 'Stop Server' : 'Start Server'),
           ),
-          if (nplayer.isPlayingFromServer)
+         // if (nplayer.isPlayingFromServer)
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Text(

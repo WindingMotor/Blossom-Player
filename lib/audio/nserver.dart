@@ -1,150 +1,159 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:blossom/audio/nplayer.dart';
-import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 
 class NServer {
   final NPlayer _player;
-  HttpServer? _server;
-  String? currentIp;
-  bool isRunning = false;
+  ServerSocket? _server;
+  bool _isRunning = false;
 
   NServer(this._player);
 
-  Future<void> start() async {
-    if (isRunning) return;
+  Future<void> start({int port = 8080}) async {
+    if (_isRunning) return;
 
     try {
-      final addresses = await NetworkInterface.list(type: InternetAddressType.IPv4);
-      final address = addresses.first.addresses.first;
-      _server = await HttpServer.bind(address, 8080);
-      currentIp = address.address;
-      isRunning = true;
+      _server = await ServerSocket.bind(InternetAddress.anyIPv4, port);
+      _isRunning = true;
+      print('Server listening on ${_server!.address.address}:${_server!.port}');
 
-    _server!.listen((HttpRequest request) async {
-      switch (request.uri.path) {
-        case '/metadata':
-          _handleMetadataRequest(request);
-          break;
-        case '/stream':
-          await _handleStreamRequest(request);
-          break;
-        case '/position':
-          _handlePositionRequest(request);
-          break;
-        default:
-          request.response
-            ..statusCode = HttpStatus.notFound
-            ..close();
-      }
-    });
-
-      print('Server running on $currentIp:8080');
+      _server!.listen((Socket client) {
+        print('Client connected: ${client.remoteAddress.address}:${client.remotePort}');
+        _handleClient(client);
+      });
     } catch (e) {
-      print('Failed to start server: $e');
-      isRunning = false;
+      print('Error starting server: $e');
     }
   }
 
-  void _handleMetadataRequest(HttpRequest request) {
-    final currentSong = _player.getCurrentSong();
-    if (currentSong == null) {
-      request.response
-        ..statusCode = HttpStatus.noContent
-        ..close();
-      return;
-    }
+  void _handleClient(Socket client) async {
+    try {
+      Music? currentSong = _player.getCurrentSong();
+      if (currentSong == null) {
+        client.write('No song playing');
+        await client.close();
+        return;
+      }
 
-    final metadata = {
-      'title': currentSong.title,
-      'artist': currentSong.artist,
-      'album': currentSong.album,
-      'duration': currentSong.duration,
-    };
+      File songFile = File(currentSong.path);
+      if (!await songFile.exists()) {
+        client.write('Song file not found');
+        await client.close();
+        return;
+      }
 
-    request.response
-      ..headers.contentType = ContentType.json
-      ..write(json.encode(metadata))
-      ..close();
-  }
+      // Send song metadata
+      client.write('${currentSong.title}\n');
+      client.write('${currentSong.artist}\n');
+      client.write('${currentSong.album}\n');
+      client.write('${await songFile.length()}\n');
 
-  Future<void> _handleStreamRequest(HttpRequest request) async {
-    final currentSong = _player.getCurrentSong();
-    if (currentSong == null) {
-      request.response
-        ..statusCode = HttpStatus.noContent
-        ..close();
-      return;
-    }
-
-    final file = File(currentSong.path);
-    if (!await file.exists()) {
-      request.response
-        ..statusCode = HttpStatus.notFound
-        ..close();
-      return;
-    }
-
-    final fileExtension = path.extension(currentSong.path).toLowerCase();
-    final mimeType = fileExtension == '.mp3' ? 'audio/mpeg' : 'audio/flac';
-
-    request.response.headers.add('Content-Type', mimeType);
-    request.response.headers.add('Accept-Ranges', 'bytes');
-
-    if (request.headers.value('range') != null) {
-      await _handleRangeRequest(request, file);
-    } else {
-      await file.openRead().pipe(request.response);
+      // Send the file content
+      await songFile.openRead().pipe(client);
+    } catch (e) {
+      print('Error handling client: $e');
+    } finally {
+      client.close();
     }
   }
 
-  Future<void> _handleRangeRequest(HttpRequest request, File file) async {
-    final range = request.headers.value('range')!;
-    final fileSize = await file.length();
-    final start = int.parse(range.split('=')[1].split('-')[0]);
-    final end = fileSize - 1;
-
-    request.response.statusCode = HttpStatus.partialContent;
-    request.response.headers.add('Content-Range', 'bytes $start-$end/$fileSize');
-    request.response.headers.add('Content-Length', (end - start + 1).toString());
-
-    await file.openRead(start, end + 1).pipe(request.response);
+    static Future<bool> isValidServer(String host, {int port = 8080}) async {
+    try {
+      final socket = await Socket.connect(host, port, timeout: Duration(seconds: 2));
+      await socket.close();
+      return true;
+    } catch (e) {
+      print('Error checking server: $e');
+      return false;
+    }
   }
 
-    void _handlePositionRequest(HttpRequest request) {
-    final currentPosition = _player.currentPosition;
-    final duration = _player.duration;
 
-    final positionData = {
-      'position': currentPosition.inMilliseconds,
-      'duration': duration.inMilliseconds,
-    };
-
-    request.response
-      ..headers.contentType = ContentType.json
-      ..write(json.encode(positionData))
-      ..close();
-  }
-
-  Future<void> stop() async {
-    if (!isRunning) return;
-
-    await _server?.close();
-    _server = null;
-    currentIp = null;
-    isRunning = false;
+   Future<void> stop () async {
+    _server?.close();
+    _isRunning = false;
     print('Server stopped');
   }
 
-  static Future<bool> isValidServer(String ip) async {
+  bool get isRunning => _isRunning;
+}
+class NClient {
+  final NPlayer _player;
+
+  NClient(this._player);
+
+  Future<void> connectAndPlay(String host, int port) async {
     try {
-      final response = await http.get(Uri.parse('http://$ip:8080/metadata'))
-          .timeout(const Duration(seconds: 2));
-      return response.statusCode == 200;
+      final socket = await Socket.connect(host, port);
+      print('Connected to server');
+
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/temp_song.mp3');
+      final sink = tempFile.openWrite();
+
+      String title = await _readLine(socket);
+      String artist = await _readLine(socket);
+      String album = await _readLine(socket);
+      int fileSize = int.parse(await _readLine(socket));
+
+      int bytesReceived = 0;
+      await for (Uint8List data in socket) {
+        sink.add(data);
+        bytesReceived += data.length;
+        if (bytesReceived >= fileSize) break;
+      }
+
+      await sink.close();
+      await socket.close();
+
+      print('Song received and saved to ${tempFile.path}');
+
+      // Create a Music object for the received song
+      final receivedSong = Music(
+        path: tempFile.path,
+        folderName: 'Temp',
+        lastModified: DateTime.now(),
+        title: title,
+        album: album,
+        artist: artist,
+        duration: 0, // You might want to get the actual duration
+        year: '',
+        genre: '',
+        size: fileSize,
+      );
+
+      // Tell NPlayer to play the received song
+      await _player.playSpecificSong(receivedSong);
     } catch (e) {
-      return false;
+      print('Error connecting to server: $e');
     }
+  }
+
+  Future<String> _readLine(Socket socket) async {
+    final completer = Completer<String>();
+    List<int> lineBytes = [];
+
+    socket.listen(
+      (data) {
+        for (var byte in data) {
+          if (byte == 10) { // newline character
+            completer.complete(String.fromCharCodes(lineBytes));
+            return;
+          }
+          lineBytes.add(byte);
+        }
+      },
+      onDone: () {
+        if (!completer.isCompleted) {
+          completer.complete(String.fromCharCodes(lineBytes));
+        }
+      },
+      onError: completer.completeError,
+      cancelOnError: true,
+    );
+
+    return completer.future;
   }
 }

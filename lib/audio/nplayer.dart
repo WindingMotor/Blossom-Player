@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 import 'dart:io';
 import 'dart:ui';
@@ -16,7 +15,6 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:audio_service/audio_service.dart';
-import 'package:http/http.dart' as http;
 
 /// Represents a music file with its metadata and associated playlists.
 class Music {
@@ -116,17 +114,11 @@ class NPlayer extends ChangeNotifier {
   List<String> get playlists => PlaylistManager.playlistNames;
 
   NServer? _server;
-  NServer? get server => _server;
+  NClient? _client;
 
   // Server streaming state
   bool _isServerOn = false;
   bool get isServerOn => _isServerOn;
-
-  // Server playing state
-  String? _connectedServerIp;
-  String? get connectedServerIp => _connectedServerIp;
-  bool _isPlayingFromServer = false;
-  bool get isPlayingFromServer => _isPlayingFromServer;
 
   // Search debounce
   Timer? _debounceTimer;
@@ -147,6 +139,9 @@ class NPlayer extends ChangeNotifier {
     listFiles();
     sortSongs(sortBy: 'title', ascending: true);
     _initHeadsetDetection();
+    _log ("Initalizing client and server");
+    _server = NServer(this);
+    _client = NClient(this);
   }
 
   // MARK: Initialization Methods
@@ -369,11 +364,7 @@ class NPlayer extends ChangeNotifier {
   }
 
   Future<void> nextSong() async {
-    if (_isPlayingFromServer) {
-      // Send request to server to play next song
-      await http.get(Uri.parse('http://$_connectedServerIp:8080/next'));
-      await _startServerStreamPlayback();
-    } else {
+
       _log("Moving to next song");
       if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
         int nextIndex;
@@ -403,15 +394,10 @@ class NPlayer extends ChangeNotifier {
       } else {
         _log("No songs to play");
       }
-    }
+    
   }
 
   Future<void> previousSong() async {
-    if (_isPlayingFromServer) {
-      // Send request to server to play previous song
-      await http.get(Uri.parse('http://$_connectedServerIp:8080/previous'));
-      await _startServerStreamPlayback();
-    } else {
       _log("Moving to previous song");
       if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
         if (_currentPosition.inSeconds > 3) {
@@ -438,7 +424,7 @@ class NPlayer extends ChangeNotifier {
       } else {
         _log("No songs to play");
       }
-    }
+    
   }
 
   // MARK: Album and Artist Playback
@@ -953,91 +939,30 @@ class NPlayer extends ChangeNotifier {
   }
 
   // MARK: Server-related methods
-  Future<void> toggleServer() async {
-    if (_isServerOn) {
-      await _server?.stop();
+
+  Future<void> startServer({int port = 8080}) async {
+    _log("Starting server on port $port");
+    _server = NServer(this);
+    await _server!.start(port: port);
+    _isServerOn = true;
+    notifyListeners();
+  }
+
+  Future<void> stopServer() async {
+    _log("Stopping server");
+    if (_server != null) {
+      await _server!.stop();
       _server = null;
       _isServerOn = false;
-    } else {
-      _server = NServer(this);
-      await _server!.start();
-      _isServerOn = _server!.isRunning;
-    }
-    notifyListeners();
-  }
-
-  Future<void> connectToServer(String ip) async {
-    if (!await NServer.isValidServer(ip)) {
-      throw Exception('Invalid server');
-    }
-
-    _connectedServerIp = ip;
-    _isPlayingFromServer = true;
-    await _initializeServerPlayback();
-    notifyListeners();
-  }
-
-  Future<void> _initializeServerPlayback() async {
-    await _startServerStreamPlayback();
-    await _syncPositionWithServer();
-    _startServerMetadataCheck();
-  }
-
-  Future<void> _startServerStreamPlayback() async {
-    final streamUrl = 'http://$_connectedServerIp:8080/stream';
-    await _audioPlayer.play(UrlSource(streamUrl));
-    _isPlaying = true;
-    notifyListeners();
-  }
-
-  Future<void> _syncPositionWithServer() async {
-    try {
-      final response =
-          await http.get(Uri.parse('http://$_connectedServerIp:8080/position'));
-      if (response.statusCode == 200) {
-        final positionData = json.decode(response.body);
-        final position = Duration(milliseconds: positionData['position']);
-        await _audioPlayer.seek(position);
-      }
-    } catch (e) {
-      _log("Error syncing position with server: $e");
+      notifyListeners();
     }
   }
 
-  void _startServerMetadataCheck() {
-    Timer.periodic(Duration(seconds: 1), (_) => _checkServerMetadata());
-  }
-
-  Future<void> _checkServerMetadata() async {
-    if (!_isPlayingFromServer) return;
-
-    try {
-      final response =
-          await http.get(Uri.parse('http://$_connectedServerIp:8080/metadata'));
-      if (response.statusCode == 200) {
-        final metadata = json.decode(response.body);
-        if (metadata['title'] != getCurrentSong()?.title) {
-          await _startServerStreamPlayback();
-          await _syncPositionWithServer();
-        }
-        _updateMetadataFromServer(metadata);
-      }
-    } catch (e) {
-      _log("Error checking server metadata: $e");
+  Future<void> connectToServer(String host, int port) async {
+    if (_client == null) {
+      _client = NClient(this);
     }
+    await _client!.connectAndPlay(host, port);
   }
-
-  void _updateMetadataFromServer(Map<String, dynamic> metadata) {
-    // Update current song metadata
-    // You might need to create a new Music object or update the existing one
-    notifyListeners();
-  }
-
-  Future<void> disconnectFromServer() async {
-  _isPlayingFromServer = false;
-  _connectedServerIp = null;
-  await stopSong();
-  notifyListeners();
-}
 
 }

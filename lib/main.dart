@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:blossom/audio/nplayer_widget_desktop.dart';
 import 'package:blossom/custom/custom_appbar.dart';
-import 'package:blossom/pages/server_page.dart';
 import 'package:blossom/tools/downloader.dart';
 import 'package:blossom/pages/loading_page.dart';
 import 'package:blossom/audio/nplaylist.dart';
@@ -463,10 +462,6 @@ class _MainStructureState extends State<MainStructure>
       const SongAlbums(),
       const ArtistsPage(),
     ];
-
-    if (enableTesting) {
-      pages.add(const ServerPage());
-    }
 
     if (!kIsWeb &&
         (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {

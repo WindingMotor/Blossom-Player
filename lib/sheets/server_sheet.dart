@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
@@ -13,8 +12,7 @@ class ServerSheet extends StatefulWidget {
   _ServerSheetState createState() => _ServerSheetState();
 }
 
-class _ServerSheetState extends State<ServerSheet>
-    with SingleTickerProviderStateMixin {
+class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
   final TextEditingController _ipController = TextEditingController();
@@ -40,20 +38,16 @@ class _ServerSheetState extends State<ServerSheet>
     _controller.forward();
   }
 
-  Future<void> _toggleServer() async {
-    final nplayer = Provider.of<NPlayer>(context, listen: false);
+  Future<void> _toggleServer(NPlayer nplayer) async {
     try {
-      await nplayer.toggleServer();
       if (nplayer.isServerOn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Server started on ${nplayer.server!.currentIp}:8080')),
-        );
+        await nplayer.stopServer();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Server stopped')),
-        );
+        await nplayer.startServer();
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(nplayer.isServerOn ? 'Server started' : 'Server stopped')),
+      );
     } catch (e) {
       print('Error toggling server: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -82,7 +76,6 @@ class _ServerSheetState extends State<ServerSheet>
 
     final subnet = wifiIP.substring(0, wifiIP.lastIndexOf('.'));
 
-    // Limit the number of concurrent requests to prevent flooding
     final List<Future<void>> scanFutures = [];
     for (int i = 1; i <= 254; i++) {
       final host = '$subnet.$i';
@@ -104,27 +97,22 @@ class _ServerSheetState extends State<ServerSheet>
     }
   }
 
-void _connectToServer(String ip) {
-  final nplayer = Provider.of<NPlayer>(context, listen: false);
-  nplayer.connectToServer(ip).then((_) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Connected to server at $ip')),
-    );
-  }).catchError((error) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to connect to server: $error')),
-    );
-  });
-}
+  void _connectToServer(NPlayer nplayer, String ip) {
+    nplayer.connectToServer(ip, 8080).then((_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Connected to server at $ip')),
+      );
+    }).catchError((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to connect to server: $error')),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<NPlayer>(
       builder: (context, nplayer, _) {
-        final server = nplayer.server;
-        final isServerOn = nplayer.isServerOn;
-        final currentIp = server?.currentIp;
-
         return AnimatedBuilder(
           animation: _animation,
           builder: (context, child) {
@@ -139,19 +127,11 @@ void _connectToServer(String ip) {
           child: Container(
             height: MediaQuery.of(context).size.height * 0.85,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Theme.of(context).scaffoldBackgroundColor,
-                  Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95),
-                ],
-              ),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
+              color: Theme.of(context).cardColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withOpacity(0.2),
                   blurRadius: 10,
                   spreadRadius: 5,
                 ),
@@ -160,14 +140,14 @@ void _connectToServer(String ip) {
             child: Column(
               children: [
                 _buildHandle(),
-                const SizedBox(height: 10),
-                _buildHeader(isServerOn, currentIp),
                 const SizedBox(height: 20),
-                _buildServerControls(isServerOn),
+                _buildHeader(nplayer),
                 const SizedBox(height: 20),
-                _buildConnectionSection(),
+                _buildServerControls(nplayer),
                 const SizedBox(height: 20),
-                _buildAvailableServers(),
+                _buildConnectionSection(nplayer),
+                const SizedBox(height: 20),
+                _buildAvailableServers(nplayer),
               ],
             ),
           ),
@@ -188,33 +168,31 @@ void _connectToServer(String ip) {
     );
   }
 
-  Widget _buildHeader(bool isServerOn, String? currentIp) {
+  Widget _buildHeader(NPlayer nplayer) {
     return Text(
-      isServerOn
-          ? 'Server is running on $currentIp:8080'
-          : 'Server is not running',
+      nplayer.isServerOn ? 'Server is running' : 'Server is not running',
       style: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.bold,
-        color: isServerOn ? Colors.green : Colors.red,
+        color: nplayer.isServerOn ? Colors.green : Colors.red,
       ),
     );
   }
 
-  Widget _buildServerControls(bool isServerOn) {
+  Widget _buildServerControls(NPlayer nplayer) {
     return ElevatedButton.icon(
-      onPressed: _toggleServer,
-      icon: Icon(isServerOn ? Icons.stop : Icons.play_arrow),
-      label: Text(isServerOn ? 'Stop Server' : 'Start Server'),
+      onPressed: () => _toggleServer(nplayer),
+      icon: Icon(nplayer.isServerOn ? Icons.stop : Icons.play_arrow),
+      label: Text(nplayer.isServerOn ? 'Stop Server' : 'Start Server'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: isServerOn ? Colors.red : Colors.green,
+        backgroundColor: nplayer.isServerOn ? Colors.red : Colors.green,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         textStyle: const TextStyle(fontSize: 16),
       ),
     );
   }
 
-  Widget _buildConnectionSection() {
+  Widget _buildConnectionSection(NPlayer nplayer) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
@@ -231,7 +209,7 @@ void _connectToServer(String ip) {
                 onPressed: () {
                   final ip = _ipController.text.trim();
                   if (ip.isNotEmpty) {
-                    _connectToServer(ip);
+                    _connectToServer(nplayer, ip);
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Please enter a valid IP')),
@@ -257,14 +235,12 @@ void _connectToServer(String ip) {
     );
   }
 
-  Widget _buildAvailableServers() {
+  Widget _buildAvailableServers(NPlayer nplayer) {
     return Expanded(
       child: _availableServers.isEmpty
           ? Center(
               child: Text(
-                _isScanning
-                    ? 'Scanning for servers...'
-                    : 'No servers found. Try scanning again.',
+                _isScanning ? 'Scanning for servers...' : 'No servers found. Try scanning again.',
                 style: TextStyle(color: Colors.grey[600]),
               ),
             )
@@ -273,13 +249,13 @@ void _connectToServer(String ip) {
               itemBuilder: (context, index) {
                 final ip = _availableServers[index];
                 return ListTile(
-                  leading: const Icon(Icons.link),
+                  leading: const Icon(Icons.computer),
                   title: Text(ip),
                   trailing: IconButton(
                     icon: const Icon(Icons.connect_without_contact),
-                    onPressed: () => _connectToServer(ip),
+                    onPressed: () => _connectToServer(nplayer, ip),
                   ),
-                  onTap: () => _connectToServer(ip),
+                  onTap: () => _connectToServer(nplayer, ip),
                 );
               },
             ),
