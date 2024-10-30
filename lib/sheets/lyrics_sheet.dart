@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 
 class LyricsSheet extends StatefulWidget {
   final String artist;
@@ -13,18 +14,18 @@ class LyricsSheet extends StatefulWidget {
 }
 
 class _LyricsSheetState extends State<LyricsSheet> with SingleTickerProviderStateMixin {
-  String _lyrics = 'Loading...';
   String _searchQuery = '';
   late AnimationController _controller;
   late Animation<double> _animation;
   final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<String> _lyricsNotifier = ValueNotifier<String>('Loading...');
 
   @override
   void initState() {
     super.initState();
     _fetchLyrics();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
     _animation = CurvedAnimation(
@@ -38,30 +39,36 @@ class _LyricsSheetState extends State<LyricsSheet> with SingleTickerProviderStat
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _lyricsNotifier.dispose();
     super.dispose();
   }
 
   Future<void> _fetchLyrics() async {
+    _lyricsNotifier.value = 'Loading...';
+    
     final encodedArtist = Uri.encodeComponent(widget.artist);
     final encodedTitle = Uri.encodeComponent(widget.title);
     final url = 'https://api.lyrics.ovh/v1/$encodedArtist/$encodedTitle';
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Accept': 'application/json'},
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Request timed out');
+        },
+      );
+      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        setState(() {
-          _lyrics = data['lyrics'] ?? 'Lyrics not found.';
-        });
+        _lyricsNotifier.value = data['lyrics'] ?? 'Lyrics not found.';
       } else {
-        setState(() {
-          _lyrics = 'Failed to load lyrics.';
-        });
+        _lyricsNotifier.value = 'Failed to load lyrics.';
       }
     } catch (e) {
-      setState(() {
-        _lyrics = 'Error: $e';
-      });
+      _lyricsNotifier.value = 'Error: $e';
     }
   }
 
@@ -78,7 +85,7 @@ class _LyricsSheetState extends State<LyricsSheet> with SingleTickerProviderStat
       }
       children.add(TextSpan(
         text: source.substring(match.start, match.end),
-        style: TextStyle(backgroundColor: Colors.yellow, color: Colors.black),
+        style: const TextStyle(backgroundColor: Colors.yellow, color: Colors.black),
       ));
       lastMatchEnd = match.end;
     }
@@ -140,12 +147,27 @@ class _LyricsSheetState extends State<LyricsSheet> with SingleTickerProviderStat
                 thumbVisibility: true,
                 child: SingleChildScrollView(
                   controller: _scrollController,
-                  padding: const EdgeInsets.all(16.0),
-                  child: RichText(
-                    text: TextSpan(
-                      style: TextStyle(fontSize: 16, height: 1.5, color: Theme.of(context).textTheme.bodyLarge?.color),
-                      children: _highlightOccurrences(_lyrics, _searchQuery),
-                    ),
+                  padding: const EdgeInsets.only(
+                    left: 16.0,
+                    right: 16.0,
+                    top: 16.0,
+                    bottom: 100.0,
+                  ),
+                  physics: const BouncingScrollPhysics(),
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: _lyricsNotifier,
+                    builder: (context, lyrics, child) {
+                      return RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 16,
+                            height: 1.5,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                          ),
+                          children: _highlightOccurrences(lyrics, _searchQuery),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -188,43 +210,43 @@ class _LyricsSheetState extends State<LyricsSheet> with SingleTickerProviderStat
     );
   }
 
-Widget _buildSearchBar() {
-  return Center(
-    child: SizedBox(
-      width: MediaQuery.of(context).size.width * 0.8, 
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0),
-        child: SizedBox(
-          height: 40.0,
-          child: TextField(
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value;
-              });
-            },
-            style: TextStyle(fontSize: 14.0),
-            decoration: InputDecoration(
-              hintText: 'Search lyrics...',
-              hintStyle: TextStyle(fontSize: 14.0),
-              prefixIcon: Icon(
-                Icons.search,
-                size: 20.0,
-              ),
-              contentPadding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide(
-                  color: Theme.of(context).primaryColor,
+  Widget _buildSearchBar() {
+    return Center(
+      child: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.8,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: SizedBox(
+            height: 40.0,
+            child: TextField(
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+              style: const TextStyle(fontSize: 14.0),
+              decoration: InputDecoration(
+                hintText: 'Search lyrics...',
+                hintStyle: const TextStyle(fontSize: 14.0),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  size: 20.0,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

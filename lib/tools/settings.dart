@@ -38,6 +38,11 @@ class Settings {
   static double get volume => _prefs.getDouble('volume') ?? _defaultVolume;
   static Future<void> setVolume(double vol) => _prefs.setDouble('volume', vol);
 
+// Previous shuffle setting
+static bool get previousForShuffle => _prefs.getBool('previousForShuffle') ?? false;
+static Future<void> setPreviousForShuffle(bool enabled) => 
+    _prefs.setBool('previousForShuffle', enabled);
+
   // Repeat mode
   static String get repeatMode => _prefs.getString('repeatMode') ?? 'off';
   static Future<void> setRepeatMode(String mode) =>
@@ -58,13 +63,24 @@ class Settings {
   }
 
 // Album sort preference
-  static String get albumSortBy {
-    String sortBy = _prefs.getString('albumSortBy') ?? 'name';
-    if (!['name', 'year', 'artist'].contains(sortBy)) {
-      sortBy = 'name'; // Default to 'name' if an invalid value is stored
-    }
-    return sortBy;
+static String get albumSortBy {
+  String sortBy = _prefs.getString('albumSortBy') ?? 'name';
+  if (!['name', 'year', 'artist', 'folder'].contains(sortBy)) {
+    sortBy = 'name'; // Default to 'name' if an invalid value is stored
   }
+  return sortBy;
+}
+
+static Future setAlbumSort(
+    String sortBy, bool ascending, bool organizeByFolder) async {
+  if (['name', 'year', 'artist', 'folder'].contains(sortBy)) {
+    await _prefs.setString('albumSortBy', sortBy);
+  } else {
+    await _prefs.setString('albumSortBy', 'name'); // Default to 'name' if invalid
+  }
+  await _prefs.setBool('albumSortAscending', ascending);
+  await _prefs.setBool('albumOrganizeByFolder', organizeByFolder);
+}
 
   // Library sort preference
   static String get songSortBy => _prefs.getString('songSortBy') ?? 'title';
@@ -79,21 +95,16 @@ class Settings {
       _prefs.getBool('albumSortAscending') ?? true;
   static bool get albumOrganizeByFolder =>
       _prefs.getBool('albumOrganizeByFolder') ?? false;
-  static Future<void> setAlbumSort(
-      String sortBy, bool ascending, bool organizeByFolder) async {
-    if (['name', 'year', 'artist'].contains(sortBy)) {
-      await _prefs.setString('albumSortBy', sortBy);
-    } else {
-      await _prefs.setString('albumSortBy',
-          'name'); // Default to 'name' if an invalid value is provided
-    }
-    await _prefs.setBool('albumSortAscending', ascending);
-    await _prefs.setBool('albumOrganizeByFolder', organizeByFolder);
-  }
-
+      
   static String get appTheme => _prefs.getString('appTheme') ?? 'system';
   static Future<void> setAppTheme(String theme) =>
       _prefs.setString('appTheme', theme);
+
+// Has seen welcome page
+static bool get hasSeenWelcomePage => _prefs.getBool('hasSeenWelcomePage') ?? false;
+static Future<void> setHasSeenWelcomePage(bool seen) => 
+    _prefs.setBool('hasSeenWelcomePage', seen);
+
 
       
 }

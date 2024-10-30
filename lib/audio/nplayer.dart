@@ -111,6 +111,9 @@ class NPlayer extends ChangeNotifier {
   bool _isResuming = false;
   bool _isStoppingInProgress = false;
 
+  bool _isPausedByInterruption = false;
+  bool get isPausedByInterruption => _isPausedByInterruption;
+
   List<String> get playlists => PlaylistManager.playlistNames;
 
   NServer? _server;
@@ -296,7 +299,7 @@ class NPlayer extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> pauseSong() async {
+  Future<void> pauseSong({bool isInterruption = false}) async {
     if (_isPausing || !_isPlaying) return;
 
     _isPausing = true;
@@ -305,6 +308,7 @@ class NPlayer extends ChangeNotifier {
     try {
       await _audioPlayer.pause();
       _isPlaying = false;
+      _isPausedByInterruption = isInterruption;
       await _updatePlaybackState(playing: false);
       notifyListeners();
     } catch (e) {
@@ -313,6 +317,7 @@ class NPlayer extends ChangeNotifier {
       _isPausing = false;
     }
   }
+
 
   Future<void> resumeSong() async {
     if (_isResuming || _isPlaying) return;
@@ -323,6 +328,7 @@ class NPlayer extends ChangeNotifier {
     try {
       await _audioPlayer.resume();
       _isPlaying = true;
+      _isPausedByInterruption = false;
       await _updatePlaybackState(playing: true);
       notifyListeners();
     } catch (e) {
@@ -331,6 +337,7 @@ class NPlayer extends ChangeNotifier {
       _isResuming = false;
     }
   }
+
 
   Future<void> stopSong() async {
     if (_isStoppingInProgress) return;

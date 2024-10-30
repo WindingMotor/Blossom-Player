@@ -24,18 +24,10 @@ class _ServerPageState extends State<ServerPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateServerStatus();
+
     });
   }
 
-  void _updateServerStatus() {
-    final nplayer = Provider.of<NPlayer>(context, listen: false);
-    setState(() {
-      _status = nplayer.isServerOn
-          ? 'Server running on ${nplayer.server!.currentIp}:8080'
-          : 'Server not started';
-    });
-  }
 
   Future<void> _toggleServer() async {
     /*

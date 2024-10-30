@@ -45,14 +45,23 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
       } else {
         await nplayer.startServer();
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(nplayer.isServerOn ? 'Server started' : 'Server stopped')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text(nplayer.isServerOn ? 'Server started' : 'Server stopped'),
+          ),
+        );
+      }
     } catch (e) {
-      print('Error toggling server: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to toggle server: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text('Failed to toggle server: $e'),
+          ),
+        );
+      }
     }
   }
 
@@ -65,9 +74,14 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
     final info = NetworkInfo();
     final wifiIP = await info.getWifiIP();
     if (wifiIP == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to retrieve Wi-Fi IP')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text('Unable to retrieve Wi-Fi IP'),
+          ),
+        );
+      }
       setState(() {
         _isScanning = false;
       });
@@ -75,15 +89,12 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
     }
 
     final subnet = wifiIP.substring(0, wifiIP.lastIndexOf('.'));
-
     final List<Future<void>> scanFutures = [];
     for (int i = 1; i <= 254; i++) {
-      final host = '$subnet.$i';
-      scanFutures.add(_checkServer(host));
+      scanFutures.add(_checkServer('$subnet.$i'));
     }
 
     await Future.wait(scanFutures);
-
     setState(() {
       _isScanning = false;
     });
@@ -99,13 +110,23 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
 
   void _connectToServer(NPlayer nplayer, String ip) {
     nplayer.connectToServer(ip, 8080).then((_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Connected to server at $ip')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text('Connected to server at $ip'),
+          ),
+        );
+      }
     }).catchError((error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to connect to server: $error')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text('Failed to connect to server: $error'),
+          ),
+        );
+      }
     });
   }
 
@@ -129,25 +150,33 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  spreadRadius: 5,
-                ),
-              ],
             ),
             child: Column(
               children: [
                 _buildHandle(),
-                const SizedBox(height: 20),
-                _buildHeader(nplayer),
-                const SizedBox(height: 20),
-                _buildServerControls(nplayer),
-                const SizedBox(height: 20),
-                _buildConnectionSection(nplayer),
-                const SizedBox(height: 20),
-                _buildAvailableServers(nplayer),
+                Expanded(
+                  child: CustomScrollView(
+                    slivers: [
+                      _buildAppBar(nplayer),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildServerStatus(nplayer),
+                              const SizedBox(height: 24),
+                              _buildManualConnection(),
+                              const SizedBox(height: 24),
+                              _buildScanSection(),
+                            ],
+                          ),
+                        ),
+                      ),
+                      _buildServerList(nplayer),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -158,107 +187,203 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
 
   Widget _buildHandle() {
     return Container(
-      width: 40,
-      height: 5,
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      width: 32,
+      height: 4,
+      margin: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.grey[400],
-        borderRadius: BorderRadius.circular(2.5),
+        color: Colors.grey.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(2),
       ),
     );
   }
 
-  Widget _buildHeader(NPlayer nplayer) {
-    return Text(
-      nplayer.isServerOn ? 'Server is running' : 'Server is not running',
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: nplayer.isServerOn ? Colors.green : Colors.red,
+  Widget _buildAppBar(NPlayer nplayer) {
+    return SliverAppBar(
+      pinned: true,
+      elevation: 0,
+      backgroundColor: Theme.of(context).cardColor,
+      title: const Text(
+        'Server Connection',
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
       ),
+      centerTitle: true,
     );
   }
 
-  Widget _buildServerControls(NPlayer nplayer) {
-    return ElevatedButton.icon(
-      onPressed: () => _toggleServer(nplayer),
-      icon: Icon(nplayer.isServerOn ? Icons.stop : Icons.play_arrow),
-      label: Text(nplayer.isServerOn ? 'Stop Server' : 'Start Server'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: nplayer.isServerOn ? Colors.red : Colors.green,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        textStyle: const TextStyle(fontSize: 16),
-      ),
-    );
-  }
-
-  Widget _buildConnectionSection(NPlayer nplayer) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _ipController,
-            decoration: InputDecoration(
-              labelText: 'Enter Server IP',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.link),
-                onPressed: () {
-                  final ip = _ipController.text.trim();
-                  if (ip.isNotEmpty) {
-                    _connectToServer(nplayer, ip);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter a valid IP')),
-                    );
-                  }
-                },
+  Widget _buildServerStatus(NPlayer nplayer) {
+    return Card(
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  nplayer.isServerOn ? Icons.cloud_done : Icons.cloud_off,
+                  color: nplayer.isServerOn ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Server Status',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => _toggleServer(nplayer),
+              icon: Icon(nplayer.isServerOn ? Icons.stop : Icons.play_arrow),
+              label: Text(nplayer.isServerOn ? 'Stop Server' : 'Start Server'),
+              style: FilledButton.styleFrom(
+                backgroundColor: nplayer.isServerOn ? Colors.red : Colors.green,
               ),
             ),
-            keyboardType: TextInputType.numberWithOptions(decimal: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildManualConnection() {
+    return Card(
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.link),
+                const SizedBox(width: 12),
+                Text(
+                  'Manual Connection',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _ipController,
+              decoration: InputDecoration(
+                hintText: 'Enter server IP address',
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.arrow_forward),
+                  onPressed: () {
+                    final ip = _ipController.text.trim();
+                    if (ip.isNotEmpty) {
+                      final nplayer = Provider.of<NPlayer>(context, listen: false);
+                      _connectToServer(nplayer, ip);
+                    }
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScanSection() {
+    return Card(
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.wifi_find),
+                const SizedBox(width: 12),
+                Text(
+                  'Network Scan',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _isScanning ? null : _scanForServers,
+              icon: _isScanning
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.search),
+              label: Text(_isScanning ? 'Scanning Network...' : 'Scan for Servers'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServerList(NPlayer nplayer) {
+    if (_availableServers.isEmpty) {
+      return SliverFillRemaining(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.devices_other,
+                size: 48,
+                color: Colors.grey.withOpacity(0.5),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _isScanning
+                    ? 'Searching for servers...'
+                    : 'No servers found\nTry scanning the network',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey.withOpacity(0.8),
+                  fontSize: 16,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          ElevatedButton.icon(
-            onPressed: _isScanning ? null : _scanForServers,
-            icon: Icon(_isScanning ? Icons.refresh : Icons.search),
-            label: Text(_isScanning ? 'Scanning...' : 'Scan for Servers'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              textStyle: const TextStyle(fontSize: 16),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      );
+    }
 
-  Widget _buildAvailableServers(NPlayer nplayer) {
-    return Expanded(
-      child: _availableServers.isEmpty
-          ? Center(
-              child: Text(
-                _isScanning ? 'Scanning for servers...' : 'No servers found. Try scanning again.',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            )
-          : ListView.builder(
-              itemCount: _availableServers.length,
-              itemBuilder: (context, index) {
-                final ip = _availableServers[index];
-                return ListTile(
-                  leading: const Icon(Icons.computer),
-                  title: Text(ip),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.connect_without_contact),
-                    onPressed: () => _connectToServer(nplayer, ip),
-                  ),
-                  onTap: () => _connectToServer(nplayer, ip),
-                );
-              },
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final ip = _availableServers[index];
+          return ListTile(
+            leading: const CircleAvatar(
+              child: Icon(Icons.computer),
             ),
+            title: Text(ip),
+            subtitle: const Text('Available server'),
+            trailing: IconButton(
+              icon: const Icon(Icons.arrow_forward),
+              onPressed: () => _connectToServer(nplayer, ip),
+            ),
+          );
+        },
+        childCount: _availableServers.length,
+      ),
     );
   }
 

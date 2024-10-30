@@ -88,6 +88,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
           body: Padding(
             padding: EdgeInsets.symmetric(horizontal: 10),
             child: ListView.builder(
+              padding: const EdgeInsets.only(top: 10),
               itemCount: filteredPlaylists.length,
               itemBuilder: (context, index) {
                 String playlist = filteredPlaylists[index];

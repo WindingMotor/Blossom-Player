@@ -126,14 +126,15 @@ class _ArtistsPageState extends State<ArtistsPage> {
             controller: _scrollController,
             thumbVisibility: true,
             child: ListView.builder(
+              padding: const EdgeInsets.only(top: 10),
               controller: _scrollController,
               itemCount: filteredList.length,
-              itemExtent: 80.0, // Assuming each item has a fixed height
-              cacheExtent: 1000, // Increase cache to reduce rebuilds
+              itemExtent: 80.0, 
+              cacheExtent: 1000, 
               itemBuilder: (context, index) {
                 final artist = filteredList[index];
                 return _ArtistListTile(
-                  key: ValueKey(artist.name), // Use artist name as a unique key
+                  key: ValueKey(artist.name),
                   artist: artist,
                   onTap: () => _showArtistSongs(context, artist),
                 );

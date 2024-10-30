@@ -39,20 +39,22 @@ class _SongAlbumsState extends State<SongAlbums> {
     super.dispose();
   }
 
+  /// Loads sorting and organizational preferences from Settings.
   void _loadSortPreferences() {
-    if (mounted) {
-      setState(() {
-        _sortBy = Settings.albumSortBy;
-        _sortAscending = Settings.albumSortAscending;
-        _organizeByFolder = Settings.albumOrganizeByFolder;
-      });
-    }
+    setState(() {
+      _sortBy = Settings.albumSortBy;
+      _sortAscending = Settings.albumSortAscending;
+      _organizeByFolder = Settings.albumOrganizeByFolder;
+    });
   }
 
+  /// Saves sorting and organizational preferences to Settings.
   void _saveSortPreferences() {
     Settings.setAlbumSort(_sortBy, _sortAscending, _organizeByFolder);
+    _initializeAlbumList(); // Re-initialize the list after saving preferences
   }
 
+  /// Initializes the album list based on current preferences.
   void _initializeAlbumList() {
     final player = Provider.of<NPlayer>(context, listen: false);
     final albumMap = _organizeByFolder
@@ -71,11 +73,13 @@ class _SongAlbumsState extends State<SongAlbums> {
     }
   }
 
+  /// Handles debounced scroll events to optimize performance.
   void _debouncedScroll(void Function() callback) {
     if (_scrollDebounce?.isActive ?? false) _scrollDebounce!.cancel();
     _scrollDebounce = Timer(const Duration(milliseconds: 180), callback);
   }
 
+  /// Listens to scroll notifications for dynamic UI updates.
   bool _handleScrollNotification(ScrollNotification notification) {
     if (notification is ScrollUpdateNotification) {
       if (mounted) {
@@ -102,25 +106,26 @@ class _SongAlbumsState extends State<SongAlbums> {
           }
         },
         actions: [
-          PopupMenuButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.sort),
             tooltip: 'Sort by',
             onSelected: (String value) {
-              if (mounted) {
+              if (value == 'organize_by_folder') {
+                // Toggle Organize by Folder
                 setState(() {
-                  if (value == 'organize_by_folder') {
-                    _organizeByFolder = !_organizeByFolder;
-                    _initializeAlbumList();
+                  _organizeByFolder = !_organizeByFolder;
+                  _saveSortPreferences();
+                });
+              } else {
+                setState(() {
+                  if (_sortBy == value) {
+                    _sortAscending = !_sortAscending;
                   } else {
-                    if (_sortBy == value) {
-                      _sortAscending = !_sortAscending;
-                    } else {
-                      _sortBy = value;
-                      _sortAscending = true;
-                    }
-                    _sortAlbums();
-                    _saveSortPreferences();
+                    _sortBy = value;
+                    _sortAscending = true;
                   }
+                  _sortAlbums();
+                  _saveSortPreferences();
                 });
               }
             },
@@ -179,6 +184,7 @@ class _SongAlbumsState extends State<SongAlbums> {
     );
   }
 
+  /// Filters albums based on the current search query.
   List<AlbumInfo> _filterAlbums() {
     if (_searchQuery.isEmpty) {
       return _albumList;
@@ -191,6 +197,7 @@ class _SongAlbumsState extends State<SongAlbums> {
         .toList();
   }
 
+  /// Displays the songs within a selected album in a bottom sheet.
   void _showAlbumSongs(BuildContext context, AlbumInfo album) {
     final player = Provider.of<NPlayer>(context, listen: false);
     showModalBottomSheet(
@@ -211,6 +218,7 @@ class _SongAlbumsState extends State<SongAlbums> {
     );
   }
 
+  /// Sorts the album list based on current sorting preferences.
   void _sortAlbums() {
     _albumList.sort((a, b) {
       switch (_sortBy) {
@@ -236,6 +244,7 @@ class _SongAlbumsState extends State<SongAlbums> {
     });
   }
 
+  /// Groups songs by their album names.
   Map<String, List<Music>> _groupSongsByAlbum(List<Music> songs) {
     final albumMap = <String, List<Music>>{};
     for (final song in songs) {
@@ -244,6 +253,7 @@ class _SongAlbumsState extends State<SongAlbums> {
     return albumMap;
   }
 
+  /// Organizes songs by their folder names.
   Map<String, List<Music>> _organizeByFolderFunc(List<Music> songs) {
     final folderMap = <String, List<Music>>{};
     for (final song in songs) {
@@ -252,34 +262,57 @@ class _SongAlbumsState extends State<SongAlbums> {
     return folderMap;
   }
 
+  /// Builds a PopupMenuItem with an icon and text.
   PopupMenuItem<String> _buildPopupMenuItem(String value, IconData icon) {
-    return PopupMenuItem(
+    String displayText;
+    switch (value) {
+      case 'name':
+        displayText = 'Name';
+        break;
+      case 'songs':
+        displayText = 'Number of Songs';
+        break;
+      case 'year':
+        displayText = 'Year';
+        break;
+      case 'folder':
+        displayText = 'Folder';
+        break;
+      default:
+        displayText = value.capitalize();
+    }
+    return PopupMenuItem<String>(
       value: value,
       child: Row(
         children: [
           Icon(icon, size: 20),
           const SizedBox(width: 8),
-          Text(value.capitalize()),
+          Text(displayText),
         ],
       ),
     );
   }
 }
 
+/// Represents information about an album.
 class AlbumInfo {
   final String name;
   final List<Music> songs;
   final Music firstSong;
 
-  AlbumInfo({required this.name, required this.songs, required this.firstSong});
+  AlbumInfo(
+      {required this.name, required this.songs, required this.firstSong});
 }
 
 extension StringExtension on String {
+  /// Capitalizes the first letter of a string.
   String capitalize() {
+    if (isEmpty) return this;
     return "${this[0].toUpperCase()}${substring(1)}";
   }
 }
 
+/// A stateless widget representing an individual album in the list.
 class _AlbumListTile extends StatelessWidget {
   final AlbumInfo album;
   final bool organizeByFolder;
@@ -317,17 +350,17 @@ class _AlbumListTile extends StatelessWidget {
         ),
         title: Text(
           album.name,
-          style: TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.white),
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
           '${album.songs.length} songs • ${organizeByFolder ? 'Folder' : album.firstSong.artist}',
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Text(
           album.firstSong.year,
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
         onTap: onTap,
       ),

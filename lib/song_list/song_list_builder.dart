@@ -109,6 +109,7 @@ class SongListBuilderState extends State<SongListBuilder> {
                 controller: _scrollController,
                 thumbVisibility: true,
                 child: ListView.builder(
+                  padding: const EdgeInsets.only(top: 10),
                   controller: _scrollController,
                   itemCount: widget.songs.length,
                   itemExtent: 80,

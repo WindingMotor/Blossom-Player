@@ -47,6 +47,14 @@ class SettingsPage extends StatelessWidget {
     }
   }
 
+  Future<void> _resetWelcomePage(BuildContext context) async {
+    await Settings.setHasSeenWelcomePage(false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Welcome page will show on next app launch')),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,24 +85,32 @@ class SettingsPage extends StatelessWidget {
                     ),
                   ],
                   context),
-              _buildSection(
-                  'Playback',
-                  [
-                    _buildDropdownTile(
-                      'Repeat Mode',
-                      player.repeatMode,
-                      ['off', 'one', 'all'],
-                      (String value) => player.setRepeatMode(value),
-                      context,
-                    ),
-                    _buildSliderTile(
-                      'Application Volume',
-                      player.volume,
-                      (double value) => player.setVolume(value),
-                      context,
-                    ),
-                  ],
-                  context),
+_buildSection(
+    'Playback',
+    [
+      _buildDropdownTile(
+        'Repeat Mode',
+        player.repeatMode,
+        ['off', 'one', 'all'],
+        (String value) => player.setRepeatMode(value),
+        context,
+      ),
+      _buildSliderTile(
+        'Application Volume',
+        player.volume,
+        (double value) => player.setVolume(value),
+        context,
+      ),
+      _buildSwitchTile(
+        'Previous Action Shuffles Songs',
+        Settings.previousForShuffle,
+        (bool value) async {
+          await Settings.setPreviousForShuffle(value);
+        },
+        context,
+      ),
+    ],
+    context),
 _buildSection(
   'Appearance',
   [
@@ -128,12 +144,29 @@ _buildSection(
   ],
   context
 ),
+ _buildSection(
+                'Developer Options',
+                [
+                  _buildButton(
+                    'Reset Welcome Page',
+                    () => _resetWelcomePage(context),
+                    context,
+                  ),
+                  _buildInfoTile(
+                    'Reset Welcome Page',
+                    'Shows the welcome page again on next app launch',
+                    context,
+                  ),
+                ],
+                context,
+              ),
             ],
           );
         },
       ),
     );
   }
+
 
   Widget _buildSection(
       String title, List<Widget> children, BuildContext context) {
