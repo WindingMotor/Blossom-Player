@@ -90,7 +90,6 @@ class _HomePageState extends State<HomePage>
                 Text(
                   'Blossom',
                   style: TextStyle(
-                    fontFamily: 'Magic Retro',
                     fontSize: 38,
                   ),
                 ),

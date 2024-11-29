@@ -136,13 +136,21 @@ class NPlayer extends ChangeNotifier {
   NPlayer() {
     _log("Initializing NPlayer");
     _initializeAudioHandler();
-    _loadPlaylists();
     _setupAudioPlayerListeners();
     _initializeFromSettings();
-    listFiles();
-    sortSongs(sortBy: 'title', ascending: true);
     _initHeadsetDetection();
-    _log ("Initalizing client and server");
+
+    // Load playlists and songs, then apply sorting
+    _loadPlaylists().then((_) {
+      _loadSongs().then((_) {
+        loadSortSettings().then((_) {
+          sortSongs(sortBy: Settings.songSortBy, ascending: Settings.songSortAscending);
+          notifyListeners();
+        });
+      });
+    });
+
+    _log("Initializing client and server");
     _server = NServer(this);
     _client = NClient(this);
   }
@@ -594,18 +602,15 @@ class NPlayer extends ChangeNotifier {
         }
       }
 
-      _playingSongs = List.from(_allSongs);
-
-      Music oldestSong = _allSongs
-          .reduce((a, b) => a.lastModified.isBefore(b.lastModified) ? a : b);
-      print(
-          'Oldest song: ${oldestSong.title} (Modified on: ${oldestSong.lastModified})');
+      // Apply initial sorting after loading songs
+      sortSongs(sortBy: Settings.songSortBy, ascending: Settings.songSortAscending);
 
       notifyListeners();
     } catch (e) {
       _log("Error while loading songs: $e");
     }
   }
+
 
   Future _processDirectory(Directory directory) async {
     await for (final entity in directory.list(followLinks: false)) {

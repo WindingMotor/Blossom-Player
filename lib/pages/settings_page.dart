@@ -7,6 +7,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import '../tools/google_auth_service.dart';
+import 'google_drive_page.dart';
 
 class SettingsPage extends StatelessWidget {
   final VoidCallback onThemeChanged;
@@ -60,7 +62,7 @@ class SettingsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('Settings',
-            style: TextStyle(fontFamily: 'Magic Retro', fontSize: 24)),
+            style: TextStyle(fontSize: 24)),
         backgroundColor: Theme.of(context).colorScheme.surface,
       ),
       body: Consumer<NPlayer>(
@@ -83,68 +85,87 @@ class SettingsPage extends StatelessWidget {
                       () => _copyFilesToBlossomFolder(context),
                       context,
                     ),
+                    SizedBox(height: 8),
+                    _buildButton(
+                      'Import from Google Drive',
+                      () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const GoogleDrivePage(),
+                          ),
+                        );
+                      },
+                      context,
+                    ),
+                    if (GoogleAuthService.currentUser != null)
+                      _buildInfoTile(
+                        'Connected to Google Drive',
+                        'Signed in as: ${GoogleAuthService.currentUser!.email}',
+                        context,
+                      ),
                   ],
                   context),
-_buildSection(
-    'Playback',
-    [
-      _buildDropdownTile(
-        'Repeat Mode',
-        player.repeatMode,
-        ['off', 'one', 'all'],
-        (String value) => player.setRepeatMode(value),
-        context,
-      ),
-      _buildSliderTile(
-        'Application Volume',
-        player.volume,
-        (double value) => player.setVolume(value),
-        context,
-      ),
-      _buildSwitchTile(
-        'Previous Action Shuffles Songs',
-        Settings.previousForShuffle,
-        (bool value) async {
-          await Settings.setPreviousForShuffle(value);
-        },
-        context,
-      ),
-    ],
-    context),
-_buildSection(
-  'Appearance',
-  [
-    _buildDropdownTile('App Theme', Settings.appTheme, [
-      'light',
-      'dark',
-      'oled',
-      '-', // This will be used as a separator
-      'slate',
-      'ocean',
-      'forest',
-      'algae',
-      '-', // Another separator
-      'sunset',
-      'rose',
-      'pink',
-      'lavender',
-      'orange',
-    ], (String value) async {
-      if (value != '-') { // Ignore separator selection
-        await Settings.setAppTheme(value);
-        print('New theme set: $value');
-        onThemeChanged();
-        // Force a rebuild of the entire app
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => MyApp()),
-          (Route<dynamic> route) => false,
-        );
-      }
-    }, context),
-  ],
-  context
-),
- _buildSection(
+              _buildSection(
+                  'Playback',
+                  [
+                    _buildDropdownTile(
+                      'Repeat Mode',
+                      player.repeatMode,
+                      ['off', 'one', 'all'],
+                      (String value) => player.setRepeatMode(value),
+                      context,
+                    ),
+                    _buildSliderTile(
+                      'Application Volume',
+                      player.volume,
+                      (double value) => player.setVolume(value),
+                      context,
+                    ),
+                    _buildSwitchTile(
+                      'Previous Action Shuffles Songs',
+                      Settings.previousForShuffle,
+                      (bool value) async {
+                        await Settings.setPreviousForShuffle(value);
+                      },
+                      context,
+                    ),
+                  ],
+                  context),
+              _buildSection(
+                'Appearance',
+                [
+                  _buildDropdownTile('App Theme', Settings.appTheme, [
+                    'light',
+                    'dark',
+                    'oled',
+                    '-', // This will be used as a separator
+                    'slate',
+                    'ocean',
+                    'forest',
+                    'algae',
+                    '-', // Another separator
+                    'sunset',
+                    'rose',
+                    'pink',
+                    'lavender',
+                    'orange',
+                  ], (String value) async {
+                    if (value != '-') { // Ignore separator selection
+                      await Settings.setAppTheme(value);
+                      print('New theme set: $value');
+                      onThemeChanged();
+                      // Force a rebuild of the entire app
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (context) => MyApp()),
+                        (Route<dynamic> route) => false,
+                      );
+                    }
+                  }, context),
+                ],
+                context
+              ),
+              _buildSection(
                 'Developer Options',
                 [
                   _buildButton(

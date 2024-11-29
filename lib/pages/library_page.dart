@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:blossom/custom/custom_searchbar.dart';
 import 'package:blossom/sheets/server_sheet.dart';
 import 'package:blossom/song_list/song_list_builder.dart';
+import 'package:blossom/tools/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
@@ -26,10 +27,9 @@ class _SongLibraryState extends State<SongLibrary> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final player = Provider.of<NPlayer>(context, listen: false);
       player.loadSortSettings().then((_) {
-        player.sortSongs(); // Add this line
+        player.sortSongs(sortBy: Settings.songSortBy, ascending: Settings.songSortAscending);
         if (mounted) {
-          setState(
-              () {}); // Trigger a rebuild after loading and applying settings
+          setState(() {}); // Trigger a rebuild after loading and applying settings
         }
       });
     });
@@ -85,10 +85,10 @@ void _showServerSheet() {
                 },
               ),
               IconButton(
-  icon: const Icon(Icons.hardware_rounded, color:  Colors.white), // New Server Icon
-  tooltip: 'Server',
-  onPressed: _showServerSheet, // Show the ServerSheet
-),
+                icon: const Icon(Icons.hardware_rounded, color:  Colors.white), // New Server Icon
+                tooltip: 'Server',
+                onPressed: _showServerSheet, // Show the ServerSheet
+              ),
               IconButton(
                 icon: const Icon(Icons.shuffle),
                 tooltip: 'Scroll to random song',

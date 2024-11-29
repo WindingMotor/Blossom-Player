@@ -105,7 +105,6 @@ class _LoadingPageState extends State<LoadingPage>
                             Text(
                               'Blossom',
                               style: TextStyle(
-                                fontFamily: 'Magic Retro',
                                 fontSize: 38,
                                 color: widget.theme.colorScheme.secondary,
                               ),

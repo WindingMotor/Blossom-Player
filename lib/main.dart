@@ -69,18 +69,26 @@ void main() async {
   }
 
   if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
-    await windowManager.ensureInitialized();
-    WindowOptions windowOptions = const WindowOptions(
-      size: Size(800, 600),
-      center: true,
-      backgroundColor: Colors.transparent,
-      skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.hidden,
-    );
-    windowManager.waitUntilReadyToShow(windowOptions, () async {
+    try {
+      await windowManager.ensureInitialized();
+      WindowOptions windowOptions = const WindowOptions(
+        size: Size(800, 600),
+        minimumSize: Size(400, 300),
+        center: true,
+        backgroundColor: Colors.transparent,
+        skipTaskbar: false,
+        titleBarStyle: TitleBarStyle.hidden,
+      );
+      await windowManager.waitUntilReadyToShow(windowOptions);
+      await windowManager.setResizable(true);
+      // Temporarily comment out shadow to test if it's causing the issue
+      // await windowManager.setHasShadow(true);
       await windowManager.show();
       await windowManager.focus();
-    });
+    } catch (e) {
+      print('Error initializing window manager: $e');
+      // Continue with default window settings if window manager fails
+    }
   }
 
   runApp(
@@ -99,23 +107,22 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-
-  @override
-  void initState() {
-    super.initState();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final theme = getThemeData(Settings.appTheme);
     return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: getThemeData(Settings.appTheme),
-        home: LoadingPage(
+      title: 'Blossom',
+      theme: theme,
+      debugShowCheckedModeBanner: false,
+      home: Container(
+        color: theme.scaffoldBackgroundColor,
+        child: LoadingPage(
           child: const MainStructure(),
-          theme: getThemeData(Settings.appTheme),
-        ));
+          theme: theme,
+        ),
+      ),
+    );
   }
-
 }
 
 class MainStructure extends StatefulWidget {
@@ -146,6 +153,7 @@ class _MainStructureState extends State<MainStructure>
   }
 
   bool _isLandscape(BuildContext context) {
+    // Only trigger standby page on mobile devices in landscape
     return MediaQuery.of(context).orientation == Orientation.landscape &&
            (Platform.isAndroid || Platform.isIOS);
   }
@@ -226,10 +234,23 @@ class _MainStructureState extends State<MainStructure>
               titleWidget: Text(
                 _getAppBarTitle(),
                 style: const TextStyle(
-                  fontFamily: 'Magic Retro',
-                  fontSize: 25,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+              additionalActions: isDesktop ? [
+                IconButton(
+                  icon: const Icon(Icons.fullscreen),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const StandbyPage(),
+                      ),
+                    );
+                  },
+                  tooltip: 'Enter Standby Mode',
+                ),
+              ] : null,
             )
           : null,
       body: Stack(

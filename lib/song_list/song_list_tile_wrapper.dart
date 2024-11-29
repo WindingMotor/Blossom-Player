@@ -1,4 +1,3 @@
-
 import 'package:blossom/audio/nplayer.dart';
 import 'package:blossom/song_list/song_list_tile.dart';
 import 'package:flutter/material.dart';
@@ -22,10 +21,20 @@ class SongListTileWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    Color backgroundColor = Colors.transparent;
+    
+    if (isCurrentSong) {
+      backgroundColor = theme.colorScheme.primary.withOpacity(0.15);
+    } else if (isSelected) {
+      backgroundColor = theme.colorScheme.secondary.withOpacity(0.1);
+    }
+
     return Container(
-      color: isSelected
-          ? theme.colorScheme.secondary.withOpacity(0.2)
-          : Colors.transparent,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: SongListTile(
         song: song,
         onTap: onTap,
