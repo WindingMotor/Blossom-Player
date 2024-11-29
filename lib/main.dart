@@ -292,30 +292,30 @@ class _MainStructureState extends State<MainStructure>
           }
         },
         items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.library_music),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.library_music, size: isDesktop ? 20 : 24),
             label: 'Library',
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.playlist_play),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.playlist_play, size: isDesktop ? 20 : 24),
             label: 'Playlists',
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.album),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.album, size: isDesktop ? 20 : 24),
             label: 'Albums',
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person, size: isDesktop ? 20 : 24),
             label: 'Artists',
           ),
           if (enableTesting)
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.wifi),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.wifi, size: isDesktop ? 20 : 24),
               label: 'Server Scan',
             ),
           if (isDesktop)
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.download),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.download, size: isDesktop ? 20 : 24),
               label: 'Downloader',
             ),
         ],
@@ -323,6 +323,9 @@ class _MainStructureState extends State<MainStructure>
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         selectedItemColor: Theme.of(context).colorScheme.secondary,
         unselectedItemColor: Colors.grey,
+        selectedFontSize: isDesktop ? 11 : 14,
+        unselectedFontSize: isDesktop ? 11 : 12,
+        iconSize: isDesktop ? 20 : 24,
       ),
     );
   }

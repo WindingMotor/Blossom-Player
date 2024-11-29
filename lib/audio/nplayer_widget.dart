@@ -1,4 +1,3 @@
-import 'package:blossom/sheets/lyrics_sheet.dart';
 import 'package:blossom/sheets/playing_sheet.dart';
 import 'package:blossom/tools/utils.dart';
 import 'package:flutter/material.dart';

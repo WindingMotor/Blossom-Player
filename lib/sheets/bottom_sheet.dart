@@ -1,7 +1,6 @@
 import 'package:blossom/song_list/song_list_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
 
 class MusicBottomSheet extends StatefulWidget {
@@ -32,7 +31,6 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-  late NPlayer _player;
 
   @override
   void initState() {
@@ -47,7 +45,6 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
     );
     _controller.forward();
 
-    _player = Provider.of<NPlayer>(context, listen: false);
   }
 
   @override

@@ -216,7 +216,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
   Widget _buildServerStatus(NPlayer nplayer) {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -253,7 +253,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
   Widget _buildManualConnection() {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -300,7 +300,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
   Widget _buildScanSection() {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

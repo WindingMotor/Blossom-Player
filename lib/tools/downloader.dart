@@ -179,15 +179,15 @@ class _DownloaderState extends State<Downloader> {
     );
   }
 
-  Future<void> _downloadPlaylist() async {
-    if (_urlController.text.isEmpty) {
+  Future<void> _downloadSong(String url) async {
+    if (url.isEmpty) {
       setState(() => _output += 'Please enter a valid URL.\n');
       return;
     }
 
     setState(() {
       _isLoading = true;
-      _output += 'Downloading playlist...\n';
+      _output += 'Downloading song...\n';
     });
 
     try {
@@ -207,7 +207,7 @@ class _DownloaderState extends State<Downloader> {
       final process = await Process.start(
         spotdlPath,
         [
-          _urlController.text,
+          url,
           '--output',
           songDir,
           '--format',
@@ -236,14 +236,14 @@ class _DownloaderState extends State<Downloader> {
 
       if (exitCode == 0) {
         setState(() =>
-            _output += 'Playlist downloaded successfully to ${songDir}\n');
+            _output += 'Song downloaded successfully to ${songDir}\n');
         _showDownloadCompleteDialog();
       } else {
         setState(() =>
-            _output += 'Error downloading playlist. Exit code: $exitCode\n');
+            _output += 'Error downloading song. Exit code: $exitCode\n');
       }
     } catch (e) {
-      setState(() => _output += 'Error downloading playlist: $e\n');
+      setState(() => _output += 'Error downloading song: $e\n');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -260,86 +260,190 @@ class _DownloaderState extends State<Downloader> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: [
-                Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Status indicators
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Status',
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          height: 150,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: SingleChildScrollView(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.all(8),
-                            child: Text(_output),
-                          ),
-                        ),
-                      ],
-                    ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildStatusIndicator(
+                    context,
+                    'FFmpeg',
+                    _ffmpegInstalled,
+                    Icons.video_library_rounded,
+                  ),
+                  _buildStatusIndicator(
+                    context,
+                    'SpotDL',
+                    _spotdlInstalled,
+                    Icons.music_note_rounded,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // URL Input field
+            TextField(
+              controller: _urlController,
+              decoration: InputDecoration(
+                hintText: 'Enter song URL or search query',
+                prefixIcon: const Icon(Icons.link_rounded),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.outline,
                   ),
                 ),
-                const SizedBox(height: 16),
-                if (_ffmpegInstalled && _spotdlInstalled)
-                  Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Download Spotify Playlist',
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: _urlController,
-                            decoration: InputDecoration(
-                              hintText: 'Enter playlist URL',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surface,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Download button
+            ElevatedButton.icon(
+              onPressed: _isLoading ? null : () => _downloadSong(_urlController.text),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.download_rounded),
+              label: Text(_isLoading ? 'Downloading...' : 'Download'),
+            ),
+            const SizedBox(height: 24),
+            
+            // Output console
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    if (_output.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: SingleChildScrollView(
+                          controller: _scrollController,
+                          child: Text(
+                            _output,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              height: 1.5,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          IconButton(
-                            icon: const Icon(Icons.download),
-                            onPressed: _downloadPlaylist,
-                          )
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-              ],
+                    if (_output.isEmpty)
+                      Center(
+                        child: Text(
+                          'Console output will appear here',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(),
-            ),
-        ],
+          ],
+        ),
       ),
-      floatingActionButton: _buildFAB(),
+    );
+  }
+
+  Widget _buildStatusIndicator(
+    BuildContext context,
+    String label,
+    bool isInstalled,
+    IconData icon,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isInstalled
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                : Theme.of(context).colorScheme.error.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: isInstalled
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.error,
+            size: 24,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          isInstalled ? 'Installed' : 'Not Installed',
+          style: TextStyle(
+            color: isInstalled
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.error,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 
@@ -361,32 +465,6 @@ class _DownloaderState extends State<Downloader> {
           ],
         );
       },
-    );
-  }
-
-  Widget? _buildFAB() {
-    if (_isLoading) return null;
-
-    if (_ffmpegInstalled && _spotdlInstalled) {
-      return FloatingActionButton(
-        onPressed: _downloadPlaylist,
-        tooltip: 'Download Playlist',
-        child: const Icon(Icons.download),
-      );
-    }
-
-    if (!_ffmpegInstalled) {
-      return FloatingActionButton.extended(
-        onPressed: _showFFmpegInstructions,
-        icon: const Icon(Icons.download),
-        label: const Text('Install FFmpeg'),
-      );
-    }
-
-    return FloatingActionButton(
-      onPressed: _setupEnvironment,
-      tooltip: 'Retry Setup',
-      child: const Icon(Icons.refresh),
     );
   }
 }

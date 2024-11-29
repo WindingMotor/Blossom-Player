@@ -28,22 +28,37 @@ class CustomAppBar extends AppBar {
                 left: 0,
                 top: 0,
                 bottom: 0,
-                width: 2,
+                width: 8,
                 child: _ResizeArea(cursor: SystemMouseCursors.resizeLeft, direction: _ResizeDirection.left),
               ),
               const Positioned(
                 right: 0,
                 top: 0,
                 bottom: 0,
-                width: 2,
+                width: 8,
                 child: _ResizeArea(cursor: SystemMouseCursors.resizeRight, direction: _ResizeDirection.right),
               ),
               const Positioned(
                 left: 0,
                 top: 0,
                 right: 0,
-                height: 2,
+                height: 8,
                 child: _ResizeArea(cursor: SystemMouseCursors.resizeUp, direction: _ResizeDirection.top),
+              ),
+              // Corner resize areas
+              const Positioned(
+                left: 0,
+                top: 0,
+                width: 12,
+                height: 12,
+                child: _ResizeArea(cursor: SystemMouseCursors.resizeUpLeft, direction: _ResizeDirection.topLeft),
+              ),
+              const Positioned(
+                right: 0,
+                top: 0,
+                width: 12,
+                height: 12,
+                child: _ResizeArea(cursor: SystemMouseCursors.resizeUpRight, direction: _ResizeDirection.topRight),
               ),
             ],
           ),
@@ -90,7 +105,7 @@ enum _ResizeDirection {
   topRight,
 }
 
-class _ResizeArea extends StatelessWidget {
+class _ResizeArea extends StatefulWidget {
   final MouseCursor cursor;
   final _ResizeDirection direction;
 
@@ -100,33 +115,42 @@ class _ResizeArea extends StatelessWidget {
   });
 
   @override
+  State<_ResizeArea> createState() => _ResizeAreaState();
+}
+
+class _ResizeAreaState extends State<_ResizeArea> {
+  bool isHovering = false;
+
+  @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      cursor: cursor,
+      cursor: widget.cursor,
+      onEnter: (_) => setState(() => isHovering = true),
+      onExit: (_) => setState(() => isHovering = false),
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onPanStart: (details) {
-          if (!Platform.isMacOS) {
-            switch (direction) {
-              case _ResizeDirection.left:
-                windowManager.startResizing(ResizeEdge.left);
-                break;
-              case _ResizeDirection.right:
-                windowManager.startResizing(ResizeEdge.right);
-                break;
-              case _ResizeDirection.top:
-                windowManager.startResizing(ResizeEdge.top);
-                break;
-              case _ResizeDirection.topLeft:
-                windowManager.startResizing(ResizeEdge.topLeft);
-                break;
-              case _ResizeDirection.topRight:
-                windowManager.startResizing(ResizeEdge.topRight);
-                break;
-            }
+          switch (widget.direction) {
+            case _ResizeDirection.left:
+              windowManager.startResizing(ResizeEdge.left);
+              break;
+            case _ResizeDirection.right:
+              windowManager.startResizing(ResizeEdge.right);
+              break;
+            case _ResizeDirection.top:
+              windowManager.startResizing(ResizeEdge.top);
+              break;
+            case _ResizeDirection.topLeft:
+              windowManager.startResizing(ResizeEdge.topLeft);
+              break;
+            case _ResizeDirection.topRight:
+              windowManager.startResizing(ResizeEdge.topRight);
+              break;
           }
         },
-        child: const SizedBox.expand(),
+        child: Container(
+          color: isHovering ? Theme.of(context).colorScheme.secondary.withOpacity(0.2) : Colors.transparent,
+        ),
       ),
     );
   }
