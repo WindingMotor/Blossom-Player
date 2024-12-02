@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:blossom/dialog/playlist_dialog.dart';
+import 'package:blossom/sheets/playlist_sheet.dart';
 import 'package:blossom/song_list/song_list_tile_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -143,11 +143,15 @@ class SongListBuilderState extends State<SongListBuilder> {
   }
 
   void _showPlaylistDialog(BuildContext context, NPlayer player) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true, // This allows tapping away to close
-      builder: (BuildContext context) {
-        return PlaylistDialog(
+      isScrollControlled: true,
+      enableDrag: true,
+      isDismissible: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.8,
+        child: PlaylistSheet(
           selectedSongs: selectedSongs,
           player: player,
           onPlaylistAction: _handlePlaylistAction,
@@ -157,10 +161,9 @@ class SongListBuilderState extends State<SongListBuilder> {
                 selectedSongs.clear();
               });
             }
-            Navigator.pop(context);
           },
-        );
-      },
+        ),
+      ),
     );
   }
 

@@ -1,3 +1,10 @@
+/// Library Page - Main interface for browsing and managing music library
+/// Provides functionality for:
+/// - Displaying all songs in the library
+/// - Sorting and filtering songs
+/// - Searching through the music collection
+/// - Managing playback queue
+
 import 'dart:math';
 import 'package:blossom/custom/custom_searchbar.dart';
 import 'package:blossom/sheets/server_sheet.dart';
@@ -8,7 +15,10 @@ import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
 import 'package:blossom/pages/settings_page.dart';
 
+/// Main widget for the song library interface
+/// Manages the display and interaction with the user's music collection
 class SongLibrary extends StatefulWidget {
+  /// Callback function triggered when theme changes
   final VoidCallback onThemeChanged;
 
   const SongLibrary({Key? key, required this.onThemeChanged}) : super(key: key);
@@ -17,34 +27,49 @@ class SongLibrary extends StatefulWidget {
   _SongLibraryState createState() => _SongLibraryState();
 }
 
+/// State management for the SongLibrary widget
+/// Handles:
+/// - Song list initialization
+/// - Sort preferences
+/// - Search functionality
+/// - UI interactions
 class _SongLibraryState extends State<SongLibrary> {
+  /// Key for accessing the SongListBuilder state
   final GlobalKey<SongListBuilderState> _songListBuilderKey =
       GlobalKey<SongListBuilderState>();
 
   @override
   void initState() {
     super.initState();
+    // Initialize song list with sort preferences after frame is rendered
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final player = Provider.of<NPlayer>(context, listen: false);
       player.loadSortSettings().then((_) {
-        player.sortSongs(sortBy: Settings.songSortBy, ascending: Settings.songSortAscending);
+        player.sortSongs(
+          sortBy: Settings.songSortBy, 
+          ascending: Settings.songSortAscending
+        );
         if (mounted) {
-          setState(() {}); // Trigger a rebuild after loading and applying settings
+          setState(() {}); // Refresh UI after applying sort settings
         }
       });
     });
     print("initState lib/pages/library_page.dart");
   }
-  
-void _showServerSheet() {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (context) => const ServerSheet(),
-  );
-}
 
+  /// Displays the server connection sheet
+  /// Used for managing remote music sources
+  void _showServerSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const ServerSheet(),
+    );
+  }
+
+  /// Scrolls to a random song in the library
+  /// Provides quick access to random music selection
   void _scrollToRandomSong() {
     final songListBuilderState = _songListBuilderKey.currentState;
     if (songListBuilderState != null) {
@@ -107,6 +132,7 @@ void _showServerSheet() {
                 },
                 itemBuilder: (BuildContext context) {
                   return [
+                    _buildPopupMenuItem('favorite', Icons.favorite_rounded),
                     _buildPopupMenuItem('title', Icons.abc_rounded),
                     _buildPopupMenuItem('artist', Icons.person_rounded),
                     _buildPopupMenuItem('album', Icons.album_rounded),
@@ -140,6 +166,7 @@ void _showServerSheet() {
     );
   }
 
+  /// Builds a popup menu item for sorting options
   PopupMenuItem<String> _buildPopupMenuItem(String value, IconData icon) {
     return PopupMenuItem<String>(
       value: value,
@@ -154,6 +181,7 @@ void _showServerSheet() {
   }
 }
 
+/// Capitalizes the first letter of a string
 String _capitalize(String s) {
   if (s.isEmpty) return s;
   return s[0].toUpperCase() + s.substring(1);

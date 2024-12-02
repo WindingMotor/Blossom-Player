@@ -56,6 +56,14 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
+  Widget _buildConfettiToggle(BuildContext context) {
+    return _buildSwitchTile(
+      'Confetti Effects',
+      Settings.showConfetti,
+      (value) => Settings.setShowConfetti(value),
+      context,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +174,13 @@ class SettingsPage extends StatelessWidget {
                 context
               ),
               _buildSection(
+                'Fun',
+                [
+                  _buildConfettiToggle(context),
+                ],
+                context
+              ),
+              _buildSection(
                 'Developer Options',
                 [
                   _buildButton(
@@ -187,7 +202,6 @@ class SettingsPage extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _buildSection(
       String title, List<Widget> children, BuildContext context) {

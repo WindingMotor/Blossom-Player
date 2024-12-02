@@ -67,7 +67,7 @@ class PlaylistManager {
         }
       }
     }
-    print ('No image found for playlist: $playlistName');
+    //print ('No image found for playlist: $playlistName');
     return null;
   }
 

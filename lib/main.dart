@@ -1,3 +1,6 @@
+/// Blossom Music Player - A modern cross-platform music player built with Flutter
+/// This is the main entry point of the application.
+
 import 'dart:io';
 
 import 'package:blossom/audio/nplayer_widget_desktop.dart';
@@ -23,6 +26,9 @@ import 'audio/nplayer.dart';
 import 'audio/nplayer_widget.dart';
 import 'pages/library_page.dart';
 
+/// Requests necessary permissions for file access based on the platform
+/// For Android: Storage and External Storage permissions
+/// For iOS: Photos permission
 Future<void> requestPermissions() async {
   if (Platform.isAndroid) {
     Map<Permission, PermissionStatus> statuses = await [
@@ -45,9 +51,16 @@ Future<void> requestPermissions() async {
   }
 }
 
+/// Application entry point
+/// Initializes essential services and launches the app
 void main() async {
+  // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize metadata handling service
   MetadataGod.initialize();
+  
+  // Initialize app settings
   await Settings.init();
   await PlaylistManager.load();
 
@@ -99,6 +112,8 @@ void main() async {
   );
 }
 
+/// Root widget of the application
+/// Handles theme management and provides the basic app structure
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -125,6 +140,8 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
+/// Main application structure widget
+/// Manages the primary navigation and layout of the application
 class MainStructure extends StatefulWidget {
   const MainStructure({super.key});
 
@@ -132,6 +149,12 @@ class MainStructure extends StatefulWidget {
   _MainStructureState createState() => _MainStructureState();
 }
 
+/// State management for MainStructure
+/// Handles:
+/// - Page navigation
+/// - Theme changes
+/// - Layout adjustments
+/// - Player positioning
 class _MainStructureState extends State<MainStructure>
     with SingleTickerProviderStateMixin {
   bool _showWelcomePage = true;

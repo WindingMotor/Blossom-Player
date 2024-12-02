@@ -4,6 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:blossom/audio/nplayer.dart';
 import 'package:blossom/sheets/bottom_sheet.dart';
+import 'package:blossom/sheets/create_playlist_sheet.dart';
+import 'package:blossom/widgets/playlist_artwork.dart';
 
 class PlaylistPage extends StatefulWidget {
   const PlaylistPage({Key? key}) : super(key: key);
@@ -98,6 +100,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                   playlist: playlist,
                   songCount: playlistSongs.length,
                   imagePath: imagePath,
+                  songs: playlistSongs,
                   onTap: () => _showPlaylistBottomSheet(
                       context, player, playlist, playlistSongs),
                   onPlay: () => player.playPlaylistFromIndex(playlistSongs, 0),
@@ -114,100 +117,100 @@ class _PlaylistPageState extends State<PlaylistPage> {
     );
   }
 
-  void _showPlaylistBottomSheet(BuildContext context, NPlayer player,
-      String playlistName, List<Music> songs) {
-    String? playlistImagePath = player.getPlaylistImagePath(playlistName);
-
+  void _showPlaylistBottomSheet(
+      BuildContext context, NPlayer player, String playlist, List<Music> songs) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (BuildContext sheetContext) {
+      builder: (context) {
         return MusicBottomSheet(
-          title: playlistName,
+          title: playlist,
           subtitle: '${songs.length} songs',
           itemCount: songs.length,
           songs: songs,
           onPlayPressed: (song) {
             int index = songs.indexOf(song);
             player.playPlaylistFromIndex(songs, index);
-            Navigator.pop(sheetContext);
+            Navigator.pop(context);
           },
-          image: playlistImagePath != null
-              ? Image.file(File(playlistImagePath), fit: BoxFit.cover)
-              : (songs.isNotEmpty && songs.first.picture != null
-                  ? Image.memory(songs.first.picture!, fit: BoxFit.cover)
-                  : null),
           isPlaylist: true,
+          customImagePath: player.getPlaylistImagePath(playlist),
         );
       },
     );
   }
 
   void _showCreatePlaylistDialog(BuildContext context, NPlayer player) {
-    TextEditingController controller = TextEditingController();
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Create New Playlist'),
-          content: TextField(
-            controller: controller,
-            decoration: InputDecoration(hintText: "Enter playlist name"),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('Cancel'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-            TextButton(
-              child: Text('Create'),
-              onPressed: () {
-                if (controller.text.isNotEmpty) {
-                  player.createPlaylist(controller.text);
-                  Navigator.of(dialogContext).pop();
-                  if (mounted) {
-                    setState(
-                        () {}); // Trigger a rebuild to show the new playlist
-                  }
-                }
-              },
-            ),
-          ],
-        );
-      },
+      isScrollControlled: true,
+      enableDrag: true,
+      isDismissible: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CreatePlaylistSheet(
+        player: player,
+        onPlaylistCreated: () {
+          if (mounted) {
+            setState(() {}); // Refresh to show new playlist
+          }
+        },
+      ),
     );
   }
 
   void _showDeletePlaylistDialog(
       BuildContext context, NPlayer player, String playlist) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Delete Playlist'),
-          content: Text('Are you sure you want to delete "$playlist"?'),
-          actions: <Widget>[
-            TextButton(
-              child: Text('Cancel'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
+      enableDrag: true,
+      isDismissible: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(20),
+          ),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Delete Playlist',
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            TextButton(
-              child: Text('Delete'),
-              onPressed: () {
-                player.deletePlaylist(playlist);
-                Navigator.of(dialogContext).pop();
-                setState(
-                    () {}); // Trigger a rebuild to reflect the deleted playlist
-              },
+            const SizedBox(height: 16),
+            Text('Are you sure you want to delete "$playlist"?'),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    player.deletePlaylist(playlist);
+                    Navigator.pop(context);
+                    if (mounted) {
+                      setState(() {}); // Refresh to remove deleted playlist
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  child: const Text('Delete'),
+                ),
+              ],
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -216,15 +219,18 @@ class _PlaylistListTile extends StatelessWidget {
   final String playlist;
   final int songCount;
   final String? imagePath;
+  final List<Music> songs;
   final VoidCallback onTap;
   final VoidCallback onPlay;
   final VoidCallback onDelete;
   final VoidCallback onImageTap;
+
   const _PlaylistListTile({
     Key? key,
     required this.playlist,
     required this.songCount,
     this.imagePath,
+    required this.songs,
     required this.onTap,
     required this.onPlay,
     required this.onDelete,
@@ -248,12 +254,10 @@ class _PlaylistListTile extends StatelessWidget {
             child: SizedBox(
               width: 48,
               height: 48,
-              child: imagePath != null
-                  ? Image.file(File(imagePath!), fit: BoxFit.cover)
-                  : Container(
-                      color: Colors.grey[800],
-                      child: Icon(Icons.playlist_play, color: Colors.grey[600]),
-                    ),
+              child: PlaylistArtwork(
+                customImagePath: imagePath,
+                songs: songs,
+              ),
             ),
           ),
         ),

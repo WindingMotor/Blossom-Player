@@ -72,6 +72,7 @@ dependencies:
   google_sign_in: ^6.2.1
   googleapis: ^13.1.0
   googleapis_auth: ^1.5.0
+  confetti: ^0.8.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

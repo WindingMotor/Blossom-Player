@@ -30,6 +30,7 @@ class Music {
   final String genre;
   final int size;
   List<String> playlists;
+  bool isFavorite;
 
   Music({
     required this.path,
@@ -44,6 +45,7 @@ class Music {
     required this.genre,
     required this.size,
     List<String>? playlists,
+    this.isFavorite = false,
   }) : playlists = playlists ?? [];
 
   factory Music.fromJson(Map<String, dynamic> json) {
@@ -62,6 +64,7 @@ class Music {
       genre: json['genre'],
       size: json['size'],
       playlists: List<String>.from(json['playlists'] ?? []),
+      isFavorite: json['isFavorite'] ?? false,
     );
   }
 
@@ -79,6 +82,7 @@ class Music {
       'genre': genre,
       'size': size,
       'playlists': playlists,
+      'isFavorite': isFavorite,
     };
   }
 
@@ -177,6 +181,7 @@ class NPlayer extends ChangeNotifier {
     _log("Initializing from settings");
     await setVolume(Settings.volume);
     _repeatMode = Settings.repeatMode;
+    await _loadFavorites();
     _log(
         "Initialized from settings: volume=${Settings.volume}, repeatMode=$_repeatMode");
   }
@@ -326,7 +331,6 @@ class NPlayer extends ChangeNotifier {
     }
   }
 
-
   Future<void> resumeSong() async {
     if (_isResuming || _isPlaying) return;
 
@@ -345,7 +349,6 @@ class NPlayer extends ChangeNotifier {
       _isResuming = false;
     }
   }
-
 
   Future<void> stopSong() async {
     if (_isStoppingInProgress) return;
@@ -379,67 +382,64 @@ class NPlayer extends ChangeNotifier {
   }
 
   Future<void> nextSong() async {
-
-      _log("Moving to next song");
-      if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
-        int nextIndex;
-        if (_repeatMode == 'all') {
-          nextIndex = (_currentSongIndex! + 1) % _playingSongs.length;
-        } else {
-          nextIndex = _currentSongIndex! + 1;
-          if (nextIndex >= _playingSongs.length) {
-            await stopSong();
-            return;
-          }
+    _log("Moving to next song");
+    if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
+      int nextIndex;
+      if (_repeatMode == 'all') {
+        nextIndex = (_currentSongIndex! + 1) % _playingSongs.length;
+      } else {
+        nextIndex = _currentSongIndex! + 1;
+        if (nextIndex >= _playingSongs.length) {
+          await stopSong();
+          return;
         }
-        _currentSongIndex = nextIndex;
+      }
+      _currentSongIndex = nextIndex;
+      try {
+        await _audioPlayer
+            .play(DeviceFileSource(_playingSongs[nextIndex].path));
+        _isPlaying = true;
+        _currentPosition = Duration.zero;
+        await Settings.setLastPlayingSong(_playingSongs[nextIndex].path);
+        await _updateMetadata();
+        await _updatePlaybackState(playing: true);
+        await _audioHandler.play();
+        notifyListeners();
+      } catch (e) {
+        _log("Error playing next song: $e");
+      }
+    } else {
+      _log("No songs to play");
+    }
+  }
+
+  Future<void> previousSong() async {
+    _log("Moving to previous song");
+    if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
+      if (_currentPosition.inSeconds > 3) {
+        await seek(Duration.zero);
+      } else {
+        int previousIndex = (_currentSongIndex! - 1 + _playingSongs.length) %
+            _playingSongs.length;
+        _currentSongIndex = previousIndex;
         try {
           await _audioPlayer
-              .play(DeviceFileSource(_playingSongs[nextIndex].path));
+              .play(DeviceFileSource(_playingSongs[previousIndex].path));
           _isPlaying = true;
           _currentPosition = Duration.zero;
-          await Settings.setLastPlayingSong(_playingSongs[nextIndex].path);
+          await Settings.setLastPlayingSong(
+              _playingSongs[previousIndex].path);
           await _updateMetadata();
           await _updatePlaybackState(playing: true);
           await _audioHandler.play();
           notifyListeners();
         } catch (e) {
-          _log("Error playing next song: $e");
+          _log("Error playing previous song: $e");
         }
-      } else {
-        _log("No songs to play");
       }
-    
-  }
-
-  Future<void> previousSong() async {
-      _log("Moving to previous song");
-      if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
-        if (_currentPosition.inSeconds > 3) {
-          await seek(Duration.zero);
-        } else {
-          int previousIndex = (_currentSongIndex! - 1 + _playingSongs.length) %
-              _playingSongs.length;
-          _currentSongIndex = previousIndex;
-          try {
-            await _audioPlayer
-                .play(DeviceFileSource(_playingSongs[previousIndex].path));
-            _isPlaying = true;
-            _currentPosition = Duration.zero;
-            await Settings.setLastPlayingSong(
-                _playingSongs[previousIndex].path);
-            await _updateMetadata();
-            await _updatePlaybackState(playing: true);
-            await _audioHandler.play();
-            notifyListeners();
-          } catch (e) {
-            _log("Error playing previous song: $e");
-          }
-        }
-      } else {
-        _log("No songs to play");
-      }
-    
+    } else {
+      _log("No songs to play");
+    }
   }
 
   // MARK: Album and Artist Playback
@@ -611,7 +611,6 @@ class NPlayer extends ChangeNotifier {
     }
   }
 
-
   Future _processDirectory(Directory directory) async {
     await for (final entity in directory.list(followLinks: false)) {
       if (entity is File &&
@@ -730,6 +729,10 @@ class NPlayer extends ChangeNotifier {
     _log("Filtering and sorting songs");
     if (_searchQuery.isEmpty) {
       _sortedSongs = List.from(_allSongs);
+      // Filter to only show favorite songs when sorting by favorites
+      if (_sortBy == 'favorite') {
+        _sortedSongs = _sortedSongs.where((song) => song.isFavorite).toList();
+      }
       _applySorting();
     } else {
       final fuse = Fuzzy(
@@ -770,38 +773,50 @@ class NPlayer extends ChangeNotifier {
 
   void _applySorting() {
     _log("Applying sorting: by $_sortBy, ascending: $_sortAscending");
-    _sortedSongs.sort((a, b) {
-      int comparison;
-      switch (_sortBy) {
-        case 'title':
-          comparison = a.title.compareTo(b.title);
-          break;
-        case 'artist':
-          comparison = a.artist.compareTo(b.artist);
-          break;
-        case 'album':
-          comparison = a.album.compareTo(b.album);
-          break;
-        case 'duration':
-          comparison = a.duration.compareTo(b.duration);
-          break;
-        case 'folder':
-          comparison = a.folderName.compareTo(b.folderName);
-          break;
-        case 'last Modified':
-          comparison = b.lastModified.compareTo(a.lastModified);
-          break;
-        case 'year':
-          // Parse years to integers for proper numerical comparison
-          int yearA = int.tryParse(a.year) ?? 0;
-          int yearB = int.tryParse(b.year) ?? 0;
-          comparison = yearA.compareTo(yearB);
-          break;
-        default:
-          comparison = a.title.compareTo(b.title);
-      }
-      return _sortAscending ? comparison : -comparison;
-    });
+    if (_sortBy == 'favorite') {
+      _sortedSongs.sort((a, b) {
+        if (a.isFavorite == b.isFavorite) {
+          return a.title.compareTo(b.title);
+        }
+        return b.isFavorite ? 1 : -1;
+      });
+    } else {
+      _sortedSongs.sort((a, b) {
+        int comparison;
+        switch (_sortBy) {
+          case 'title':
+            comparison = a.title.compareTo(b.title);
+            break;
+          case 'artist':
+            comparison = a.artist.compareTo(b.artist);
+            break;
+          case 'album':
+            comparison = a.album.compareTo(b.album);
+            break;
+          case 'duration':
+            comparison = a.duration.compareTo(b.duration);
+            break;
+          case 'folder':
+            comparison = a.folderName.compareTo(b.folderName);
+            break;
+          case 'last Modified':
+            comparison = b.lastModified.compareTo(a.lastModified);
+            break;
+          case 'year':
+            // Parse years to integers for proper numerical comparison
+            int yearA = int.tryParse(a.year) ?? 0;
+            int yearB = int.tryParse(b.year) ?? 0;
+            comparison = yearA.compareTo(yearB);
+            break;
+          default:
+            comparison = a.title.compareTo(b.title);
+        }
+        return _sortAscending ? comparison : -comparison;
+      });
+    }
+    if (!_sortAscending) {
+      _sortedSongs = _sortedSongs.reversed.toList();
+    }
   }
 
   void sortSongs({String? sortBy, bool? ascending}) {
@@ -977,4 +992,23 @@ class NPlayer extends ChangeNotifier {
     await _client!.connectAndPlay(host, port);
   }
 
+  Future<void> toggleFavorite() async {
+    final currentSong = getCurrentSong();
+    if (currentSong != null) {
+      currentSong.isFavorite = !currentSong.isFavorite;
+      if (currentSong.isFavorite) {
+        await Settings.addFavorite(currentSong.path);
+      } else {
+        await Settings.removeFavorite(currentSong.path);
+      }
+      notifyListeners();
+    }
+  }
+
+  Future<void> _loadFavorites() async {
+    final favorites = Settings.favoriteSongs;
+    for (var song in _allSongs) {
+      song.isFavorite = favorites.contains(song.path);
+    }
+  }
 }

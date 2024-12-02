@@ -18,15 +18,21 @@ class FloatingBottomNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isDesktop = screenSize.width > 600;
+
     return Consumer<NPlayer>(
       builder: (context, player, child) {
         final currentSong = player.getCurrentSong();
 
         return Container(
-          height: 60, // Fixed height for the navbar
-          margin: const EdgeInsets.symmetric(horizontal: 16),
+          height: isDesktop ? 70 : 60,
+          margin: EdgeInsets.symmetric(
+            horizontal: isDesktop ? 24 : 16,
+            vertical: isDesktop ? 16 : 8,
+          ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(isDesktop ? 35 : 30),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.2),
@@ -36,7 +42,7 @@ class FloatingBottomNavigationBar extends StatelessWidget {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(isDesktop ? 35 : 30),
             child: Stack(
               children: [
                 if (currentSong?.picture != null)
@@ -55,7 +61,7 @@ class FloatingBottomNavigationBar extends StatelessWidget {
                   ),
                 ),
                 SizedBox(
-                  height: 60,
+                  height: isDesktop ? 70 : 60,
                   child: BottomNavigationBar(
                     elevation: 0,
                     backgroundColor: Colors.transparent,

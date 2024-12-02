@@ -2,6 +2,7 @@ import 'package:blossom/song_list/song_list_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import '../audio/nplayer.dart';
+import 'package:blossom/widgets/playlist_artwork.dart';
 
 class MusicBottomSheet extends StatefulWidget {
   final String title;
@@ -11,6 +12,7 @@ class MusicBottomSheet extends StatefulWidget {
   final Function(Music) onPlayPressed;
   final Widget? image;
   final bool isPlaylist;
+  final String? customImagePath;
 
   const MusicBottomSheet({
     Key? key,
@@ -21,6 +23,7 @@ class MusicBottomSheet extends StatefulWidget {
     required this.onPlayPressed,
     this.image,
     this.isPlaylist = false,
+    this.customImagePath,
   }) : super(key: key);
 
   @override
@@ -116,7 +119,15 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
                     child: SizedBox(
                       width: 60,
                       height: 60,
-                      child: widget.image ?? const Icon(Icons.album, size: 60),
+                      child: widget.image ?? (widget.isPlaylist 
+                        ? PlaylistArtwork(
+                            customImagePath: widget.customImagePath,
+                            songs: widget.songs,
+                            size: 60,
+                          )
+                        : (widget.songs.isNotEmpty && widget.songs.first.picture != null
+                            ? Image.memory(widget.songs.first.picture!, fit: BoxFit.cover)
+                            : Icon(Icons.album, size: 60, color: Theme.of(context).colorScheme.primary))),
                     ),
                   ),
                   const SizedBox(width: 16),
