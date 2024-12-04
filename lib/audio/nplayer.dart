@@ -15,6 +15,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:blossom/audio/song_data.dart';
 
 /// Represents a music file with its metadata and associated playlists.
 class Music {
@@ -602,12 +603,12 @@ class NPlayer extends ChangeNotifier {
         }
       }
 
-      // Apply initial sorting after loading songs
-      sortSongs(sortBy: Settings.songSortBy, ascending: Settings.songSortAscending);
-
+      // Load favorites and sort songs
+      await _loadFavorites();
+      _filterAndSortSongs();
       notifyListeners();
     } catch (e) {
-      _log("Error while loading songs: $e");
+      _log("Error loading songs: $e");
     }
   }
 
@@ -648,6 +649,7 @@ class NPlayer extends ChangeNotifier {
       final music = Music(
         path: file.path,
         folderName: path.basename(path.dirname(file.path)),
+        lastModified: lastModifiedDate,
         title: title,
         album: album,
         artist: artist,
@@ -656,7 +658,7 @@ class NPlayer extends ChangeNotifier {
         year: year,
         genre: genre,
         size: fileStat.size,
-        lastModified: lastModifiedDate,
+        isFavorite: SongData.isFavorite(file.path),  // Initialize favorite state
       );
 
       _allSongs.add(music);
@@ -799,7 +801,7 @@ class NPlayer extends ChangeNotifier {
           case 'folder':
             comparison = a.folderName.compareTo(b.folderName);
             break;
-          case 'last Modified':
+          case 'modified':
             comparison = b.lastModified.compareTo(a.lastModified);
             break;
           case 'year':
@@ -808,15 +810,17 @@ class NPlayer extends ChangeNotifier {
             int yearB = int.tryParse(b.year) ?? 0;
             comparison = yearA.compareTo(yearB);
             break;
+          case 'plays':
+            comparison = SongData.getPlayCount(b.path).compareTo(SongData.getPlayCount(a.path));
+            break;
           default:
             comparison = a.title.compareTo(b.title);
         }
         return _sortAscending ? comparison : -comparison;
       });
     }
-    if (!_sortAscending) {
-      _sortedSongs = _sortedSongs.reversed.toList();
-    }
+
+    notifyListeners();
   }
 
   void sortSongs({String? sortBy, bool? ascending}) {
@@ -937,6 +941,12 @@ class NPlayer extends ChangeNotifier {
 
   Future<void> _handleSongCompletion() async {
     _log("Handling song completion");
+    
+    // Increment play count for the current song
+    if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
+      await SongData.incrementPlayCount(_playingSongs[_currentSongIndex!].path);
+    }
+    
     switch (_repeatMode) {
       case 'off':
         await nextSong();
@@ -996,19 +1006,92 @@ class NPlayer extends ChangeNotifier {
     final currentSong = getCurrentSong();
     if (currentSong != null) {
       currentSong.isFavorite = !currentSong.isFavorite;
-      if (currentSong.isFavorite) {
-        await Settings.addFavorite(currentSong.path);
-      } else {
-        await Settings.removeFavorite(currentSong.path);
-      }
+      await SongData.setFavorite(currentSong.path, currentSong.isFavorite);
       notifyListeners();
     }
   }
 
   Future<void> _loadFavorites() async {
-    final favorites = Settings.favoriteSongs;
     for (var song in _allSongs) {
-      song.isFavorite = favorites.contains(song.path);
+      song.isFavorite = SongData.isFavorite(song.path);
+    }
+  }
+
+  /// Updates a song's metadata
+  Future<void> updateSongMetadata(Music song, Map<String, String> metadata) async {
+    _log("Updating metadata for ${song.title}");
+    try {
+      final songFile = File(song.path);
+      if (!await songFile.exists()) {
+        throw Exception('Song file not found');
+      }
+
+      await MetadataGod.writeMetadata(
+        file: song.path,
+        metadata: Metadata(
+          title: metadata['title'],
+          artist: metadata['artist'],
+          album: metadata['album'],
+          year: int.tryParse(metadata['year'] ?? ''),
+          genre: metadata['genre'],
+        ),
+      );
+
+      // Update the song object
+      final index = _allSongs.indexOf(song);
+      if (index != -1) {
+        _allSongs[index] = Music(
+          path: song.path,
+          title: metadata['title'] ?? song.title,
+          artist: metadata['artist'] ?? song.artist,
+          album: metadata['album'] ?? song.album,
+          year: metadata['year'] ?? song.year,
+          genre: metadata['genre'] ?? song.genre,
+          duration: song.duration,
+          folderName: song.folderName,
+          lastModified: song.lastModified,
+          picture: song.picture,  // Preserve existing album art
+          size: song.size,
+          playlists: song.playlists,
+          isFavorite: song.isFavorite,
+        );
+      }
+
+      _filterAndSortSongs();
+      notifyListeners();
+    } catch (e) {
+      _log("Error updating metadata: $e");
+      rethrow;
+    }
+  }
+
+  /// Deletes a song from the library
+  Future<void> deleteSong(Music song) async {
+    _log("Deleting song ${song.title}");
+    try {
+      final songFile = File(song.path);
+      if (await songFile.exists()) {
+        await songFile.delete();
+      }
+
+      // Remove from all lists
+      _allSongs.remove(song);
+      _playingSongs.remove(song);
+      _sortedSongs.remove(song);
+
+      // Update current song index if needed
+      if (_currentSongIndex != null && _playingSongs.isNotEmpty) {
+        if (_currentSongIndex! >= _playingSongs.length) {
+          _currentSongIndex = _playingSongs.length - 1;
+        }
+      } else if (_playingSongs.isEmpty) {
+        _currentSongIndex = null;
+      }
+
+      notifyListeners();
+    } catch (e) {
+      _log("Error deleting song: $e");
+      rethrow;
     }
   }
 }

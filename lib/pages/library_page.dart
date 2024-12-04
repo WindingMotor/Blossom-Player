@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
 import 'package:blossom/pages/settings_page.dart';
+import '../pages/manager_page.dart';
 
 /// Main widget for the song library interface
 /// Manages the display and interaction with the user's music collection
@@ -110,7 +111,18 @@ class _SongLibraryState extends State<SongLibrary> {
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.hardware_rounded, color:  Colors.white), // New Server Icon
+                icon: const Icon(Icons.edit_rounded),
+                tooltip: 'Song Manager',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const ManagerPage(),
+                    ),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.hardware_rounded),
                 tooltip: 'Server',
                 onPressed: _showServerSheet, // Show the ServerSheet
               ),
@@ -132,14 +144,22 @@ class _SongLibraryState extends State<SongLibrary> {
                 },
                 itemBuilder: (BuildContext context) {
                   return [
-                    _buildPopupMenuItem('favorite', Icons.favorite_rounded),
+                    // Primary metadata
                     _buildPopupMenuItem('title', Icons.abc_rounded),
                     _buildPopupMenuItem('artist', Icons.person_rounded),
                     _buildPopupMenuItem('album', Icons.album_rounded),
+                    
+                    // User engagement
+                    _buildPopupMenuItem('favorite', Icons.favorite_rounded),
+                    _buildPopupMenuItem('plays', Icons.play_circle_outline_rounded),
+                    
+                    // Technical metadata
                     _buildPopupMenuItem('duration', Icons.timer_rounded),
-                    _buildPopupMenuItem('folder', Icons.folder_rounded),
                     _buildPopupMenuItem('year', Icons.calendar_today_rounded),
-                    _buildPopupMenuItem('last Modified', Icons.update_rounded),
+                    
+                    // File system
+                    _buildPopupMenuItem('folder', Icons.folder_rounded),
+                    _buildPopupMenuItem('modified', Icons.update_rounded),
                   ];
                 },
               ),

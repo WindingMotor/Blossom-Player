@@ -3,6 +3,7 @@
 /// Uses SharedPreferences for data persistence
 
 import 'dart:io';
+import 'package:blossom/audio/song_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,7 +19,6 @@ class SettingsKeys {
   static const String lastPlayingSong = 'lastPlayingSong';
   static const String repeatMode = 'repeatMode';
   static const String previousForShuffle = 'previousForShuffle';
-  static const String favoriteSongs = 'favoriteSongs';
   static const String showConfetti = 'showConfetti';
   
   // Library sort keys
@@ -41,6 +41,16 @@ class Settings {
   /// Initialize settings system
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    await SongData.init();
+    
+    // Migrate existing favorites if needed
+    if (_prefs.containsKey('favoriteSongs')) {
+      final oldFavorites = _prefs.getStringList('favoriteSongs') ?? [];
+      for (final song in oldFavorites) {
+        await SongData.setFavorite(song, true);
+      }
+      await _prefs.remove('favoriteSongs');
+    }
   }
 
   ///***************************************************************************
@@ -48,28 +58,23 @@ class Settings {
   ///***************************************************************************
   
   /// Get list of favorite song paths
-  static List<String> get favoriteSongs => 
-      _prefs.getStringList(SettingsKeys.favoriteSongs) ?? [];
+  static List<String> get favoriteSongs => SongData.getFavoriteSongs();
 
   /// Set list of favorite song paths
   static Future<void> setFavoriteSongs(List<String> paths) async {
-    await _prefs.setStringList(SettingsKeys.favoriteSongs, paths);
+    for (final path in paths) {
+      await SongData.setFavorite(path, true);
+    }
   }
 
   /// Add a song to favorites
   static Future<void> addFavorite(String path) async {
-    final favorites = favoriteSongs;
-    if (!favorites.contains(path)) {
-      favorites.add(path);
-      await setFavoriteSongs(favorites);
-    }
+    await SongData.setFavorite(path, true);
   }
 
   /// Remove a song from favorites
   static Future<void> removeFavorite(String path) async {
-    final favorites = favoriteSongs;
-    favorites.remove(path);
-    await setFavoriteSongs(favorites);
+    await SongData.setFavorite(path, false);
   }
 
   ///***************************************************************************
