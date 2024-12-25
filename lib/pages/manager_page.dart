@@ -28,24 +28,29 @@ class _ManagerPageState extends State<ManagerPage> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Song Manager'),
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(60),
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextField(
-                  onChanged: (value) => setState(() => _searchQuery = value),
-                  decoration: InputDecoration(
-                    hintText: 'Search songs...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 40,
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    child: TextField(
+                      onChanged: (value) => setState(() => _searchQuery = value),
+                      decoration: InputDecoration(
+                        hintText: 'Search songs...',
+                        prefixIcon: const Icon(Icons.search),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        filled: true,
+                        fillColor: Theme.of(context).cardColor,
+                      ),
                     ),
-                    filled: true,
-                    fillColor: Theme.of(context).cardColor,
                   ),
                 ),
-              ),
+                const SizedBox(width: 8), // Add some spacing between search bar and exit button
+              ],
             ),
           ),
           body: OrientationBuilder(

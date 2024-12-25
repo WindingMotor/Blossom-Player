@@ -19,20 +19,20 @@ class _WelcomePageState extends State<WelcomePage> {
   // Define pages in a list to ensure consistency
   final List<Map<String, dynamic>> _pages = [
     {
-      'title': 'Welcome to Blossom',
+      'title': 'Welcome to Blossom Player',
       'description': 'Your modern, open-source music player for local audio files',
-      'icon': Icons.music_note,
+      'icon': Icons.library_music,
       'bullets': [
         'Simple and beautiful interface',
-        'Support for MP3 and FLAC files',
+        'Support for MP3, M4A, and FLAC files',
         'Currently in beta development',
-        'Available on iOS, Android, and Desktop',
+        'Available on iOS, and soon Desktop!',
       ],
     },
     {
       'title': 'Organize Your Music',
       'description': 'Multiple ways to browse and organize your music collection',
-      'icon': Icons.library_music,
+      'icon': Icons.book,
       'bullets': [
         'View by albums, artists, or songs',
         'Create and manage custom playlists',
@@ -41,41 +41,18 @@ class _WelcomePageState extends State<WelcomePage> {
       ],
     },
     {
-      'title': 'Companion App',
-      'description': 'Download music directly using the Blossom Companion',
-      'icon': Icons.download,
-      'bullets': [
-        'Integrated with spotDL for desktop',
-        'Easy music downloading and organization',
-        'Automatic metadata handling',
-        'Direct integration with your library',
-      ],
-    },
-    {
-      'title': 'Customizable Experience',
-      'description': 'Make Blossom yours with extensive customization options',
-      'icon': Icons.palette,
-      'bullets': [
-        'Multiple theme options including OLED dark mode',
-        'Customizable playback settings',
-        'Playlist artwork customization',
-        'Adjustable audio settings',
-      ],
-    },
-    {
       'title': 'Coming Soon',
       'description': 'Exciting features in development',
       'icon': Icons.upcoming,
       'bullets': [
-        'Background playback optimization',
-        'Whisper audio-to-text for lyrics',
-        'Local LLM for song organization',
-        'Cloud service integration',
+        'Live Web-UI for playback',
+        'Auto importing from Desktop app',
+        'And more!'
       ],
     },
     {
       'title': 'Open Source',
-      'description': 'Blossom is free and open source software',
+      'description': 'Blossom Player is open source software',
       'icon': Icons.code,
       'bullets': [
         'Available on GitHub',
@@ -89,7 +66,6 @@ class _WelcomePageState extends State<WelcomePage> {
       'description': 'Thank you for testing Blossom',
       'icon': Icons.science,
       'bullets': [
-        'TestFlight coming soon for iOS',
         'Please report any bugs you find',
         'Your feedback helps improve Blossom',
         'Join our community for updates',

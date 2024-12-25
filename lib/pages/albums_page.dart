@@ -325,6 +325,21 @@ class _AlbumListTile extends StatelessWidget {
     required this.onTap,
   }) : super(key: key);
 
+  String _getYearRange() {
+    if (album.songs.length == 1) {
+      return album.firstSong.year;
+    }
+
+    // Find min and max years
+    final years = album.songs.map((song) => song.year).where((year) => year.isNotEmpty).toList();
+    if (years.isEmpty) return '';
+    
+    final minYear = years.reduce((a, b) => a.compareTo(b) < 0 ? a : b);
+    final maxYear = years.reduce((a, b) => a.compareTo(b) > 0 ? a : b);
+
+    return minYear == maxYear ? minYear : '$minYear - $maxYear';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -359,7 +374,7 @@ class _AlbumListTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Text(
-          album.firstSong.year,
+          _getYearRange(),
           style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
         onTap: onTap,

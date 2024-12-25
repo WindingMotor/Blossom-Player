@@ -62,23 +62,66 @@ class _MetadataSheetState extends State<MetadataSheet> {
     required TextEditingController controller,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
+    String? helperText,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        inputFormatters: inputFormatters,
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
           ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
+          const SizedBox(height: 4),
+          TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            style: TextStyle(
+              fontSize: 15,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              helperText: helperText,
+              helperStyle: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+              helperMaxLines: 1,
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 2,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -106,69 +149,92 @@ class _MetadataSheetState extends State<MetadataSheet> {
         children: [
           // Drag Handle
           Container(
-            margin: EdgeInsets.symmetric(
-              vertical: isDesktop ? 12 : 8,
-            ),
-            width: 40,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            width: 32,
             height: 4,
             decoration: BoxDecoration(
-              color: Theme.of(context).dividerColor,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              isDesktop ? 24 : 16,
-              isDesktop ? 16 : 8,
-              isDesktop ? 24 : 16,
-              bottomPadding + (isDesktop ? 24 : 16),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Flexible(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  4,
+                  20,
+                  bottomPadding + 20,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Edit Metadata',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontSize: isDesktop ? 24 : 20,
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Edit Metadata',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Update song information',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
+                          ),
+                          FilledButton.icon(
+                            onPressed: () => _saveMetadata(context),
+                            icon: const Icon(Icons.save_rounded, size: 20),
+                            label: const Text('Save'),
+                          ),
+                        ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.save),
-                      iconSize: isDesktop ? 28 : 24,
-                      onPressed: () => _saveMetadata(context),
+                    // Form Fields
+                    _buildTextField(
+                      label: 'Title',
+                      controller: _titleController,
+                      helperText: 'Song title',
                     ),
+                    _buildTextField(
+                      label: 'Artist',
+                      controller: _artistController,
+                      helperText: 'Song artist or band name',
+                    ),
+                    _buildTextField(
+                      label: 'Album',
+                      controller: _albumController,
+                      helperText: 'Album name',
+                    ),
+                    _buildTextField(
+                      label: 'Year',
+                      controller: _yearController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      helperText: 'Release year',
+                    ),
+                    _buildTextField(
+                      label: 'Genre',
+                      controller: _genreController,
+                      helperText: 'Music genre',
+                    ),
+                    const SizedBox(height: 8),
                   ],
                 ),
-                const SizedBox(height: 24),
-                // Form Fields
-                _buildTextField(
-                  label: 'Title',
-                  controller: _titleController,
-                ),
-                _buildTextField(
-                  label: 'Artist',
-                  controller: _artistController,
-                ),
-                _buildTextField(
-                  label: 'Album',
-                  controller: _albumController,
-                ),
-                _buildTextField(
-                  label: 'Year',
-                  controller: _yearController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                ),
-                _buildTextField(
-                  label: 'Genre',
-                  controller: _genreController,
-                ),
-              ],
+              ),
             ),
           ),
         ],

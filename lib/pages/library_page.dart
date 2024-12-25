@@ -110,6 +110,7 @@ class _SongLibraryState extends State<SongLibrary> {
                   );
                 },
               ),
+              /*
               IconButton(
                 icon: const Icon(Icons.edit_rounded),
                 tooltip: 'Song Manager',
@@ -121,11 +122,14 @@ class _SongLibraryState extends State<SongLibrary> {
                   );
                 },
               ),
+              */
+              /*
               IconButton(
                 icon: const Icon(Icons.hardware_rounded),
                 tooltip: 'Server',
                 onPressed: _showServerSheet, // Show the ServerSheet
               ),
+              */
               IconButton(
                 icon: const Icon(Icons.shuffle),
                 tooltip: 'Scroll to random song',

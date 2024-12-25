@@ -173,14 +173,21 @@ class _PlaylistPageState extends State<PlaylistPage> {
             top: Radius.circular(20),
           ),
         ),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Delete Playlist',
-              style: Theme.of(context).textTheme.titleLarge,
+            Row(
+              children: [
+                Icon(Icons.warning_rounded, 
+                  color: Theme.of(context).colorScheme.error),
+                const SizedBox(width: 12),
+                Text(
+                  'Delete Playlist',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Text('Are you sure you want to delete "$playlist"?'),
@@ -188,23 +195,22 @@ class _PlaylistPageState extends State<PlaylistPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
+                TextButton.icon(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  icon: const Icon(Icons.close),
+                  label: const Text('Cancel'),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton(
+                ElevatedButton.icon(
                   onPressed: () {
                     player.deletePlaylist(playlist);
                     Navigator.pop(context);
                     if (mounted) {
-                      setState(() {}); // Refresh to remove deleted playlist
+                      setState(() {});
                     }
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.error,
-                  ),
-                  child: const Text('Delete'),
+                  icon: const Icon(Icons.delete),
+                  label: const Text('Delete'),
                 ),
               ],
             ),
@@ -275,7 +281,8 @@ class _PlaylistListTile extends StatelessWidget {
           children: [
             IconButton(
               icon: Icon(Icons.play_arrow, color: Colors.grey[400]),
-              onPressed: onPlay,
+              onPressed: songs.isNotEmpty ? onPlay : null, // Disable if no songs
+              color: songs.isNotEmpty ? Colors.grey[400] : Colors.grey[800],
             ),
             IconButton(
               icon: Icon(Icons.delete, color: Colors.grey[400]),

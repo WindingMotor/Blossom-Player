@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:blossom/custom/custom_searchbar.dart';
@@ -249,6 +248,20 @@ class _ArtistListTile extends StatefulWidget {
 }
 
 class _ArtistListTileState extends State<_ArtistListTile> {
+  String _getYearRange() {
+    if (widget.artist.songs.length == 1) {
+      return widget.artist.firstSong.year;
+    }
+
+    // Find min and max years
+    final years = widget.artist.songs.map((song) => song.year).where((year) => year.isNotEmpty).toList();
+    if (years.isEmpty) return '';
+    
+    final minYear = years.reduce((a, b) => a.compareTo(b) < 0 ? a : b);
+    final maxYear = years.reduce((a, b) => a.compareTo(b) > 0 ? a : b);
+
+    return minYear == maxYear ? minYear : '$minYear - $maxYear';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -284,7 +297,7 @@ class _ArtistListTileState extends State<_ArtistListTile> {
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Text(
-          widget.artist.firstSong.year,
+          _getYearRange(),
           style: TextStyle(fontSize: 12, color: Colors.grey[400]),
         ),
         onTap: widget.onTap,

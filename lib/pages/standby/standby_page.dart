@@ -166,7 +166,7 @@ class _StandbyPageState extends State<StandbyPage>
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeInOut,
                         child: Padding(
-                          padding: const EdgeInsets.all(24.0),
+                          padding: const EdgeInsets.all(48.0),
                           child: Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(20),
@@ -201,20 +201,28 @@ class _StandbyPageState extends State<StandbyPage>
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  currentSong.title,
-                                  style: const TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    currentSong.title,
+                                    style: const TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  currentSong.artist,
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    color: Colors.white.withOpacity(0.8),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    currentSong.artist,
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      color: Colors.white.withOpacity(0.8),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 32),
@@ -375,11 +383,6 @@ class _StandbyPageState extends State<StandbyPage>
                       ),
                     ],
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.shuffle_rounded),
-                  onPressed: () => player.shuffle(),
-                  iconSize: 32,
                 ),
               ],
             ),

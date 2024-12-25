@@ -16,6 +16,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:blossom/audio/song_data.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Represents a music file with its metadata and associated playlists.
 class Music {
@@ -136,6 +137,28 @@ class NPlayer extends ChangeNotifier {
   final HeadsetEvent _headsetPlugin = HeadsetEvent();
   bool _isHeadphonesConnected = false;
   bool get isHeadphonesConnected => _isHeadphonesConnected;
+
+  // Sleep Timer properties
+  Timer? _sleepTimer;
+  Timer? _fadeTimer;
+  int? _sleepTimerMinutes;
+  Duration? _remainingTime;
+  double? _originalVolume;
+  static const fadeStartSeconds = 10;
+  static const fadeUpdateInterval = 50; // Update every 50ms for smoother transition
+
+  // Sleep Timer getters and setters
+  int? get sleepTimerMinutes => _sleepTimerMinutes;
+  set _setSleepTimerMinutes(int? value) {
+    _sleepTimerMinutes = value;
+    notifyListeners();
+  }
+
+  Duration? get remainingTime => _remainingTime;
+  set _setRemainingTime(Duration? value) {
+    _remainingTime = value;
+    notifyListeners();
+  }
 
   // MARK: Constructor and Initialization
   NPlayer() {
@@ -614,9 +637,11 @@ class NPlayer extends ChangeNotifier {
 
   Future _processDirectory(Directory directory) async {
     await for (final entity in directory.list(followLinks: false)) {
+      final extension = path.extension(entity.path).toLowerCase();
       if (entity is File &&
-          (path.extension(entity.path).toLowerCase() == '.mp3' ||
-              path.extension(entity.path).toLowerCase() == '.flac')) {
+          (extension == '.mp3' ||
+           extension == '.flac' ||
+           extension == '.m4a')) {
         await _processAudioFile(entity);
       } else if (entity is Directory) {
         await _processDirectory(entity);
@@ -928,10 +953,11 @@ class NPlayer extends ChangeNotifier {
           .where((file) =>
               file is File &&
               (path.extension(file.path).toLowerCase() == '.mp3' ||
-                  path.extension(file.path).toLowerCase() == '.flac'))
+                  path.extension(file.path).toLowerCase() == '.flac' ||
+                  path.extension(file.path).toLowerCase() == '.m4a'))
           .toList();
 
-      _log("Found ${files.length} .mp3 and .flac files");
+      _log("Found ${files.length} .mp3, .flac and .m4a files");
       return files;
     } catch (e) {
       _log("Error while listing files: $e");
@@ -961,6 +987,79 @@ class NPlayer extends ChangeNotifier {
         await nextSong();
         break;
     }
+  }
+
+  double _easeOutVolume(double progress) {
+    // Use ease-out cubic curve for more natural volume fade
+    return (1 - progress) * (1 - progress) * (1 - progress);
+  }
+
+  void _handleFadeOut() {
+    if (_fadeTimer == null && _remainingTime != null) {
+      // Store original volume when fade starts
+      _originalVolume ??= _audioPlayer.volume;
+      
+      _fadeTimer = Timer.periodic(Duration(milliseconds: fadeUpdateInterval), (timer) {
+        if (_remainingTime == null || _remainingTime!.inSeconds <= 0) {
+          _fadeTimer?.cancel();
+          _fadeTimer = null;
+          return;
+        }
+
+        // Calculate progress (0.0 to 1.0) where 1.0 is start of fade and 0.0 is end
+        final progress = _remainingTime!.inMilliseconds / (fadeStartSeconds * 1000);
+        
+        // Apply ease-out curve to the volume
+        final volumeMultiplier = _easeOutVolume(1 - progress);
+        final targetVolume = _originalVolume! * volumeMultiplier;
+        
+        _audioPlayer.setVolume(targetVolume.clamp(0.0, 1.0));
+      });
+    }
+  }
+
+  // MARK: Sleep Timer methods
+  void startSleepTimer(int minutes) {
+    _setSleepTimerMinutes = minutes;
+    _setRemainingTime = Duration(minutes: minutes);
+    _sleepTimer?.cancel();
+    _fadeTimer?.cancel();
+    
+    _sleepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingTime != null && _remainingTime!.inSeconds > 0) {
+        _setRemainingTime = _remainingTime! - const Duration(seconds: 1);
+        
+        // Start fade out when 10 seconds remaining
+        if (_remainingTime!.inSeconds <= fadeStartSeconds && _remainingTime!.inSeconds > 0) {
+          _handleFadeOut();
+        }
+        
+        // When timer hits zero
+        if (_remainingTime!.inSeconds <= 0) {
+          cancelSleepTimer();
+          pauseSong();
+          // Restore original volume after a brief pause
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (_originalVolume != null) {
+              _audioPlayer.setVolume(_originalVolume!);
+              _originalVolume = null;
+            }
+          });
+        }
+      }
+    });
+  }
+
+  void cancelSleepTimer() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    _fadeTimer?.cancel();
+    _fadeTimer = null;
+    // Only reset the minutes if we're not in the middle of the sleep animation
+    if (_sleepTimerMinutes != 0) {
+      _setSleepTimerMinutes = null;
+    }
+    notifyListeners();
   }
 
   void _log(String message) {
@@ -1091,6 +1190,24 @@ class NPlayer extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _log("Error deleting song: $e");
+      rethrow;
+    }
+  }
+
+  // Share the current song file
+  Future<void> shareSong(Music song) async {
+    try {
+      final file = File(song.path);
+      if (await file.exists()) {
+        await Share.shareXFiles(
+          [XFile(song.path)],
+          subject: '${song.title} by ${song.artist}',
+        );
+      } else {
+        throw Exception('File not found');
+      }
+    } catch (e) {
+      _log('Error sharing song: $e');
       rethrow;
     }
   }

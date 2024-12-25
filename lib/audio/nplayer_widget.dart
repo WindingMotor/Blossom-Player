@@ -5,6 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:blur/blur.dart';
 import 'nplayer.dart';
 import 'package:ticker_text/ticker_text.dart';
+import '../widgets/sleep_timer_widget.dart';
+import '../sheets/sleep_timer_sheet.dart';
+import '../sheets/metadata_sheet.dart';
 
 class NPlayerWidget extends StatefulWidget {
   const NPlayerWidget({Key? key}) : super(key: key);
@@ -51,7 +54,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
           width: 45,
           height: 45,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8), // This rounds the corners
+            borderRadius: BorderRadius.circular(8),
             image: DecorationImage(
               fit: BoxFit.cover,
               image: player.getCurrentSong()?.picture != null
@@ -85,14 +88,6 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
             ],
           ),
         ),
-        /*
-        if (player.isHeadphonesConnected)
-          Icon(
-            Icons.headset,
-            color: Colors.white,
-            size: 20,
-          ),
-          */
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.skip_previous_rounded, color: Colors.white),
@@ -159,13 +154,118 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
     );
   }
 
+Widget _buildDropdown(NPlayer player) {
+  return PopupMenuButton<String>(
+    icon: Transform.rotate(
+      angle: 1.5708,
+      child: Icon(Icons.more_vert, color: Theme.of(context).colorScheme.onSurface),
+    ),
+    onSelected: (value) async {
+      switch (value) {
+        case 'shuffle':
+          player.shuffle();
+          setState(() {});
+          break;
+        case 'favorite':
+          player.toggleFavorite();
+          setState(() {});
+          break;
+        case 'sleep':
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => const SleepTimerSheet(),
+          );
+          break;
+        case 'edit':
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => MetadataSheet(
+              song: player.getCurrentSong()!,
+            ),
+          );
+          break;
+        case 'share':
+          try {
+            await player.shareSong(player.getCurrentSong()!);
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error sharing song: $e')),
+            );
+          }
+          break;
+      }
+    },
+    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+      PopupMenuItem<String>(
+        value: 'shuffle',
+        child: Row(
+          children: [
+            Icon(Icons.shuffle_rounded),
+            const SizedBox(width: 8),
+            const Text('Shuffle'),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'favorite',
+        child: Row(
+          children: [
+            Icon(
+              player.getCurrentSong()!.isFavorite
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              color: player.getCurrentSong()!.isFavorite
+                  ? Colors.red
+                  : null,
+            ),
+            const SizedBox(width: 8),
+            const Text('Favorite'),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'edit',
+        child: Row(
+          children: [
+            Icon(Icons.edit_outlined),
+            const SizedBox(width: 8),
+            const Text('Edit Metadata'),
+          ],
+        ),
+      ),
+      const PopupMenuItem<String>(
+        value: 'sleep',
+        child: Row(
+          children: [
+            Icon(Icons.bedtime_outlined),
+            SizedBox(width: 8),
+            Text('Sleep Timer'),
+          ],
+        ),
+      ),
+      const PopupMenuItem<String>(
+        value: 'share',
+        child: Row(
+          children: [
+            Icon(Icons.share_outlined),
+            SizedBox(width: 8),
+            Text('Share'),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
   Widget _buildExpandedView(NPlayer player) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        SizedBox(
-          width: 12,
-        ),
+        const SizedBox(width: 12),
         Container(
           width: 200,
           height: 200,
@@ -208,50 +308,51 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            IconButton(
-              icon: const Icon(Icons.shuffle_rounded, color: Colors.white),
-              tooltip: 'Shuffle',
-              onPressed: () => player.shuffle(),
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            IconButton(
-              icon: const Icon(Icons.skip_previous_rounded,
-                  color: Colors.white, size: 36),
-              tooltip: 'Previous',
-              onPressed: () => player.previousSong(),
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            IconButton(
-              icon: Icon(
-                player.isPlaying
-                    ? Icons.pause_circle_filled_rounded
-                    : Icons.play_circle_filled_rounded,
-                color: Colors.white,
-                size: 64,
-              ),
-              tooltip: player.isPlaying ? 'Pause' : 'Play',
-              onPressed: () => player.togglePlayPause(),
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            IconButton(
-              icon: const Icon(Icons.skip_next_rounded,
-                  color: Colors.white, size: 36),
-              tooltip: 'Next',
-              onPressed: () => player.nextSong(),
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            IconButton(
-              icon: const Icon(Icons.queue_music_rounded, color: Colors.white),
-              tooltip: 'Queue',
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => const PlayingSongsSheet(),
-                );
-              },
-              color: Theme.of(context).colorScheme.onSurface,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildDropdown(player),
+                IconButton(
+                  icon: const Icon(Icons.skip_previous_rounded,
+                      color: Colors.white, size: 36),
+                  tooltip: 'Previous',
+                  onPressed: () => player.previousSong(),
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                IconButton(
+                  icon: Icon(
+                    player.isPlaying
+                        ? Icons.pause_circle_filled_rounded
+                        : Icons.play_circle_filled_rounded,
+                    color: Colors.white,
+                    size: 64,
+                  ),
+                  tooltip: player.isPlaying ? 'Pause' : 'Play',
+                  onPressed: () => player.togglePlayPause(),
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.skip_next_rounded,
+                      color: Colors.white, size: 36),
+                  tooltip: 'Next',
+                  onPressed: () => player.nextSong(),
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.queue_music_rounded,
+                      color: Colors.white),
+                  tooltip: 'Queue',
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const PlayingSongsSheet(),
+                    );
+                  },
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ],
             ),
           ],
         ),
@@ -293,29 +394,29 @@ class _NPlayerWidgetState extends State<NPlayerWidget> {
         }
 
         return GestureDetector(
-onVerticalDragEnd: (details) {
-  if (details.primaryVelocity! < 0) {
-    // Swipe up
-    if (mounted) {
-      setState(() => _isPlayerExpanded = true);
-    }
-  } else if (details.primaryVelocity! > 0) {
-    // Swipe down
-    if (!_isPlayerExpanded) {
-      // Show queue page
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => const PlayingSongsSheet(),
-      );
-    } else {
-      if (mounted) {
-        setState(() => _isPlayerExpanded = false);
-      }
-    }
-  }
-},
+          onVerticalDragEnd: (details) {
+            if (details.primaryVelocity! < 0) {
+              // Swipe up
+              if (mounted) {
+                setState(() => _isPlayerExpanded = true);
+              }
+            } else if (details.primaryVelocity! > 0) {
+              // Swipe down
+              if (!_isPlayerExpanded) {
+                // Show queue page
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => const PlayingSongsSheet(),
+                );
+              } else {
+                if (mounted) {
+                  setState(() => _isPlayerExpanded = false);
+                }
+              }
+            }
+          },
           onTap: () {
             if (mounted) {
               setState(() => _isPlayerExpanded = !_isPlayerExpanded);

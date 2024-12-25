@@ -10,12 +10,17 @@ import 'package:path_provider/path_provider.dart';
 import '../tools/google_auth_service.dart';
 import 'google_drive_page.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   final VoidCallback onThemeChanged;
 
   const SettingsPage({Key? key, required this.onThemeChanged})
       : super(key: key);
 
+  @override
+  _SettingsPageState createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
   Future<void> _copyFilesToBlossomFolder(BuildContext context) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -60,7 +65,10 @@ class SettingsPage extends StatelessWidget {
     return _buildSwitchTile(
       'Confetti Effects',
       Settings.showConfetti,
-      (value) => Settings.setShowConfetti(value),
+      (value) async {
+        await Settings.setShowConfetti(value);
+        setState(() {});
+      },
       context,
     );
   }
@@ -69,8 +77,6 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Settings',
-            style: TextStyle(fontSize: 24)),
         backgroundColor: Theme.of(context).colorScheme.surface,
       ),
       body: Consumer<NPlayer>(
@@ -94,24 +100,6 @@ class SettingsPage extends StatelessWidget {
                       context,
                     ),
                     SizedBox(height: 8),
-                    _buildButton(
-                      'Import from Google Drive',
-                      () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const GoogleDrivePage(),
-                          ),
-                        );
-                      },
-                      context,
-                    ),
-                    if (GoogleAuthService.currentUser != null)
-                      _buildInfoTile(
-                        'Connected to Google Drive',
-                        'Signed in as: ${GoogleAuthService.currentUser!.email}',
-                        context,
-                      ),
                   ],
                   context),
               _buildSection(
@@ -121,13 +109,19 @@ class SettingsPage extends StatelessWidget {
                       'Repeat Mode',
                       player.repeatMode,
                       ['off', 'one', 'all'],
-                      (String value) => player.setRepeatMode(value),
+                      (String value) {
+                        player.setRepeatMode(value);
+                        setState(() {});
+                      },
                       context,
                     ),
                     _buildSliderTile(
-                      'Application Volume',
+                      'Internal App Volume',
                       player.volume,
-                      (double value) => player.setVolume(value),
+                      (double value) {
+                        player.setVolume(value);
+                        setState(() {});
+                      },
                       context,
                     ),
                     _buildSwitchTile(
@@ -135,6 +129,7 @@ class SettingsPage extends StatelessWidget {
                       Settings.previousForShuffle,
                       (bool value) async {
                         await Settings.setPreviousForShuffle(value);
+                        setState(() {});
                       },
                       context,
                     ),
@@ -147,23 +142,23 @@ class SettingsPage extends StatelessWidget {
                     'light',
                     'dark',
                     'oled',
-                    '-', // This will be used as a separator
+                    '-',
                     'slate',
                     'ocean',
                     'forest',
                     'algae',
-                    '-', // Another separator
+                    '-',
                     'sunset',
                     'rose',
                     'pink',
                     'lavender',
                     'orange',
                   ], (String value) async {
-                    if (value != '-') { // Ignore separator selection
+                    if (value != '-') {
                       await Settings.setAppTheme(value);
                       print('New theme set: $value');
-                      onThemeChanged();
-                      // Force a rebuild of the entire app
+                      widget.onThemeChanged();
+                      setState(() {});
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(builder: (context) => MyApp()),
                         (Route<dynamic> route) => false,
@@ -173,6 +168,7 @@ class SettingsPage extends StatelessWidget {
                 ],
                 context
               ),
+              /*
               _buildSection(
                 'Fun',
                 [
@@ -180,6 +176,7 @@ class SettingsPage extends StatelessWidget {
                 ],
                 context
               ),
+              */
               _buildSection(
                 'Developer Options',
                 [
@@ -252,26 +249,47 @@ class SettingsPage extends StatelessWidget {
 
   Widget _buildDropdownTile(String title, String currentValue,
       List<String> items, Function(String) onChanged, BuildContext context) {
-    // Ensure currentValue is in the items list
     if (!items.contains(currentValue)) {
-      currentValue = items
-          .first; // Default to the first item if current value is not in the list
+      currentValue = items.first;
     }
 
-    return ListTile(
-      title: Text(title),
-      trailing: DropdownButton<String>(
-        value: currentValue,
-        onChanged: (String? newValue) {
-          if (newValue != null) onChanged(newValue);
-        },
-        items: items.map<DropdownMenuItem<String>>((String value) {
-          return DropdownMenuItem<String>(
-            value: value,
-            child: Text(value.capitalize()),
-          );
-        }).toList(),
-        dropdownColor: Theme.of(context).colorScheme.surface,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        title: Text(title),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.5)),
+          ),
+          child: DropdownButton<String>(
+            value: currentValue,
+            onChanged: (String? newValue) {
+              if (newValue != null) onChanged(newValue);
+            },
+            items: items.map<DropdownMenuItem<String>>((String value) {
+              if (value == '-') {
+                return DropdownMenuItem<String>(
+                  enabled: false,
+                  value: value,
+                  child: Divider(color: Theme.of(context).colorScheme.outline),
+                );
+              }
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                  child: Text(value.capitalize()),
+                ),
+              );
+            }).toList(),
+            dropdownColor: Theme.of(context).colorScheme.surface,
+            underline: Container(), // Remove the default underline
+            icon: Icon(Icons.arrow_drop_down, color: Theme.of(context).colorScheme.onSurface),
+          ),
+        ),
       ),
     );
   }
@@ -294,11 +312,15 @@ class SettingsPage extends StatelessWidget {
 
   Widget _buildSwitchTile(String title, bool value, Function(bool) onChanged,
       BuildContext context) {
-    return SwitchListTile(
-      title: Text(title),
-      value: value,
-      onChanged: onChanged,
-      activeColor: Theme.of(context).colorScheme.secondary,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: SwitchListTile(
+        title: Text(title),
+        value: value,
+        onChanged: onChanged,
+        activeColor: Theme.of(context).colorScheme.secondary,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+      ),
     );
   }
 }

@@ -25,6 +25,8 @@ import 'package:window_manager/window_manager.dart';
 import 'audio/nplayer.dart';
 import 'audio/nplayer_widget.dart';
 import 'pages/library_page.dart';
+import 'widgets/sleep_timer_countdown.dart';
+import 'package:blossom/audio/nwebserver.dart';
 
 /// Requests necessary permissions for file access based on the platform
 /// For Android: Storage and External Storage permissions
@@ -304,6 +306,7 @@ class _MainStructureState extends State<MainStructure>
                     ? const NPlayerWidgetDesktop()
                     : const NPlayerWidget(),
           ),
+          const SleepTimerCountdown(),
         ],
       ),
       bottomNavigationBar: _showWelcomePage ? null : BottomNavigationBar(

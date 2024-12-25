@@ -62,7 +62,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
             );
           },
           child: Container(
-            height: MediaQuery.of(context).size.height * 0.8,
+            height: MediaQuery.of(context).size.height * 0.7,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,

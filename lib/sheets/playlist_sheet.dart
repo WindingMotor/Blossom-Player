@@ -181,6 +181,15 @@ class _PlaylistSheetState extends State<PlaylistSheet> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
+                          icon: const Icon(Icons.deselect),
+                          iconSize: isDesktop ? 28 : 24,
+                          tooltip: 'Deselect all',
+                          onPressed: () {
+                            widget.onDeselectAll();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        IconButton(
                           icon: Icon(_showSearchField
                               ? Icons.search_off
                               : Icons.search),
