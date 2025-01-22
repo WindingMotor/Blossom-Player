@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-import 'dart:io';
 
 import 'package:blossom/audio/nplayer.dart';
 import 'package:flutter/material.dart';

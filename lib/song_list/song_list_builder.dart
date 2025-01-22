@@ -99,6 +99,9 @@ class SongListBuilderState extends State<SongListBuilder> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktopPlatform = [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
+        .contains(Theme.of(context).platform);
+
     return Consumer<NPlayer>(
       builder: (context, player, child) {
         return Stack(
@@ -112,7 +115,7 @@ class SongListBuilderState extends State<SongListBuilder> {
                   padding: const EdgeInsets.only(top: 10),
                   controller: _scrollController,
                   itemCount: widget.songs.length,
-                  itemExtent: 80,
+                  itemExtent: isDesktopPlatform ? 60 : 80, // Adjust height here
                   itemBuilder: (BuildContext context, int index) {
                     final song = widget.songs[index];
                     return SongListTileWrapper(

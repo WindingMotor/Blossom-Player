@@ -14,7 +14,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
 import 'package:blossom/pages/settings_page.dart';
-import '../pages/manager_page.dart';
 
 /// Main widget for the song library interface
 /// Manages the display and interaction with the user's music collection

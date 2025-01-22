@@ -6,6 +6,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:blossom/audio/audio_handler.dart';
 import 'package:blossom/audio/nplaylist.dart';
 import 'package:blossom/audio/nserver.dart';
+import 'package:blossom/binder/ios_binder.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fuzzy/fuzzy.dart';
@@ -599,43 +600,76 @@ class NPlayer extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _loadSongs() async {
-    try {
-      final directoryPath = await Settings.getSongDir();
-      _log("Starting to load songs from: $directoryPath");
-      final directory = Directory(directoryPath);
-      if (!await directory.exists()) {
-        _log('Directory does not exist: $directoryPath');
-        return;
-      }
-      if (!await requestStoragePermission()) {
-        _log('Storage permission denied');
-        return;
-      }
-      await _processDirectory(directory);
-      _log("Finished loading songs. Total songs: ${_allSongs.length}");
 
-      // Load playlist information for each song
-      for (var song in _allSongs) {
-        song.playlists.clear();
-        for (var playlist in playlists) {
-          if (PlaylistManager.getPlaylistSongs(playlist).contains(song.title)) {
-            song.playlists.add(playlist);
-            _log("Song ${song.title} added to playlist");
-          }
+Future<void> _loadSongs() async {
+  try {
+    // On desktop, wait for initial iOS device check
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      _log("Waiting for iOS device check...");
+      await iOS_Binder.getInitialCheck();
+      _log("iOS device check completed");
+    }
+
+    final List<Directory> directories = [];
+    
+    // Get main song directory
+    final directoryPath = await Settings.getSongDir();
+    _log("Starting to load songs from: $directoryPath");
+    final directory = Directory(directoryPath);
+    if (await directory.exists()) {
+      directories.add(directory);
+    } else {
+      _log('Main directory does not exist: $directoryPath');
+    }
+
+    // Check for iOS device mount
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      final iosMount = "${Platform.environment['HOME']}/Music/BlossomMount";
+      final iosMountDir = Directory(iosMount);
+      if (await iosMountDir.exists()) {
+        _log("iOS device mount detected at: $iosMount");
+        directories.add(iosMountDir);
+      }
+    }
+
+    if (directories.isEmpty) {
+      _log('No valid directories found');
+      return;
+    }
+
+    if (!await requestStoragePermission()) {
+      _log('Storage permission denied');
+      return;
+    }
+
+    // Process all directories
+    for (var dir in directories) {
+      await _processDirectory(dir);
+    }
+    _log("Finished loading songs. Total songs: ${_allSongs.length}");
+
+    // Load playlist information for each song
+    for (var song in _allSongs) {
+      song.playlists.clear();
+      for (var playlist in playlists) {
+        if (PlaylistManager.getPlaylistSongs(playlist).contains(song.title)) {
+          song.playlists.add(playlist);
+          _log("Song ${song.title} added to playlist");
         }
       }
-
-      // Load favorites and sort songs
-      await _loadFavorites();
-      _filterAndSortSongs();
-      notifyListeners();
-    } catch (e) {
-      _log("Error loading songs: $e");
     }
-  }
 
-  Future _processDirectory(Directory directory) async {
+    // Load favorites and sort songs
+    await _loadFavorites();
+    _filterAndSortSongs();
+    notifyListeners();
+  } catch (e) {
+    _log("Error loading songs: $e");
+  }
+}
+
+Future<void> _processDirectory(Directory directory) async {
+  try {
     await for (final entity in directory.list(followLinks: false)) {
       final extension = path.extension(entity.path).toLowerCase();
       if (entity is File &&
@@ -647,7 +681,10 @@ class NPlayer extends ChangeNotifier {
         await _processDirectory(entity);
       }
     }
+  } catch (e) {
+    _log("Error processing directory ${directory.path}: $e");
   }
+}
 
   Future<void> _processAudioFile(File file) async {
     _log("Processing file: ${file.path}");
@@ -1063,7 +1100,7 @@ class NPlayer extends ChangeNotifier {
   }
 
   void _log(String message) {
-    print("NPlayer: $message");
+    //print("NPlayer: $message");
   }
 
   @override

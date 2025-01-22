@@ -90,9 +90,11 @@ class _PlaylistPageState extends State<PlaylistPage> {
           body: Padding(
             padding: EdgeInsets.symmetric(horizontal: 10),
             child: ListView.builder(
-              padding: const EdgeInsets.only(top: 10),
-              itemCount: filteredPlaylists.length,
-              itemBuilder: (context, index) {
+  padding: const EdgeInsets.only(top: 10),
+  itemCount: filteredPlaylists.length,
+  itemExtent: [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
+      .contains(Theme.of(context).platform) ? 60.0 : 80.0,
+  itemBuilder: (context, index) {
                 String playlist = filteredPlaylists[index];
                 List<Music> playlistSongs = player.getPlaylistSongs(playlist);
                 String? imagePath = player.getPlaylistImagePath(playlist);
@@ -245,21 +247,31 @@ class _PlaylistListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktopPlatform = [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
+        .contains(Theme.of(context).platform);
+
     return Card(
       color: Theme.of(context).cardColor,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: EdgeInsets.symmetric(
+        horizontal: 8, 
+        vertical: isDesktopPlatform ? 2 : 4
+      ),
       child: ListTile(
+        dense: isDesktopPlatform,
+        visualDensity: isDesktopPlatform 
+            ? VisualDensity.compact 
+            : VisualDensity.standard,
         leading: GestureDetector(
           onTap: onImageTap,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: SizedBox(
-              width: 48,
-              height: 48,
+              width: isDesktopPlatform ? 36 : 48,
+              height: isDesktopPlatform ? 36 : 48,
               child: PlaylistArtwork(
                 customImagePath: imagePath,
                 songs: songs,
@@ -269,19 +281,20 @@ class _PlaylistListTile extends StatelessWidget {
         ),
         title: Text(
           playlist,
-          style: TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.white),
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
           '$songCount songs',
           style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          overflow: TextOverflow.ellipsis,
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
               icon: Icon(Icons.play_arrow, color: Colors.grey[400]),
-              onPressed: songs.isNotEmpty ? onPlay : null, // Disable if no songs
+              onPressed: songs.isNotEmpty ? onPlay : null,
               color: songs.isNotEmpty ? Colors.grey[400] : Colors.grey[800],
             ),
             IconButton(

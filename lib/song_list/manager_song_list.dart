@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
-import 'package:metadata_god/metadata_god.dart';
 import 'dart:typed_data';
 import '../tools/utils.dart';
 import '../sheets/metadata_sheet.dart';

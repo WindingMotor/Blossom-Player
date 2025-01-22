@@ -163,20 +163,22 @@ class _SongAlbumsState extends State<SongAlbums> {
             controller: _scrollController,
             thumbVisibility: true,
             child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.only(top: 10),
-              itemCount: filteredList.length,
-              itemExtent: 80.0,
-              cacheExtent: 1000,
-              itemBuilder: (context, index) {
-                final album = filteredList[index];
-                return _AlbumListTile(
-                  key: ValueKey(album.name),
-                  album: album,
-                  organizeByFolder: _organizeByFolder,
-                  onTap: () => _showAlbumSongs(context, album),
-                );
-              },
+  controller: _scrollController,
+  padding: const EdgeInsets.only(top: 10),
+  itemCount: filteredList.length,
+  itemExtent: [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
+      .contains(Theme.of(context).platform) ? 60.0 : 80.0,
+  cacheExtent: 1000,
+  itemBuilder: (context, index) {
+    final album = filteredList[index];
+    return _AlbumListTile(
+      key: ValueKey(album.name),
+      album: album,
+      organizeByFolder: _organizeByFolder,
+      onTap: () => _showAlbumSongs(context, album),
+    );
+  },
+
             ),
           ),
         ),
@@ -340,29 +342,36 @@ class _AlbumListTile extends StatelessWidget {
     return minYear == maxYear ? minYear : '$minYear - $maxYear';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Theme.of(context).cardColor,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: ListTile(
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            width: 48,
-            height: 48,
-            child: album.firstSong.picture != null
-                ? Image.memory(album.firstSong.picture!, fit: BoxFit.cover)
-                : Container(
-                    color: Colors.grey[800],
-                    child: Icon(Icons.album, color: Colors.grey[600]),
-                  ),
-          ),
+@override
+Widget build(BuildContext context) {
+  final isDesktopPlatform = [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
+      .contains(Theme.of(context).platform);
+
+  return Card(
+    color: Theme.of(context).cardColor,
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    child: ListTile(
+      dense: isDesktopPlatform,
+      visualDensity: isDesktopPlatform 
+          ? VisualDensity.compact 
+          : VisualDensity.standard,
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          width: isDesktopPlatform ? 36 : 48,  // Smaller width for desktop
+          height: isDesktopPlatform ? 36 : 48, // Smaller height for desktop
+          child: album.firstSong.picture != null
+              ? Image.memory(album.firstSong.picture!, fit: BoxFit.cover)
+              : Container(
+                  color: Colors.grey[800],
+                  child: Icon(Icons.album, color: Colors.grey[600]),
+                ),
         ),
+      ),
         title: Text(
           album.name,
           style: const TextStyle(color: Colors.white),

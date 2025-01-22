@@ -28,7 +28,7 @@ class _MetadataSheetState extends State<MetadataSheet> {
     _titleController = TextEditingController(text: widget.song.title);
     _artistController = TextEditingController(text: widget.song.artist);
     _albumController = TextEditingController(text: widget.song.album);
-    _yearController = TextEditingController(text: widget.song.year?.toString() ?? '');
+    _yearController = TextEditingController(text: widget.song.year.toString() ?? '');
     _genreController = TextEditingController(text: widget.song.genre);
   }
 

@@ -125,20 +125,21 @@ class _ArtistsPageState extends State<ArtistsPage> {
             controller: _scrollController,
             thumbVisibility: true,
             child: ListView.builder(
-              padding: const EdgeInsets.only(top: 10),
-              controller: _scrollController,
-              itemCount: filteredList.length,
-              itemExtent: 80.0, 
-              cacheExtent: 1000, 
-              itemBuilder: (context, index) {
-                final artist = filteredList[index];
-                return _ArtistListTile(
-                  key: ValueKey(artist.name),
-                  artist: artist,
-                  onTap: () => _showArtistSongs(context, artist),
-                );
-              },
-            ),
+  padding: const EdgeInsets.only(top: 10),
+  controller: _scrollController,
+  itemCount: filteredList.length,
+  itemExtent: [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
+      .contains(Theme.of(context).platform) ? 60.0 : 80.0,
+  cacheExtent: 1000,
+  itemBuilder: (context, index) {
+    final artist = filteredList[index];
+    return _ArtistListTile(
+      key: ValueKey(artist.name),
+      artist: artist,
+      onTap: () => _showArtistSongs(context, artist),
+    );
+  },
+)
           ),
         ),
       ),
@@ -263,29 +264,37 @@ class _ArtistListTileState extends State<_ArtistListTile> {
     return minYear == maxYear ? minYear : '$minYear - $maxYear';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Theme.of(context).cardColor,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: ListTile(
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            width: 48,
-            height: 48,
-            child: widget.artist.firstSong.picture != null
-                ? Image.memory(widget.artist.firstSong.picture!, fit: BoxFit.cover)
-                : Container(
-                    color: Colors.grey[800],
-                    child: Icon(Icons.album, color: Colors.grey[600]),
-                  ),
-          ),
+
+@override
+Widget build(BuildContext context) {
+  final isDesktopPlatform = [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
+      .contains(Theme.of(context).platform);
+
+  return Card(
+    color: Theme.of(context).cardColor,
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    child: ListTile(
+      dense: isDesktopPlatform,
+      visualDensity: isDesktopPlatform 
+          ? VisualDensity.compact 
+          : VisualDensity.standard,
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          width: isDesktopPlatform ? 36 : 48,  // Smaller width for desktop
+          height: isDesktopPlatform ? 36 : 48, // Smaller height for desktop
+          child: widget.artist.firstSong.picture != null
+              ? Image.memory(widget.artist.firstSong.picture!, fit: BoxFit.cover)
+              : Container(
+                  color: Colors.grey[800],
+                  child: Icon(Icons.album, color: Colors.grey[600]),
+                ),
         ),
+      ),
         title: Text(
           widget.artist.name,
           style: TextStyle(color: Colors.white),

@@ -17,7 +17,6 @@ class NPlayerWidgetDesktop extends StatefulWidget {
 
 class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with TickerProviderStateMixin {
   double _lastVolume = 1.0;
-  bool _isRepeatEnabled = false;
   late final AnimationController _shuffleController;
   late final Animation<double> _shuffleAnimation;
   late Animation<Color?> _shuffleColorAnimation;
@@ -330,6 +329,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
               onPressed: () => player.previousSong(),
               tooltip: 'Previous',
             ),
+                        const SizedBox(width: 5),
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -359,6 +359,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                 tooltip: player.isPlaying ? 'Pause' : 'Play',
               ),
             ),
+            const SizedBox(width: 5),
             IconButton(
               icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 32),
               onPressed: () => player.nextSong(),

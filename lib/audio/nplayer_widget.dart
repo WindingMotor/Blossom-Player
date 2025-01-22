@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:blur/blur.dart';
 import 'nplayer.dart';
 import 'package:ticker_text/ticker_text.dart';
-import '../widgets/sleep_timer_widget.dart';
 import '../sheets/sleep_timer_sheet.dart';
 import '../sheets/metadata_sheet.dart';
 

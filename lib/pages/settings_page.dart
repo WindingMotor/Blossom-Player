@@ -7,8 +7,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import '../tools/google_auth_service.dart';
-import 'google_drive_page.dart';
 
 class SettingsPage extends StatefulWidget {
   final VoidCallback onThemeChanged;

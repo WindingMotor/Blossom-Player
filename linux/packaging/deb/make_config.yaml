@@ -1,0 +1,27 @@
+display_name: Blossom Player
+package_name: blossom-player
+maintainer:
+  name: Isaac Subudhi
+  email: isaac.subudhi@gmail.com
+priority: optional
+section: sound
+installed_size: 15700
+dependencies:
+  - libgtk-3-0
+  - libblkid1
+  - liblzma5
+  - libgstreamer1.0-0
+  - gstreamer1.0-plugins-base
+  - gstreamer1.0-plugins-good
+  - gstreamer1.0-plugins-bad
+  - gstreamer1.0-libav
+essential: false
+keywords:
+  - Music
+  - Audio
+  - Player
+generic_name: Music Player
+categories:
+  - AudioVideo
+  - Audio
+startup_notify: true

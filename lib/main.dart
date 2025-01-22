@@ -4,6 +4,7 @@
 import 'dart:io';
 
 import 'package:blossom/audio/nplayer_widget_desktop.dart';
+import 'package:blossom/binder/ios_mount_widget.dart';
 import 'package:blossom/custom/custom_appbar.dart';
 import 'package:blossom/pages/standby/standby_page.dart';
 import 'package:blossom/pages/welcome_page.dart';
@@ -26,7 +27,6 @@ import 'audio/nplayer.dart';
 import 'audio/nplayer_widget.dart';
 import 'pages/library_page.dart';
 import 'widgets/sleep_timer_countdown.dart';
-import 'package:blossom/audio/nwebserver.dart';
 
 /// Requests necessary permissions for file access based on the platform
 /// For Android: Storage and External Storage permissions
@@ -164,11 +164,13 @@ class _MainStructureState extends State<MainStructure>
   late PageController _pageController;
   final bool enableTesting = false;
 
+
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
     _showWelcomePage = !Settings.hasSeenWelcomePage;
+  
   }
 
   void _onThemeChanged() {
@@ -200,6 +202,7 @@ class _MainStructureState extends State<MainStructure>
       _showWelcomePage = false;
     });
   }
+
 
   List<Widget> _getPages() {
     List<Widget> pages = [
@@ -292,23 +295,26 @@ class _MainStructureState extends State<MainStructure>
             onPageChanged: _onPageChanged,
             physics: const ClampingScrollPhysics(),
           ),
-          if (_showWelcomePage)
-            WelcomePage(
-              onDismiss: _dismissWelcomePage,
-            ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: _getPlayerBottomPosition(),
-            child: _isLandscape(context)
-                ? const SizedBox.shrink()
-                : isDesktop
-                    ? const NPlayerWidgetDesktop()
-                    : const NPlayerWidget(),
-          ),
-          const SleepTimerCountdown(),
-        ],
+    if (_showWelcomePage)
+      WelcomePage(
+        onDismiss: _dismissWelcomePage,
       ),
+    Positioned(
+      left: 0,
+      right: 0,
+      bottom: _getPlayerBottomPosition(),
+      child: _isLandscape(context)
+          ? const SizedBox.shrink()
+          : isDesktop
+              ? const NPlayerWidgetDesktop()
+              : const NPlayerWidget(),
+    ),
+    const SleepTimerCountdown(),
+    // Add the iOS mount widget
+    if (!Platform.isAndroid && !Platform.isIOS)
+      const iOSMountWidget(),
+  ],
+),
       bottomNavigationBar: _showWelcomePage ? null : BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {

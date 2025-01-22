@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
-import 'package:blur/blur.dart';
 import '../sheets/sleep_timer_sheet.dart';
 
 class SleepTimerCountdown extends StatefulWidget {
