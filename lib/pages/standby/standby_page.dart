@@ -113,6 +113,10 @@ class _StandbyPageState extends State<StandbyPage>
     return Consumer<NPlayer>(
       builder: (context, player, child) {
         final currentSong = player.getCurrentSong();
+        final mediaQuery = MediaQuery.of(context);
+        final isLandscape = mediaQuery.orientation == Orientation.landscape;
+        final bottomPadding = mediaQuery.padding.bottom;
+        final topPadding = mediaQuery.padding.top;
 
         return Scaffold(
           body: Stack(
@@ -139,7 +143,7 @@ class _StandbyPageState extends State<StandbyPage>
               // Exit button for desktop
               if (Platform.isLinux || Platform.isWindows || Platform.isMacOS)
                 Positioned(
-                  top: 16,
+                  top: topPadding + 16,
                   right: 16,
                   child: Container(
                     decoration: BoxDecoration(
@@ -154,181 +158,258 @@ class _StandbyPageState extends State<StandbyPage>
                     ),
                   ),
                 ),
-              // Main content
-              if (currentSong != null)
-                Row(
-                  children: [
-                    // Left side - Album Art with scale animation
-                    Expanded(
-                      flex: 1,
-                      child: AnimatedScale(
-                        scale: _isQueueVisible ? 0.7 : 1.0,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                        child: Padding(
-                          padding: const EdgeInsets.all(48.0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                              image: DecorationImage(
-                                fit: BoxFit.cover,
-                                image: currentSong.picture != null
-                                    ? MemoryImage(currentSong.picture!)
-                                    : const AssetImage('assets/placeholder.png')
-                                        as ImageProvider,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    // Right side - Controls
-                    Expanded(
-                      flex: 1,
-                      child: Stack(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    currentSong.title,
-                                    style: const TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    currentSong.artist,
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      color: Colors.white.withOpacity(0.8),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 32),
-
-                                // Progress Bar
-                                _buildProgressBar(context, player),
-                                const SizedBox(height: 24),
-
-                                // Control Buttons
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.shuffle_rounded,
-                                          color: Colors.white, size: 30),
-                                      onPressed: () => player.shuffle(),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    IconButton(
-                                      icon: const Icon(
-                                          Icons.skip_previous_rounded,
-                                          color: Colors.white,
-                                          size: 48),
-                                      onPressed: () => player.previousSong(),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    IconButton(
-                                      icon: Icon(
-                                        player.isPlaying
-                                            ? Icons.pause_circle_filled_rounded
-                                            : Icons.play_circle_filled_rounded,
-                                        color: Colors.white,
-                                        size: 64,
-                                      ),
-                                      onPressed: () => player.togglePlayPause(),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    IconButton(
-                                      icon: const Icon(Icons.skip_next_rounded,
-                                          color: Colors.white, size: 48),
-                                      onPressed: () => player.nextSong(),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    IconButton(
-                                      icon: const Icon(Icons.queue_music_rounded,
-                                          color: Colors.white, size: 30),
-                                      onPressed: () => _showQueue(context),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          if (_isQueueVisible)
-                            Positioned.fill(
-                              child: _buildQueueList(context, player),
-
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                )
-              else
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.music_note_rounded,
-                        size: 64,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .secondary
-                            .withOpacity(0.5),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No song playing',
-                        style: TextStyle(
-                          fontSize: 24,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withOpacity(0.7),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Play a song to see it here',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withOpacity(0.5),
-                        ),
-                      ),
-                    ],
+              // Main content - responsive layout with proper padding
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    top: topPadding,
+                    bottom: bottomPadding,
+                    left: mediaQuery.padding.left,
+                    right: mediaQuery.padding.right,
                   ),
+                  child: currentSong != null
+                      ? _buildMainContent(context, player, currentSong, isLandscape)
+                      : _buildNoSongContent(context),
                 ),
+              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildMainContent(BuildContext context, NPlayer player, dynamic currentSong, bool isLandscape) {
+    if (isLandscape) {
+      // Landscape layout - side by side
+      return Row(
+        children: [
+          // Left side - Album Art with scale animation
+          Expanded(
+            flex: 1,
+            child: AnimatedScale(
+              scale: _isQueueVisible ? 0.7 : 1.0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: _buildAlbumArt(currentSong),
+              ),
+            ),
+          ),
+          // Right side - Controls
+          Expanded(
+            flex: 1,
+            child: Stack(
+              children: [
+                _buildControls(context, player, currentSong, isLandscape),
+                if (_isQueueVisible)
+                  Positioned.fill(
+                    child: _buildQueueList(context, player),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    } else {
+      // Portrait layout - stacked vertically with flexible sizing
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final availableHeight = constraints.maxHeight;
+          final albumArtHeight = availableHeight * 0.55; // 55% for album art
+          final controlsHeight = availableHeight * 0.45;  // 45% for controls
+          
+          return Column(
+            children: [
+              // Album Art
+              SizedBox(
+                height: albumArtHeight,
+                child: AnimatedScale(
+                  scale: _isQueueVisible ? 0.8 : 1.0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 8.0),
+                    child: _buildAlbumArt(currentSong),
+                  ),
+                ),
+              ),
+              // Controls
+              SizedBox(
+                height: controlsHeight,
+                child: Stack(
+                  children: [
+                    _buildControls(context, player, currentSong, isLandscape),
+                    if (_isQueueVisible)
+                      Positioned.fill(
+                        child: _buildQueueList(context, player),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
+
+  Widget _buildAlbumArt(dynamic currentSong) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        image: DecorationImage(
+          fit: BoxFit.cover,
+          image: currentSong.picture != null
+              ? MemoryImage(currentSong.picture!)
+              : const AssetImage('assets/placeholder.png') as ImageProvider,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControls(BuildContext context, NPlayer player, dynamic currentSong, bool isLandscape) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: isLandscape ? 24.0 : 20.0,
+        vertical: isLandscape ? 24.0 : 8.0,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Song Title
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                currentSong.title,
+                style: TextStyle(
+                  fontSize: isLandscape ? 32 : 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Artist
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                currentSong.artist,
+                style: TextStyle(
+                  fontSize: isLandscape ? 24 : 18,
+                  color: Colors.white.withOpacity(0.8),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          SizedBox(height: isLandscape ? 24 : 16),
+          // Progress Bar
+          _buildProgressBar(context, player),
+          SizedBox(height: isLandscape ? 20 : 12),
+          // Control Buttons
+          _buildControlButtons(context, player, isLandscape),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControlButtons(BuildContext context, NPlayer player, bool isLandscape) {
+    final buttonSize = isLandscape ? 28.0 : 24.0;
+    final playButtonSize = isLandscape ? 60.0 : 52.0;
+    final skipButtonSize = isLandscape ? 44.0 : 38.0;
+    final spacing = isLandscape ? 16.0 : 12.0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: Icon(Icons.shuffle_rounded, color: Colors.white, size: buttonSize),
+            onPressed: () => player.shuffle(),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          ),
+          SizedBox(width: spacing),
+          IconButton(
+            icon: Icon(Icons.skip_previous_rounded, color: Colors.white, size: skipButtonSize),
+            onPressed: () => player.previousSong(),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          ),
+          SizedBox(width: spacing),
+          IconButton(
+            icon: Icon(
+              player.isPlaying
+                  ? Icons.pause_circle_filled_rounded
+                  : Icons.play_circle_filled_rounded,
+              color: Colors.white,
+              size: playButtonSize,
+            ),
+            onPressed: () => player.togglePlayPause(),
+            constraints: const BoxConstraints(minWidth: 64, minHeight: 64),
+          ),
+          SizedBox(width: spacing),
+          IconButton(
+            icon: Icon(Icons.skip_next_rounded, color: Colors.white, size: skipButtonSize),
+            onPressed: () => player.nextSong(),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          ),
+          SizedBox(width: spacing),
+          IconButton(
+            icon: Icon(Icons.queue_music_rounded, color: Colors.white, size: buttonSize),
+            onPressed: () => _showQueue(context),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoSongContent(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.music_note_rounded,
+            size: 64,
+            color: Theme.of(context).colorScheme.secondary.withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No song playing',
+            style: TextStyle(
+              fontSize: 24,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Play a song to see it here',
+            style: TextStyle(
+              fontSize: 16,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -3,7 +3,8 @@
 
 import 'dart:io';
 
-import 'package:blossom/audio/nplayer_widget_desktop.dart';
+import 'package:audio_service/audio_service.dart';
+import 'package:blossom/audio/nplayer_extensions/nplayer_widget_desktop.dart';
 import 'package:blossom/binder/ios_mount_widget.dart';
 import 'package:blossom/custom/custom_appbar.dart';
 import 'package:blossom/pages/standby/standby_page.dart';
@@ -24,31 +25,74 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'audio/nplayer.dart';
-import 'audio/nplayer_widget.dart';
+import 'audio/widgets/nplayer_widget.dart';
 import 'pages/library_page.dart';
 import 'widgets/sleep_timer_countdown.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 /// Requests necessary permissions for file access based on the platform
 /// For Android: Storage and External Storage permissions
 /// For iOS: Photos permission
+/// Requests necessary permissions for file access based on the platform
 Future<void> requestPermissions() async {
   if (Platform.isAndroid) {
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.storage,
-      Permission.manageExternalStorage,
-    ].request();
-
-    if (statuses[Permission.storage] != PermissionStatus.granted ||
-        statuses[Permission.manageExternalStorage] !=
-            PermissionStatus.granted) {
-      print('Storage permission not granted');
+    try {
+      // Get device info to check Android version
+      final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+      final AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+      final int sdkVersion = androidInfo.version.sdkInt;
+      
+      if (sdkVersion >= 33) { // Android 13+
+        // Request granular media permissions for Android 13+
+        await Permission.audio.request();
+        
+        // Check if permission was granted
+        final bool audioGranted = await Permission.audio.isGranted;
+        
+        if (audioGranted) {
+          print('Audio permission granted successfully');
+        } else {
+          print('Audio permission denied - please enable in Settings');
+        }
+      } else {
+        // For Android 12 and below, use storage permission
+        await Permission.storage.request();
+        final bool storageGranted = await Permission.storage.isGranted;
+        
+        if (storageGranted) {
+          print('Storage permission granted successfully');
+        } else {
+          print('Storage permission denied - please enable in Settings');
+        }
+      }
+    } catch (e) {
+      print('Error requesting Android permissions: $e');
+      // Try a fallback approach
+      try {
+        await Permission.storage.request();
+      } catch (fallbackError) {
+        print('Fallback permission request also failed: $fallbackError');
+      }
     }
   } else if (Platform.isIOS) {
-    PermissionStatus status = await Permission.photos.request();
-    if (status != PermissionStatus.granted) {
-      print('Photos permission not granted');
-    } else {
-      print('Photos permission granted!');
+    try {
+      // For iOS, request both photos and media library permissions
+      final photosStatus = await Permission.photos.request();
+      final mediaLibraryStatus = await Permission.mediaLibrary.request();
+      
+      if (photosStatus.isGranted) {
+        print('iOS Photos permission granted');
+      } else {
+        print('iOS Photos permission denied');
+      }
+      
+      if (mediaLibraryStatus.isGranted) {
+        print('iOS Media Library permission granted');
+      } else {
+        print('iOS Media Library permission denied');
+      }
+    } catch (e) {
+      print('Error requesting iOS permissions: $e');
     }
   }
 }
@@ -56,7 +100,7 @@ Future<void> requestPermissions() async {
 /// Application entry point
 /// Initializes essential services and launches the app
 void main() async {
-  // Ensure Flutter bindings are initialized
+  // Ensure Flutter bindings are initialized first
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize metadata handling service
@@ -66,23 +110,19 @@ void main() async {
   await Settings.init();
   await PlaylistManager.load();
 
-  await requestPermissions();
-
-  final songDir = Settings.getSongDir();
+  // Get directories first
+  final songDir = await Settings.getSongDir();
   print("SONG SETTINGS DIRECTORY: $songDir");
 
   final applicationsDir = await getApplicationDocumentsDirectory();
   print("APPLICATIONS DIRECTORY: $applicationsDir");
 
-  final hasStorageAccess =
-      Platform.isAndroid ? await Permission.storage.isGranted : true;
-  if (!hasStorageAccess) {
-    await Permission.storage.request();
-    if (!await Permission.storage.isGranted) {
-      return;
-    }
-  }
+  // Request permissions after UI is initialized
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    requestPermissions();
+  });
 
+  // Desktop window configuration
   if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
     try {
       await windowManager.ensureInitialized();
@@ -96,20 +136,19 @@ void main() async {
       );
       await windowManager.waitUntilReadyToShow(windowOptions);
       await windowManager.setResizable(true);
-      // Temporarily comment out shadow to test if it's causing the issue
-      // await windowManager.setHasShadow(true);
       await windowManager.show();
       await windowManager.focus();
     } catch (e) {
       print('Error initializing window manager: $e');
-      // Continue with default window settings if window manager fails
     }
   }
 
   runApp(
     ChangeNotifierProvider(
       create: (context) => NPlayer(),
-      child: const MyApp(),
+      child: AudioServiceWidget(
+        child: const MyApp(),
+      ),
     ),
   );
 }

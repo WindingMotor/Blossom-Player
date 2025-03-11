@@ -3,10 +3,10 @@ import 'package:blossom/tools/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:blur/blur.dart';
-import 'nplayer.dart';
+import '../nplayer.dart';
 import 'package:ticker_text/ticker_text.dart';
-import '../sheets/sleep_timer_sheet.dart';
-import '../sheets/metadata_sheet.dart';
+import '../../sheets/sleep_timer_sheet.dart';
+import '../../sheets/metadata_sheet.dart';
 
 class NPlayerWidget extends StatefulWidget {
   const NPlayerWidget({Key? key}) : super(key: key);

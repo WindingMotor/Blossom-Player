@@ -60,4 +60,11 @@ class SongData {
         .map((entry) => entry.key)
         .toList();
   }
+
+  static Future<void> removeSongEntry(String songPath) async {
+    if (_data.containsKey(songPath)) {
+      _data.remove(songPath);
+      await _save();
+    }
+  }
 }

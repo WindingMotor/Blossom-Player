@@ -111,6 +111,8 @@ class SongListBuilderState extends State<SongListBuilder> {
               child: Scrollbar(
                 controller: _scrollController,
                 thumbVisibility: true,
+                interactive: true,
+                radius: const Radius.circular(10),
                 child: ListView.builder(
                   padding: const EdgeInsets.only(top: 10),
                   controller: _scrollController,

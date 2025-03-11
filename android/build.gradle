@@ -7,10 +7,24 @@ allprojects {
 
 rootProject.buildDir = "../build"
 subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
-    project.evaluationDependsOn(":app")
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            try {
+                if (!project.android.hasProperty('namespace')) {
+                    if (project.file('src/main/AndroidManifest.xml').exists()) {
+                        def manifestFile = project.file('src/main/AndroidManifest.xml')
+                        def manifestText = manifestFile.text
+                        def matcher = manifestText =~ /package="([^"]+)"/
+                        if (matcher.find()) {
+                            project.android.namespace = matcher.group(1)
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // Handle exception if needed
+            }
+        }
+    }
 }
 
 tasks.register("clean", Delete) {

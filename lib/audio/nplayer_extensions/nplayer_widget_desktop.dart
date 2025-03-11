@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:blur/blur.dart';
 import 'package:confetti/confetti.dart';
-import 'nplayer.dart';
+import '../nplayer.dart';
 import 'package:ticker_text/ticker_text.dart';
 
 class NPlayerWidgetDesktop extends StatefulWidget {

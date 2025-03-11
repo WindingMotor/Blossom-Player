@@ -1,3 +1,5 @@
 {
-    "cmake.sourceDirectory": "/home/isaac/Documents/BlossomMegaRewrite/blossom/linux"
+    "cmake.sourceDirectory": "/home/isaac/Documents/BlossomMegaRewrite/blossom/linux",
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.compile.nullAnalysis.mode": "disabled"
 }
