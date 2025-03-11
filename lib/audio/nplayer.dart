@@ -600,9 +600,10 @@ class NPlayer extends ChangeNotifier {
     notifyListeners();
   }
 
-
 Future<void> _loadSongs() async {
   try {
+    _log("Starting to load songs...");
+    
     // On desktop, wait for initial iOS device check
     if (!Platform.isAndroid && !Platform.isIOS) {
       _log("Waiting for iOS device check...");
@@ -610,42 +611,54 @@ Future<void> _loadSongs() async {
       _log("iOS device check completed");
     }
 
-    final List<Directory> directories = [];
+    // Get all possible song directories
+    final List<Directory> directories = await Settings.getAllSongDirs();
     
-    // Get main song directory
-    final directoryPath = await Settings.getSongDir();
-    _log("Starting to load songs from: $directoryPath");
-    final directory = Directory(directoryPath);
-    if (await directory.exists()) {
-      directories.add(directory);
-    } else {
-      _log('Main directory does not exist: $directoryPath');
-    }
-
-    // Check for iOS device mount
-    if (!Platform.isAndroid && !Platform.isIOS) {
-      final iosMount = "${Platform.environment['HOME']}/Music/BlossomMount";
-      final iosMountDir = Directory(iosMount);
-      if (await iosMountDir.exists()) {
-        _log("iOS device mount detected at: $iosMount");
-        directories.add(iosMountDir);
-      }
-    }
-
     if (directories.isEmpty) {
       _log('No valid directories found');
       return;
     }
 
-    if (!await requestStoragePermission()) {
-      _log('Storage permission denied');
-      return;
+    if (Platform.isAndroid) {
+      // Special handling for Android
+      if (await _testDirectAccess()) {
+        _log("Direct file access test passed");
+      } else {
+        _log("Direct file access test failed - permission issues or file not found");
+      }
     }
-
-    // Process all directories
+    
+    // Log all directories being scanned
+    _log("Starting to scan ${directories.length} directories for music files");
     for (var dir in directories) {
-      await _processDirectory(dir);
+      _log("Scanning directory: ${dir.path}");
+      
+      // Try to print first few items in the directory for debugging
+      try {
+        final items = await dir.list().take(5).toList();
+        _log("Directory contains ${items.length} items (showing first 5):");
+        for (var item in items) {
+          _log(" - ${item.path}");
+        }
+      } catch (e) {
+        _log("Error listing directory contents: $e");
+      }
     }
+    
+    // Process all directories with a timeout
+    bool timedOut = false;
+    await Future.any([
+      _processAllDirectories(directories),
+      Future.delayed(const Duration(seconds: 30), () {
+        timedOut = true;
+        _log("Directory scanning timed out after 30 seconds");
+      })
+    ]);
+    
+    if (timedOut) {
+      _log("Warning: Scan timed out. Some directories may not have been fully processed.");
+    }
+    
     _log("Finished loading songs. Total songs: ${_allSongs.length}");
 
     // Load playlist information for each song
@@ -668,15 +681,70 @@ Future<void> _loadSongs() async {
   }
 }
 
+Future<void> _processAllDirectories(List<Directory> directories) async {
+  for (var dir in directories) {
+    _log("Processing directory: ${dir.path}");
+    await _processDirectory(dir);
+  }
+}
+
+Future<bool> _testDirectAccess() async {
+  // Get the custom directory path
+  final String? customDir = Settings.customMusicDirectory;
+  if (customDir == null || customDir.isEmpty) return false;
+  
+  try {
+    final String testFilePath = path.join(customDir, 'Song.m4a');
+    _log("Testing direct file access to: $testFilePath");
+    
+    final File testFile = File(testFilePath);
+    if (await testFile.exists()) {
+      _log("Test file exists: $testFilePath");
+      
+      // Try to read the file
+      final int length = await testFile.length();
+      _log("Test file size: $length bytes");
+      
+      // If we can read the size, try to read some data
+      final RandomAccessFile reader = await testFile.open(mode: FileMode.read);
+      final Uint8List bytes = await reader.read(1024);
+      await reader.close();
+      
+      _log("Successfully read ${bytes.length} bytes from test file");
+      
+      // Process this specific test file
+      await _processAudioFile(testFile);
+      
+      return true;
+    } else {
+      _log("Test file does not exist: $testFilePath");
+      return false;
+    }
+  } catch (e) {
+    _log("Error in direct file access test: $e");
+    return false;
+  }
+}
+
 Future<void> _processDirectory(Directory directory) async {
   try {
-    await for (final entity in directory.list(followLinks: false)) {
-      final extension = path.extension(entity.path).toLowerCase();
-      if (entity is File &&
-          (extension == '.mp3' ||
-           extension == '.flac' ||
-           extension == '.m4a')) {
-        await _processAudioFile(entity);
+    _log("Listing files in: ${directory.path}");
+    
+    List<FileSystemEntity> entities = [];
+    try {
+      entities = await directory.list(recursive: false).toList();
+      _log("Found ${entities.length} entries in ${directory.path}");
+    } catch (e) {
+      _log("Error listing directory ${directory.path}: $e");
+      return;
+    }
+    
+    for (final entity in entities) {
+      if (entity is File) {
+        final extension = path.extension(entity.path).toLowerCase();
+        if (extension == '.mp3' || extension == '.flac' || extension == '.m4a') {
+          await _processAudioFile(entity);
+        }
       } else if (entity is Directory) {
         await _processDirectory(entity);
       }
@@ -686,49 +754,63 @@ Future<void> _processDirectory(Directory directory) async {
   }
 }
 
-  Future<void> _processAudioFile(File file) async {
-    _log("Processing file: ${file.path}");
+Future<void> _processAudioFile(File file) async {
+  _log("Processing file: ${file.path}");
+  try {
+    // First check if file is readable
     try {
-      final metadata = await MetadataGod.readMetadata(file: file.path);
-      String title = metadata.title ?? path.basenameWithoutExtension(file.path);
-
-      // Check if a song with the same title already exists
-      if (_allSongs.any((song) => song.title == title)) {
-        _log("Song with title '$title' already exists. Skipping.");
+      final int fileSize = await file.length();
+      _log("File size: $fileSize bytes");
+      
+      if (fileSize <= 0) {
+        _log("File is empty or inaccessible: ${file.path}");
         return;
       }
-
-      String album = metadata.album ?? 'Unknown Album';
-      String artist = metadata.artist ?? 'Unknown Artist';
-      Uint8List? picture = metadata.picture?.data;
-      String year = metadata.year?.toString() ?? '';
-      String genre = metadata.genre ?? 'Unknown Genre';
-
-      // Get last modified date using FileStat
-      FileStat fileStat = await file.stat();
-      DateTime lastModifiedDate = fileStat.modified;
-
-      final music = Music(
-        path: file.path,
-        folderName: path.basename(path.dirname(file.path)),
-        lastModified: lastModifiedDate,
-        title: title,
-        album: album,
-        artist: artist,
-        duration: metadata.durationMs?.round() ?? 0,
-        picture: picture,
-        year: year,
-        genre: genre,
-        size: fileStat.size,
-        isFavorite: SongData.isFavorite(file.path),  // Initialize favorite state
-      );
-
-      _allSongs.add(music);
-      _log("Added song: $title by $artist");
     } catch (e) {
-      _log('Error parsing file ${file.path}: $e');
+      _log("Cannot read file (permission issue): ${file.path} - $e");
+      return;
     }
+    
+    final metadata = await MetadataGod.readMetadata(file: file.path);
+    String title = metadata.title ?? path.basenameWithoutExtension(file.path);
+
+    // Check if a song with the same title already exists
+    if (_allSongs.any((song) => song.title == title)) {
+      _log("Song with title '$title' already exists. Skipping.");
+      return;
+    }
+
+    String album = metadata.album ?? 'Unknown Album';
+    String artist = metadata.artist ?? 'Unknown Artist';
+    Uint8List? picture = metadata.picture?.data;
+    String year = metadata.year?.toString() ?? '';
+    String genre = metadata.genre ?? 'Unknown Genre';
+
+    // Get last modified date using FileStat
+    FileStat fileStat = await file.stat();
+    DateTime lastModifiedDate = fileStat.modified;
+
+    final music = Music(
+      path: file.path,
+      folderName: path.basename(path.dirname(file.path)),
+      lastModified: lastModifiedDate,
+      title: title,
+      album: album,
+      artist: artist,
+      duration: metadata.durationMs?.round() ?? 0,
+      picture: picture,
+      year: year,
+      genre: genre,
+      size: fileStat.size,
+      isFavorite: SongData.isFavorite(file.path),  // Initialize favorite state
+    );
+
+    _allSongs.add(music);
+    _log("Added song: $title by $artist");
+  } catch (e) {
+    _log('Error parsing file ${file.path}: $e');
   }
+}
 
   // MARK: Playlist Management
   Future<void> _loadPlaylists() async {

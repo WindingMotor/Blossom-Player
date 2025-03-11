@@ -59,6 +59,55 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _selectCustomDirectory(BuildContext context) async {
+    try {
+      // Use file_picker to select a directory
+      String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+      
+      if (selectedDirectory != null) {
+        // Save the selected directory
+        await Settings.setCustomMusicDirectory(selectedDirectory);
+        setState(() {}); // Refresh UI
+        
+        // Show confirmation to user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Music folder set to: $selectedDirectory')),
+        );
+        
+        // Ask if they want to scan for music now
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Scan for Music?'),
+            content: Text('Would you like to scan for music in this folder now?'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: Text('Later'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Get reference to NPlayer and reload songs
+                  final player = Provider.of<NPlayer>(context, listen: false);
+                  player.reloadSongs();
+                },
+                child: Text('Scan Now'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error selecting directory: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error selecting directory: $e')),
+      );
+    }
+  }
+
   Widget _buildConfettiToggle(BuildContext context) {
     return _buildSwitchTile(
       'Confetti Effects',
@@ -68,6 +117,46 @@ class _SettingsPageState extends State<SettingsPage> {
         setState(() {});
       },
       context,
+    );
+  }
+
+  Widget _buildAndroidDirectorySection(BuildContext context) {
+    // Only show for Android
+    if (!Platform.isAndroid) return const SizedBox.shrink();
+    
+    final String? currentDir = Settings.customMusicDirectory;
+    
+    return _buildSection(
+      'Music Folder',
+      [
+        _buildInfoTile(
+          'Current Music Folder',
+          currentDir?.isNotEmpty == true 
+              ? currentDir!
+              : 'Default system folders (Music, Downloads)',
+          context
+        ),
+        SizedBox(height: 8),
+        _buildButton(
+          'Select Music Folder',
+          () => _selectCustomDirectory(context),
+          context,
+        ),
+        if (currentDir?.isNotEmpty == true) 
+          _buildButton(
+            'Clear Custom Folder',
+            () async {
+              await Settings.clearCustomMusicDirectory();
+              setState(() {});
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Using default music folders now')),
+              );
+            },
+            context,
+          ),
+        SizedBox(height: 8),
+      ],
+      context
     );
   }
 
@@ -82,24 +171,43 @@ class _SettingsPageState extends State<SettingsPage> {
           return ListView(
             children: [
               _buildSection(
-                  'Library',
-                  [
-                    _buildInfoTile('To add songs to your library',
-                        'Put files into the Blossom folder in Files', context),
-                    _buildInfoTile(
-                      'Files can also be placed into folders for organizing.', 
-                      'Blossom will search for files in the folders and add them to the library.',
-                      context
-                    ),
-                    SizedBox(height: 8),
+                'Library',
+                [
+                  _buildInfoTile(
+                    'Where to add music files',
+                    'Blossom scans the Music folder on your device for audio files',
+                    context
+                  ),
+                  _buildInfoTile(
+                    'Supported locations',
+                    Platform.isAndroid 
+                      ? 'Music folder, Downloads folder, and internal app storage'
+                      : Platform.isIOS
+                        ? 'Files app > Blossom folder'
+                        : 'BlossomMedia folder in your Documents directory',
+                    context
+                  ),
+                  _buildInfoTile(
+                    'Supported formats', 
+                    'MP3, FLAC, and M4A audio files',
+                    context
+                  ),
+                  SizedBox(height: 8),
+                  if (!Platform.isAndroid)
                     _buildButton(
                       'Copy Files to Blossom Folder',
                       () => _copyFilesToBlossomFolder(context),
                       context,
                     ),
-                    SizedBox(height: 8),
-                  ],
-                  context),
+                  SizedBox(height: 8),
+                ],
+                context
+              ),
+              
+              // Add the Android directory selection section
+              if (Platform.isAndroid)
+                _buildAndroidDirectorySection(context),
+
               _buildSection(
                   'Playback',
                   [

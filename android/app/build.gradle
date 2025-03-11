@@ -20,25 +20,43 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.wmstudios.blossom"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true  // Add multidex support
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.debug
+            // Remove the applicationVariants block for release to use default naming
+        }
+        debug {
+            // Remove the applicationVariants block for debug to use default naming
+        }
+    }
+
+    // Add this to copy the APK to where Flutter expects it
+    tasks.whenTaskAdded { task ->
+        if (task.name == 'assembleRelease') {
+            task.doLast {
+                copy {
+                    from "${buildDir}/outputs/apk/release"
+                    into "../../build/app/outputs/apk/release"
+                    include "*.apk"
+                }
+            }
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+// Add multidex dependency
+dependencies {
+    implementation "androidx.multidex:multidex:2.0.1"
 }

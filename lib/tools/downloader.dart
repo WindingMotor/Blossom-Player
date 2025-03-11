@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'settings.dart';
-import 'package:restart_app/restart_app.dart';
 
 class Downloader extends StatefulWidget {
   const Downloader({super.key});
@@ -25,10 +24,6 @@ class _DownloaderState extends State<Downloader> {
   void initState() {
     super.initState();
     _setupEnvironment();
-  }
-
-  void _restartApp() {
-    Restart.restartApp();
   }
 
   Future<void> _setupEnvironment() async {
