@@ -2,6 +2,7 @@
 /// This is the main entry point of the application.
 
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:blossom/audio/nplayer_extensions/nplayer_widget_desktop.dart';
@@ -201,15 +202,18 @@ class _MainStructureState extends State<MainStructure>
   bool _showWelcomePage = true;
   int _currentIndex = 0;
   late PageController _pageController;
+  late AnimationController _animationController;
   final bool enableTesting = false;
-
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
     _showWelcomePage = !Settings.hasSeenWelcomePage;
-  
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
   }
 
   void _onThemeChanged() {
@@ -227,6 +231,7 @@ class _MainStructureState extends State<MainStructure>
   @override
   void dispose() {
     _pageController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -241,7 +246,6 @@ class _MainStructureState extends State<MainStructure>
       _showWelcomePage = false;
     });
   }
-
 
   List<Widget> _getPages() {
     List<Widget> pages = [
@@ -278,12 +282,135 @@ class _MainStructureState extends State<MainStructure>
     }
   }
 
-  double _getPlayerBottomPosition() {
-    if (Platform.isAndroid || Platform.isIOS) {
-      return 10;
+  /// Calculate proper bottom position for the player widget
+  double _getPlayerBottomOffset() {
+    if (_showWelcomePage) return 10;
+    
+    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
+    if (isDesktop) {
+      return 80; // Account for bottom nav bar height + margin
     } else {
-      return 0;
+      // Mobile: account for bottom nav bar + system UI
+      return 80 + bottomPadding;
     }
+  }
+
+  /// Build the modern bottom navigation bar items
+  List<_ModernNavItem> _getNavItems() {
+    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    
+    List<_ModernNavItem> items = [
+      _ModernNavItem(
+        icon: Icons.library_music_rounded,
+        activeIcon: Icons.library_music,
+        label: 'Library',
+        index: 0,
+      ),
+      _ModernNavItem(
+        icon: Icons.playlist_play_rounded,
+        activeIcon: Icons.playlist_play,
+        label: 'Playlists',
+        index: 1,
+      ),
+      _ModernNavItem(
+        icon: Icons.album_rounded,
+        activeIcon: Icons.album,
+        label: 'Albums',
+        index: 2,
+      ),
+      _ModernNavItem(
+        icon: Icons.person_rounded,
+        activeIcon: Icons.person,
+        label: 'Artists',
+        index: 3,
+      ),
+    ];
+
+    if (enableTesting) {
+      items.add(_ModernNavItem(
+        icon: Icons.wifi_rounded,
+        activeIcon: Icons.wifi,
+        label: 'Server',
+        index: 4,
+      ));
+    }
+
+    if (isDesktop) {
+      items.add(_ModernNavItem(
+        icon: Icons.download_rounded,
+        activeIcon: Icons.download,
+        label: 'Download',
+        index: items.length,
+      ));
+    }
+
+    return items;
+  }
+
+  /// Build the modern bottom navigation bar
+  Widget _buildModernBottomNavBar() {
+    if (_showWelcomePage) return const SizedBox.shrink();
+
+    final navItems = _getNavItems();
+    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
+    return Positioned(
+      left: isDesktop ? 16 : 8,
+      right: isDesktop ? 16 : 8,
+      bottom: isDesktop ? 16 : 8,
+      child: SafeArea(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(isDesktop ? 16 : 20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              height: 50, // Fixed compact height
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(isDesktop ? 16 : 20),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, -2),
+                  ),
+                  BoxShadow(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                    blurRadius: 40,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: navItems.map((item) => 
+                  _ModernNavButton(
+                    item: item,
+                    isActive: _currentIndex == item.index,
+                    onTap: () {
+                      if (mounted) {
+                        setState(() => _currentIndex = item.index);
+                        _pageController.jumpToPage(item.index);
+                        _animationController.forward().then((_) {
+                          _animationController.reverse();
+                        });
+                      }
+                    },
+                    isDesktop: isDesktop,
+                  ),
+                ).toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -320,6 +447,7 @@ class _MainStructureState extends State<MainStructure>
               ] : null,
             )
           : null,
+      extendBody: true,
       body: Stack(
         children: [
           PageView.builder(
@@ -334,69 +462,142 @@ class _MainStructureState extends State<MainStructure>
             onPageChanged: _onPageChanged,
             physics: const ClampingScrollPhysics(),
           ),
-    if (_showWelcomePage)
-      WelcomePage(
-        onDismiss: _dismissWelcomePage,
-      ),
-    Positioned(
-      left: 0,
-      right: 0,
-      bottom: _getPlayerBottomPosition(),
-      child: _isLandscape(context)
-          ? const SizedBox.shrink()
-          : isDesktop
-              ? const NPlayerWidgetDesktop()
-              : const NPlayerWidget(),
-    ),
-    const SleepTimerCountdown(),
-    // Add the iOS mount widget
-    if (!Platform.isAndroid && !Platform.isIOS)
-      const iOSMountWidget(),
-  ],
-),
-      bottomNavigationBar: _showWelcomePage ? null : BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          if (mounted) {
-            setState(() => _currentIndex = index);
-            _pageController.jumpToPage(index);
-          }
-        },
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.library_music, size: isDesktop ? 20 : 24),
-            label: 'Library',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.playlist_play, size: isDesktop ? 20 : 24),
-            label: 'Playlists',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.album, size: isDesktop ? 20 : 24),
-            label: 'Albums',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person, size: isDesktop ? 20 : 24),
-            label: 'Artists',
-          ),
-          if (enableTesting)
-            BottomNavigationBarItem(
-              icon: Icon(Icons.wifi, size: isDesktop ? 20 : 24),
-              label: 'Server Scan',
+          if (_showWelcomePage)
+            WelcomePage(
+              onDismiss: _dismissWelcomePage,
             ),
-          if (isDesktop)
-            BottomNavigationBarItem(
-              icon: Icon(Icons.download, size: isDesktop ? 20 : 24),
-              label: 'Downloader',
-            ),
+          // Player widget positioned properly above bottom nav
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: _getPlayerBottomOffset(),
+            child: _isLandscape(context)
+                ? const SizedBox.shrink()
+                : isDesktop
+                    ? const NPlayerWidgetDesktop()
+                    : const NPlayerWidget(),
+          ),
+          // Bottom navigation bar
+          _buildModernBottomNavBar(),
+          const SleepTimerCountdown(),
+          // Add the iOS mount widget
+          if (!Platform.isAndroid && !Platform.isIOS)
+            const iOSMountWidget(),
         ],
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        selectedItemColor: Theme.of(context).colorScheme.secondary,
-        unselectedItemColor: Colors.grey,
-        selectedFontSize: isDesktop ? 11 : 14,
-        unselectedFontSize: isDesktop ? 11 : 12,
-        iconSize: isDesktop ? 20 : 24,
+      ),
+    );
+  }
+}
+
+/// Data class for navigation items
+class _ModernNavItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final int index;
+
+  const _ModernNavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.index,
+  });
+}
+
+/// Modern navigation button widget
+class _ModernNavButton extends StatefulWidget {
+  final _ModernNavItem item;
+  final bool isActive;
+  final VoidCallback onTap;
+  final bool isDesktop;
+
+  const _ModernNavButton({
+    required this.item,
+    required this.isActive,
+    required this.onTap,
+    required this.isDesktop,
+  });
+
+  @override
+  _ModernNavButtonState createState() => _ModernNavButtonState();
+}
+
+class _ModernNavButtonState extends State<_ModernNavButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void didUpdateWidget(_ModernNavButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(12),
+          splashColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+          highlightColor: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _scaleAnimation.value,
+                child: SizedBox(
+                  height: 50, // Fixed height to prevent overflow
+                  child: Center(
+                    child: Container(
+                      padding: EdgeInsets.all(widget.isActive ? 8 : 6),
+                      decoration: BoxDecoration(
+                        color: widget.isActive
+                            ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        widget.isActive ? widget.item.activeIcon : widget.item.icon,
+                        size: widget.isDesktop ? 18 : 22,
+                        color: widget.isActive
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

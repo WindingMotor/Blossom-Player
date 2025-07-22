@@ -78,7 +78,7 @@ class _AlbumArt extends StatelessWidget {
         .contains(Theme.of(context).platform);
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(8),
       child: SizedBox(
         width: isDesktopPlatform ? 36 : 48,  // Smaller width for desktop
         height: isDesktopPlatform ? 36 : 48, // Smaller height for desktop
