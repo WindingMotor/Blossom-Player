@@ -211,10 +211,8 @@ Future<void> _initializeAudioHandler() async {
         androidNotificationChannelName: 'Blossom Music Player',
         androidNotificationClickStartsActivity: true,
         androidNotificationOngoing: false,
-        androidStopForegroundOnPause: true,
-        // Optional: Add custom notification icon
+        androidStopForegroundOnPause: false, // KEY: Change this to false
         androidNotificationIcon: 'mipmap/ic_launcher',
-        // Optional: Show controls in f notification
         androidShowNotificationBadge: false,
         preloadArtwork: false,
       ),
@@ -227,6 +225,7 @@ Future<void> _initializeAudioHandler() async {
     _log("Fallback: Created AudioHandler directly");
   }
 }
+
 
 Future<void> _initialize() async {
   if (_isInitialized) return;

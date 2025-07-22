@@ -17,6 +17,27 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
   Timer? _positionTimer;
   bool _completionHandled = false;
 
+  Timer? _notificationUpdateTimer;
+  bool _notificationUpdatePending = false;
+
+  // Seek debouncing fields
+  Timer? _seekDebounceTimer;
+  Duration? _pendingSeekPosition;
+  bool _isSeekInProgress = false;
+
+  // Update playback state with debouncing
+  void _updatePlaybackState(PlaybackState newState) {
+    if (_notificationUpdatePending) return;
+    
+    _notificationUpdatePending = true;
+    _notificationUpdateTimer?.cancel();
+    
+    _notificationUpdateTimer = Timer(const Duration(milliseconds: 300), () {
+      playbackState.add(newState);
+      _notificationUpdatePending = false;
+    });
+  }
+
   CustomAudioHandler(this._player, this._nPlayer) {
     _initialize();
   }
@@ -29,6 +50,30 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
       _audioSession = await AudioSession.instance;
       
       // Enhanced completion detection with multiple fallbacks
+      _player.onPlayerStateChanged.listen((state) {
+        try {
+          final isPlaying = state == PlayerState.playing;
+          
+          _updatePlaybackState(playbackState.value.copyWith(
+            playing: isPlaying,
+            processingState: AudioProcessingState.ready,
+            controls: [
+              MediaControl.skipToPrevious,
+              isPlaying ? MediaControl.pause : MediaControl.play,
+              MediaControl.skipToNext,
+            ],
+            systemActions: {
+              MediaAction.seek,
+              MediaAction.seekForward,
+              MediaAction.seekBackward,
+            },
+            androidCompactActionIndices: const [0, 1, 2],
+          ));
+        } catch (e) {
+          print('AudioHandler: Error in onPlayerStateChanged: $e');
+        }
+      });
+
       _player.onPlayerComplete.listen((_) async {
         if (_completionHandled) return;
         _completionHandled = true;
@@ -325,22 +370,54 @@ Future<void> play() async {
 
 @override
 Future<void> seek(Duration position) async {
-  print('AudioHandler: seek called to position: ${position.inMilliseconds}ms');
+  print('AudioHandler: seek requested to position: ${position.inMilliseconds}ms');
+  
+  // Cancel any pending seek
+  _seekDebounceTimer?.cancel();
+  _pendingSeekPosition = position;
+  
+  // If a seek is already in progress, just update the pending position
+  if (_isSeekInProgress) {
+    print('AudioHandler: Seek in progress, updating pending position');
+    return;
+  }
+  
+  // Debounce rapid seek requests
+  _seekDebounceTimer = Timer(const Duration(milliseconds: 150), () async {
+    await _performSeek(_pendingSeekPosition!);
+  });
+}
+
+Future<void> _performSeek(Duration position) async {
+  if (_isSeekInProgress) return;
+  
+  _isSeekInProgress = true;
   try {
-    // Seek through the player directly for immediate response
+    print('AudioHandler: Performing actual seek to ${position.inMilliseconds}ms');
+    
+    // Seek through the player directly
     await _player.seek(position);
     
-    // Update the AudioHandler's state immediately
+    // Update state immediately
     playbackState.add(playbackState.value.copyWith(
       updatePosition: position,
     ));
     
-    // Also call NPlayer's seek to keep states in sync
+    // Also sync with NPlayer
     await _nPlayer.seek(position);
     
-    print('AudioHandler: seek completed to ${position.inMilliseconds}ms');
+    print('AudioHandler: Seek completed successfully');
   } catch (e) {
-    print('AudioHandler: Error in seek(): $e');
+    print('AudioHandler: Error in seek: $e');
+  } finally {
+    _isSeekInProgress = false;
+    
+    // If there's a pending seek, perform it
+    if (_pendingSeekPosition != null && _pendingSeekPosition != position) {
+      final nextPosition = _pendingSeekPosition!;
+      _pendingSeekPosition = null;
+      await _performSeek(nextPosition);
+    }
   }
 }
 
@@ -416,22 +493,23 @@ Future<void> seek(Duration position) async {
   }
 
   // MARK: Media Item Management
-  Future<void> updateMediaItemFromSong(Music song) async {
+ Future<void> updateMediaItemFromSong(Music song) async {
   Uri? artUri;
   
   try {
     if (song.picture != null && song.picture!.isNotEmpty) {
-      // Always use file-based approach for OneUI 7 compatibility
       try {
         final tempDir = await getTemporaryDirectory();
         final artFile = File('${tempDir.path}/album_art_${song.path.hashCode.abs()}.jpg');
         
-        // Write the image data to a temporary file
-        await artFile.writeAsBytes(song.picture!);
+        // Check if file already exists to avoid rewriting
+        if (!await artFile.exists()) {
+          await artFile.writeAsBytes(song.picture!);
+        }
         artUri = Uri.file(artFile.path);
-        print('AudioHandler: Album art saved to: ${artFile.path}');
+        print('AudioHandler: Album art ready at: ${artFile.path}');
       } catch (fileError) {
-        print('AudioHandler: Error saving album art file: $fileError');
+        print('AudioHandler: Error with album art file: $fileError');
         artUri = null;
       }
     }
@@ -456,6 +534,7 @@ Future<void> seek(Duration position) async {
   mediaItem.add(item);
   _completionHandled = false;
 }
+
 
 
   Future<void> dispose() async {

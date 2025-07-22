@@ -25,7 +25,6 @@
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
         android:label="blossom"
@@ -37,7 +36,6 @@
             android:name="android.app.use_aoa"
             android:value="false" />
         
-        <!-- Move service and receiver inside application tag -->
         <!-- Audio Service for background playback -->
         <service
             android:name="com.ryanheise.audioservice.AudioService"
@@ -59,29 +57,11 @@
         </receiver>
         
         <!-- Media Session Service -->
-        <service android:name="com.ryanheise.audioservice.MediaSessionService"
+        <service 
+            android:name="com.ryanheise.audioservice.MediaSessionService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback">
         </service>
-        
-        
-        <!-- Move service and receiver inside application tag -->
-        <service
-            android:name="com.ryanheise.audioservice.AudioService"
-            android:foregroundServiceType="mediaPlayback"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.media.browse.MediaBrowserService" />
-            </intent-filter>
-        </service>
-
-        <receiver
-            android:name="com.ryanheise.audioservice.MediaButtonReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MEDIA_BUTTON" />
-            </intent-filter>
-        </receiver>
         
         <activity
             android:name=".MainActivity"
