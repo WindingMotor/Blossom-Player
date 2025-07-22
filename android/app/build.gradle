@@ -25,6 +25,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         //multiDexEnabled = true  // Add multidex support
+        multiDexEnabled = true  // Add multidex support
     }
 
     buildTypes {
@@ -35,6 +36,23 @@ android {
         }
         debug {
             // Debug configuration
+            // Remove the applicationVariants block for release to use default naming
+        }
+        debug {
+            // Remove the applicationVariants block for debug to use default naming
+        }
+    }
+
+    // Add this to copy the APK to where Flutter expects it
+    tasks.whenTaskAdded { task ->
+        if (task.name == 'assembleRelease') {
+            task.doLast {
+                copy {
+                    from "${buildDir}/outputs/apk/release"
+                    into "../../build/app/outputs/apk/release"
+                    include "*.apk"
+                }
+            }
         }
     }
 }
@@ -43,30 +61,7 @@ flutter {
     source = "../.."
 }
 
+// Add multidex dependency
 dependencies {
     implementation "androidx.multidex:multidex:2.0.1"
-}
-
-// Define tasks AFTER flutter and dependencies blocks
-tasks.register("copyDebugApk", Copy) {
-    from "${buildDir}/outputs/apk/debug"
-    into "../../build/app/outputs/flutter-apk"
-    include "*.apk"
-}
-
-tasks.register("copyReleaseApk", Copy) {
-    from "${buildDir}/outputs/apk/release" 
-    into "../../build/app/outputs/flutter-apk"
-    include "*.apk"
-}
-
-// Use afterEvaluate to ensure tasks exist before configuring them
-afterEvaluate {
-    tasks.named("assembleDebug").configure {
-        finalizedBy "copyDebugApk"
-    }
-    
-    tasks.named("assembleRelease").configure {
-        finalizedBy "copyReleaseApk"
-    }
 }

@@ -97,6 +97,8 @@ Future<void> requestPermissions() async {
   }
 }
 
+
+
 /// Application entry point
 /// Initializes essential services and launches the app
 void main() async {
