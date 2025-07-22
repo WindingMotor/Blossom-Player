@@ -213,14 +213,33 @@ extension NPlayerPlayback on NPlayer {
     _log("Shuffling playlist");
     
     Music? currentSong = getCurrentSong();
-    _playingSongs.shuffle(_random);
+    bool wasPlaying = _isPlaying;
     
+    // Create a copy of the playlist without the current song
+    List<Music> songsToShuffle = List.from(_playingSongs);
     if (currentSong != null) {
-      _playingSongs.remove(currentSong);
-      _playingSongs.insert(0, currentSong);
+      songsToShuffle.remove(currentSong);
     }
     
-    await _startPlayback(_playingSongs, 0);
+    // Shuffle the remaining songs
+    songsToShuffle.shuffle(_random);
+    
+    // Reconstruct the playlist with current song at the beginning
+    if (currentSong != null) {
+      _playingSongs = [currentSong, ...songsToShuffle];
+      _currentSongIndex = 0;
+    } else {
+      _playingSongs = songsToShuffle;
+      _currentSongIndex = 0;
+    }
+    
+    // Only restart playback if nothing was playing
+    if (!wasPlaying && currentSong != null) {
+      await _startPlayback(_playingSongs, 0);
+    } else {
+      // Just notify listeners of the queue change without interrupting playback
+      _internalNotifyListeners();
+    }
   }
 
   void reorderPlayingSongs(List<Music> newOrder) {

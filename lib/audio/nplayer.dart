@@ -17,6 +17,9 @@ import 'package:blossom/audio/song_data.dart';
 import 'package:blossom/audio/nplayer_extensions/nplayer_audio_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:audio_service/audio_service.dart' as audio_service;
+import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
 part 'nplayer_extensions/nplayer_sorting.dart';
 part 'nplayer_extensions/nplayer_playback.dart';
