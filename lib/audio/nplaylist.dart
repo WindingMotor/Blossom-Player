@@ -15,10 +15,18 @@ class PlaylistManager {
     if (_isInitialized) return;
     
     try {
-      // Use app-specific external storage instead of public storage
-      final Directory? appDocDir = await getExternalStorageDirectory();
-      if (appDocDir == null) {
-        throw Exception('Could not access external storage directory');
+      // Use platform-appropriate storage directory
+      final Directory appDocDir;
+      if (Platform.isAndroid || Platform.isIOS) {
+        // Mobile: use external storage
+        final dir = await getExternalStorageDirectory();
+        if (dir == null) {
+          throw Exception('Could not access external storage directory');
+        }
+        appDocDir = dir;
+      } else {
+        // Desktop (Linux, Windows, macOS): use application documents directory
+        appDocDir = await getApplicationDocumentsDirectory();
       }
       
       _playlistDir = path.join(appDocDir.path, 'playlists');
