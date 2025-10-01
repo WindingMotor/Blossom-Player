@@ -30,6 +30,7 @@ import 'audio/widgets/nplayer_widget.dart';
 import 'pages/library_page.dart';
 import 'widgets/sleep_timer_countdown.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter_displaymode/flutter_displaymode.dart';
 
 /// Requests necessary permissions for file access based on the platform
 /// For Android: Storage and External Storage permissions
@@ -208,6 +209,10 @@ class _MainStructureState extends State<MainStructure>
   @override
   void initState() {
     super.initState();
+
+    // Set high refresh rate for smooth animations
+    FlutterDisplayMode.setHighRefreshRate();
+    
     _pageController = PageController(initialPage: _currentIndex);
     _showWelcomePage = !Settings.hasSeenWelcomePage;
     _animationController = AnimationController(

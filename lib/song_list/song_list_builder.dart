@@ -135,7 +135,7 @@ class SongListBuilderState extends State<SongListBuilder> {
             if (selectedSongs.isNotEmpty)
               Positioned(
                 right: 16,
-                bottom: 100,
+                bottom: 165,
                 child: FloatingActionButton(
                   onPressed: () => _showPlaylistDialog(context, player),
                   child: const Icon(Icons.playlist_add),

@@ -20,7 +20,8 @@
     <application
         android:label="blossom"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
         
         <!-- Disable Android Open Accessory mode -->
         <meta-data

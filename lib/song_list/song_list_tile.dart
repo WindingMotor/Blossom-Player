@@ -40,7 +40,8 @@ class SongListTile extends StatelessWidget {
       visualDensity: isDesktopPlatform 
           ? VisualDensity.compact 
           : VisualDensity.standard,
-        leading: _AlbumArt(picture: song.picture),
+        leading: _AlbumArt(picture: song.picture, songPath: song.path),
+
 title: Text(
   song.title,
   style: textTheme.bodyMedium,
@@ -68,22 +69,23 @@ trailing: Text(
 
 class _AlbumArt extends StatelessWidget {
   final Uint8List? picture;
+  final String songPath; // you need to pass the song path!
 
-  const _AlbumArt({Key? key, required this.picture}) : super(key: key);
+  const _AlbumArt({Key? key, required this.picture, required this.songPath}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDesktopPlatform = [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
-        .contains(Theme.of(context).platform);
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: SizedBox(
-        width: isDesktopPlatform ? 36 : 48,  // Smaller width for desktop
-        height: isDesktopPlatform ? 36 : 48, // Smaller height for desktop
+        width: 48,
+        height: 48,
         child: picture != null
-            ? Image.memory(picture!, fit: BoxFit.cover)
+            ? Image(
+                image: _AlbumArtCache.of(songPath, picture!),
+                fit: BoxFit.cover,
+              )
             : Container(
                 color: theme.colorScheme.surface,
                 child: Icon(Icons.music_note, color: theme.colorScheme.onSurface),
@@ -92,4 +94,12 @@ class _AlbumArt extends StatelessWidget {
     );
   }
 }
+
+// The cache (add once)
+class _AlbumArtCache {
+  static final Map<String, MemoryImage> _memCache = {};
+  static MemoryImage of(String path, Uint8List picture) =>
+      _memCache.putIfAbsent(path, () => MemoryImage(picture));
+}
+
 

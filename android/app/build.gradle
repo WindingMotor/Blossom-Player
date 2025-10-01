@@ -60,6 +60,12 @@ tasks.register("copyReleaseApk", Copy) {
     include "*.apk"
 }
 
+tasks.register("copyProfileApk", Copy) {
+    from "${buildDir}/outputs/apk/profile"
+    into "../../build/app/outputs/flutter-apk"
+    include "*.apk"
+}
+
 // Use afterEvaluate to ensure tasks exist before configuring them
 afterEvaluate {
     tasks.named("assembleDebug").configure {
@@ -68,5 +74,10 @@ afterEvaluate {
     
     tasks.named("assembleRelease").configure {
         finalizedBy "copyReleaseApk"
+    }
+    
+ 
+    tasks.named("assembleProfile").configure {
+        finalizedBy "copyProfileApk"
     }
 }

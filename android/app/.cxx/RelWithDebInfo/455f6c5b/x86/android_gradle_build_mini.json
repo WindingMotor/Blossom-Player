@@ -1,0 +1,20 @@
+{
+  "buildFiles": [
+    "/home/isaac/Documents/FlutterSDK/flutter/packages/flutter_tools/gradle/src/main/scripts/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/isaac/Android/Sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/home/isaac/Documents/Blossom-Player/android/app/.cxx/RelWithDebInfo/455f6c5b/x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/isaac/Android/Sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/home/isaac/Documents/Blossom-Player/android/app/.cxx/RelWithDebInfo/455f6c5b/x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {}
+}

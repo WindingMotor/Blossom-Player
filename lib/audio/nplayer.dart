@@ -167,6 +167,7 @@ class NPlayer extends ChangeNotifier {
   bool _isInitialized = false;
   Completer<void>? _initializationCompleter;
   late AudioSession _audioSession;
+  
   // Track audio focus state for internal use
   bool _hasAudioFocus = false;
 
@@ -310,7 +311,10 @@ Future<void> _initialize() async {
 
       // Initialize asynchronous components
       await _initializeFromSettings();
+
+      await PlaylistManager.initialize();
       await PlaylistManager.load();
+
       await _loadSongs();
       await loadSortSettings();
       

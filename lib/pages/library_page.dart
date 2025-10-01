@@ -6,8 +6,6 @@
 /// - Managing playback queue
 
 import 'dart:math';
-import 'package:blossom/custom/custom_searchbar.dart';
-import 'package:blossom/sheets/server_sheet.dart';
 import 'package:blossom/song_list/song_list_builder.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:flutter/material.dart';
@@ -87,6 +85,8 @@ class _SongLibraryState extends State<SongLibrary> with TickerProviderStateMixin
 
   /// Displays the server connection sheet
   /// Used for managing remote music sources
+  /// 
+  /*
   void _showServerSheet() {
     showModalBottomSheet(
       context: context,
@@ -95,6 +95,7 @@ class _SongLibraryState extends State<SongLibrary> with TickerProviderStateMixin
       builder: (context) => const ServerSheet(),
     );
   }
+  */
 
   /// Scrolls to a random song in the library
   /// Provides quick access to random music selection
@@ -377,7 +378,7 @@ class _SongLibraryState extends State<SongLibrary> with TickerProviderStateMixin
 
         return Scaffold(
           // Changed background to be more seamless
-          backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.1),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.1),
           body: SafeArea(
             child: FadeTransition(
               opacity: _fadeAnimation,

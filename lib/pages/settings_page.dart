@@ -108,18 +108,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Widget _buildConfettiToggle(BuildContext context) {
-    return _buildSwitchTile(
-      'Confetti Effects',
-      Settings.showConfetti,
-      (value) async {
-        await Settings.setShowConfetti(value);
-        setState(() {});
-      },
-      context,
-    );
-  }
-
   Widget _buildAndroidDirectorySection(BuildContext context) {
     // Only show for Android
     if (!Platform.isAndroid) return const SizedBox.shrink();

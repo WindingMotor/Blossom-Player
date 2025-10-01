@@ -1,0 +1,2 @@
+/home/isaac/Documents/Blossom-Player/android/app/.cxx/Debug/r3s5er85/armeabi-v7a/CMakeFiles/edit_cache.dir
+/home/isaac/Documents/Blossom-Player/android/app/.cxx/Debug/r3s5er85/armeabi-v7a/CMakeFiles/rebuild_cache.dir
