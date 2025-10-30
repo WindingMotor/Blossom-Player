@@ -28,7 +28,18 @@ extension NPlayerPlaylistManagement on NPlayer {
 
   List<Music> getPlaylistSongs(String playlistName) {
     List<String> songTitles = PlaylistManager.getPlaylistSongs(playlistName);
-    return _allSongs.where((song) => songTitles.contains(song.title)).toList();
+    
+    // Create a map for quick lookup
+    Map<String, Music> songMap = {
+      for (var song in _allSongs) song.title: song
+    };
+    
+    // Return songs in the exact order they appear in the playlist
+    return songTitles
+        .map((title) => songMap[title])
+        .where((song) => song != null)
+        .cast<Music>()
+        .toList();
   }
 
   Future<void> refreshPlaylists() async {
@@ -53,4 +64,13 @@ extension NPlayerPlaylistManagement on NPlayer {
   String? getPlaylistImagePath(String playlistName) {
     return PlaylistManager.getPlaylistImagePath(playlistName);
   }
+
+Future<void> reorderPlaylistSongs(String playlistName, List<Music> reorderedSongs) async {
+  final songTitles = reorderedSongs.map((song) => song.title).toList();
+  await PlaylistManager.reorderSongs(playlistName, songTitles);
+  _internalNotifyListeners();
+  print('[NPlayer] Reordered playlist "$playlistName" with ${reorderedSongs.length} songs');
 }
+
+}
+

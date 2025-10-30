@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:io';
+import 'package:blossom/audio/nplayer_extensions/song_cache.dart';
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart' as ap; // Add prefix 
 import 'package:audio_session/audio_session.dart';
@@ -111,6 +112,9 @@ class NPlayer extends ChangeNotifier {
   final List<Music> _allSongs = [];
   List<Music> _sortedSongs = [];
   List<Music> _playingSongs = [];
+
+  final SongCache _songCache = SongCache();
+  SongCache get cache => _songCache;
 
   String _searchQuery = '';
   int? _currentSongIndex;
@@ -380,6 +384,10 @@ Future<void> _initialize() async {
       }
       notifyListeners();
     });
+  }
+
+  Future<Map<String, dynamic>> getCacheStats() async {
+    return await _songCache.getStats();
   }
 
   // MARK: Utility Methods

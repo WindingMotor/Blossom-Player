@@ -1,6 +1,6 @@
-import 'package:blossom/song_list/song_list_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
 import 'package:blossom/widgets/playlist_artwork.dart';
 
@@ -13,6 +13,7 @@ class MusicBottomSheet extends StatefulWidget {
   final Widget? image;
   final bool isPlaylist;
   final String? customImagePath;
+  final String? playlistName;
 
   const MusicBottomSheet({
     Key? key,
@@ -24,6 +25,7 @@ class MusicBottomSheet extends StatefulWidget {
     this.image,
     this.isPlaylist = false,
     this.customImagePath,
+    this.playlistName,
   }) : super(key: key);
 
   @override
@@ -47,7 +49,6 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
       curve: Curves.easeOut,
     );
     _controller.forward();
-
   }
 
   @override
@@ -56,168 +57,370 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final totalDuration = widget.songs.fold<Duration>(
-      Duration.zero,
-      (total, song) => total + Duration(milliseconds: song.duration),
+  Future<void> _removeSongFromPlaylist(Music song, NPlayer player) async {
+    if (widget.playlistName == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove from Playlist'),
+        content: Text('Remove "${song.title}" from "${widget.playlistName}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('REMOVE'),
+          ),
+        ],
+      ),
     );
 
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, (1 - _animation.value) * 100),
-          child: Opacity(
-            opacity: _animation.value,
-            child: child,
+    if (confirmed == true && mounted) {
+      await player.removeSongFromPlaylist(widget.playlistName!, song);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Removed from ${widget.playlistName}'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
           ),
         );
-      },
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.8,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).scaffoldBackgroundColor,
-              Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
-            ],
-          ),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.5),
-              blurRadius: 10,
-              spreadRadius: 5,
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 40,
-              height: 5,
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.grey[400],
-                borderRadius: BorderRadius.circular(2.5),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 16),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: SizedBox(
-                      width: 60,
-                      height: 60,
-                      child: widget.image ?? (widget.isPlaylist 
-                        ? PlaylistArtwork(
-                            customImagePath: widget.customImagePath,
-                            songs: widget.songs,
-                            size: 60,
-                          )
-                        : (widget.songs.isNotEmpty && widget.songs.first.picture != null
-                            ? Image.memory(widget.songs.first.picture!, fit: BoxFit.cover)
-                            : Icon(Icons.album, size: 60, color: Theme.of(context).colorScheme.primary))),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.title,
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                        ),
-                        Text(
-                          widget.subtitle,
-                          style: TextStyle(color: Colors.grey[400]),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.play_circle_fill_rounded),
-                    onPressed: () {
-                      if (widget.songs.isNotEmpty) {
-                        // Get the first song in the list
-                        Music firstSong = widget.songs.first;
 
-                        // Call the onPlayPressed function with the first song
-                        widget.onPlayPressed(firstSong);
-                      }
-                    },
-                    color: Theme.of(context).colorScheme.secondary,
-                    iconSize: 48,
-                  ),
+        final updatedSongs = player.getPlaylistSongs(widget.playlistName!);
+        if (updatedSongs.isEmpty) {
+          Navigator.pop(context);
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<NPlayer>(
+      builder: (context, player, _) {
+        final currentSongs = widget.isPlaylist && widget.playlistName != null
+            ? player.getPlaylistSongs(widget.playlistName!)
+            : widget.songs;
+
+        final totalDuration = currentSongs.fold<Duration>(
+          Duration.zero,
+          (total, song) => total + Duration(milliseconds: song.duration),
+        );
+
+        return AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(0, (1 - _animation.value) * 100),
+              child: Opacity(
+                opacity: _animation.value,
+                child: child,
+              ),
+            );
+          },
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.8,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Theme.of(context).scaffoldBackgroundColor,
+                  Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
                 ],
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Card(
-                color: Theme.of(context).cardColor,
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 10,
+                  spreadRadius: 5,
                 ),
-                child: Padding(
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 5,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(2.5),
+                  ),
+                ),
+                Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildStatItem(
-                          context, 'Songs', widget.itemCount.toString()),
-                      _buildStatItem(
-                          context,
-                          'Albums',
-                          widget.songs
-                              .map((s) => s.album)
-                              .toSet()
-                              .length
-                              .toString()),
-                      _buildStatItem(context, 'Total Time',
-                          _formatDuration(totalDuration)),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const SizedBox(width: 16),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          width: 60,
+                          height: 60,
+                          child: widget.image ?? (widget.isPlaylist 
+                            ? PlaylistArtwork(
+                                customImagePath: widget.customImagePath,
+                                songs: currentSongs,
+                                size: 60,
+                              )
+                            : (currentSongs.isNotEmpty && currentSongs.first.picture != null
+                                ? Image.memory(currentSongs.first.picture!, fit: BoxFit.cover)
+                                : Icon(Icons.album, size: 60, color: Theme.of(context).colorScheme.primary))),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.title,
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '${currentSongs.length} songs',
+                              style: TextStyle(color: Colors.grey[400]),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.play_circle_fill_rounded),
+                        onPressed: () {
+                          if (currentSongs.isNotEmpty) {
+                            widget.onPlayPressed(currentSongs.first);
+                          }
+                        },
+                        color: Theme.of(context).colorScheme.secondary,
+                        iconSize: 48,
+                      ),
                     ],
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ScrollConfiguration(
-                behavior: DesktopScrollBehavior(),
-                child: Padding(
+                Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: OrientationBuilder(
-                    builder: (context, orientation) {
-                      return SongListBuilder(
-                        songs: widget.songs,
-                        orientation: orientation,
-                        onTap: widget.onPlayPressed,
-                        isPlaylist: widget.isPlaylist,
-                      );
-                    },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatItem(context, 'Songs', currentSongs.length.toString()),
+                          _buildStatItem(
+                            context,
+                            'Albums',
+                            currentSongs.map((s) => s.album).toSet().length.toString()
+                          ),
+                          _buildStatItem(context, 'Total Time', _formatDuration(totalDuration)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: currentSongs.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.music_note,
+                                size: 64,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No songs in this playlist',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ScrollConfiguration(
+                          behavior: DesktopScrollBehavior(),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: // In the MusicBottomSheet, replace the ReorderableListView.builder section with this:
+
+ReorderableListView.builder(
+  buildDefaultDragHandles: false,
+  onReorder: widget.isPlaylist && widget.playlistName != null
+      ? (oldIndex, newIndex) async {
+          if (oldIndex < newIndex) {
+            newIndex -= 1;
+          }
+          
+          final songs = List<Music>.from(currentSongs);
+          final song = songs.removeAt(oldIndex);
+          songs.insert(newIndex, song);
+          
+          await player.reorderPlaylistSongs(
+            widget.playlistName!,
+            songs,
+          );
+        }
+      : (_, __) {},
+  itemCount: currentSongs.length,
+  itemBuilder: (context, index) {
+    final song = currentSongs[index];
+    
+    // Create a unique key for each item
+    final itemKey = widget.isPlaylist && widget.playlistName != null
+        ? Key('${widget.playlistName}_${song.path}_$index')
+        : Key('${song.path}_$index');
+    
+    final songWidget = Container(
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ListTile(
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.isPlaylist && widget.playlistName != null)
+              ReorderableDragStartListener(
+                index: index,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Icon(
+                    Icons.drag_handle,
+                    color: Colors.grey[600],
+                    size: 20,
                   ),
                 ),
               ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: song.picture != null
+                  ? Image.memory(
+                      song.picture!,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      width: 48,
+                      height: 48,
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      child: Icon(
+                        Icons.music_note,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
             ),
           ],
         ),
+        title: Text(
+          song.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: Colors.white),
+        ),
+        subtitle: Text(
+          song.artist,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: 12,
+          ),
+        ),
+        trailing: widget.isPlaylist && widget.playlistName != null
+            ? IconButton(
+                icon: const Icon(Icons.remove_circle_outline),
+                color: Colors.grey[400],
+                tooltip: 'Remove from playlist',
+                onPressed: () => _removeSongFromPlaylist(song, player),
+              )
+            : Text(
+                _formatSongDuration(Duration(milliseconds: song.duration)),
+                style: TextStyle(color: Colors.grey[400]),
+              ),
+        onTap: () => widget.onPlayPressed(song),
       ),
+    );
+    
+    if (widget.isPlaylist && widget.playlistName != null) {
+      return Dismissible(
+        key: Key('dismissible_${widget.playlistName}_${song.path}_$index'),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.error,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.delete_outline,
+            color: Colors.white,
+            size: 28,
+          ),
+        ),
+        confirmDismiss: (direction) async {
+          await player.removeSongFromPlaylist(
+            widget.playlistName!,
+            song,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Removed "${song.title}"'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return true;
+        },
+        child: Container(
+          key: itemKey,
+          child: songWidget,
+        ),
+      );
+    }
+    
+    // For non-playlist items, wrap in a container with the key
+    return Container(
+      key: itemKey,
+      child: songWidget,
+    );
+  },
+)
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -248,6 +451,11 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
     String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
     return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
+  }
+
+  String _formatSongDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    return "${duration.inMinutes}:${twoDigits(duration.inSeconds.remainder(60))}";
   }
 }
 

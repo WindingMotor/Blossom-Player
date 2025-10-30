@@ -306,6 +306,22 @@ class PlaylistManager {
     }
   }
 
+  static Future<void> reorderSongs(String playlistName, List<String> orderedSongTitles) async {
+    await _ensureInitialized();
+    
+    if (!_playlists.containsKey(playlistName)) {
+      print('[PlaylistManager] Playlist does not exist: $playlistName');
+      return;
+    }
+    
+    // Simply replace the songs list with the new ordered list
+    _playlists[playlistName]!['songs'] = orderedSongTitles;
+    _playlists[playlistName]!['modified'] = DateTime.now().toIso8601String();
+    
+    await save();
+    print('[PlaylistManager] Reordered $playlistName with ${orderedSongTitles.length} songs');
+  }
+
   static Future<void> setPlaylistImage(String playlistName, File imageFile) async {
     await _ensureInitialized();
     

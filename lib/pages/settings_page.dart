@@ -19,6 +19,101 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  Map<String, dynamic>? _cacheStats;
+  bool _isLoadingCache = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCacheStats();
+  }
+
+  Future<void> _loadCacheStats() async {
+    setState(() => _isLoadingCache = true);
+    try {
+      final player = Provider.of<NPlayer>(context, listen: false);
+      final stats = await player.getCacheStats();
+      setState(() {
+        _cacheStats = stats;
+        _isLoadingCache = false;
+      });
+    } catch (e) {
+      print('Error loading cache stats: $e');
+      setState(() => _isLoadingCache = false);
+    }
+  }
+
+Future<void> _clearCache(BuildContext context) async {
+  // Show confirmation dialog
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Clear Cache?'),
+      content: Text(
+        'This will delete all cached song metadata. '
+        'Songs will need to be re-scanned on next app launch.\n\n'
+        'Your music files and playlists will not be affected.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text('Clear Cache'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.red,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed == true) {
+    try {
+      final player = Provider.of<NPlayer>(context, listen: false);
+      
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Clear cache WITHOUT reloading
+      await player.cache.clear();
+      
+      // Close loading dialog
+      Navigator.of(context).pop();
+      
+      // Reload cache stats to show empty cache
+      await _loadCacheStats();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cache deleted successfully')),
+      );
+    } catch (e) {
+      // Close loading dialog if still open
+      Navigator.of(context).pop();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error clearing cache: $e')),
+      );
+    }
+  }
+}
+
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
   Future<void> _copyFilesToBlossomFolder(BuildContext context) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -121,7 +216,11 @@ class _SettingsPageState extends State<SettingsPage> {
           'Current Music Folder',
           currentDir?.isNotEmpty == true 
               ? currentDir!
-              : 'Default system folders (Music, Downloads)',
+              : Platform.isAndroid 
+                ? '/storage/emulated/0/Music (default)'
+                : Platform.isIOS
+                  ? 'App Documents (default)'
+                  : 'BlossomMedia folder (default)',
           context
         ),
         SizedBox(height: 8),
@@ -145,6 +244,55 @@ class _SettingsPageState extends State<SettingsPage> {
         SizedBox(height: 8),
       ],
       context
+    );
+  }
+
+  Widget _buildCacheSection(BuildContext context) {
+    return _buildSection(
+      'Cache',
+      [
+        _buildInfoTile(
+          'About Cache',
+          'Blossom caches song metadata to speed up library loading. '
+          'Clear cache if you experience issues with song information.',
+          context,
+        ),
+        if (_isLoadingCache)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_cacheStats != null) ...[
+          _buildInfoTile(
+            'Cached Songs',
+            '${_cacheStats!['totalEntries']} songs',
+            context,
+          ),
+          _buildInfoTile(
+            'Pending Writes',
+            '${_cacheStats!['pendingWrites']} entries',
+            context,
+          ),
+          _buildInfoTile(
+            'Cache Status',
+            _cacheStats!['isInitialized'] ? 'Active' : 'Not initialized',
+            context,
+          ),
+        ],
+        SizedBox(height: 8),
+        _buildButton(
+          'Refresh Cache Stats',
+          () => _loadCacheStats(),
+          context,
+        ),
+        _buildButton(
+          'Clear Cache & Rescan',
+          () => _clearCache(context),
+          context,
+        ),
+        SizedBox(height: 8),
+      ],
+      context,
     );
   }
 
@@ -195,6 +343,9 @@ class _SettingsPageState extends State<SettingsPage> {
               // Add the Android directory selection section
               if (Platform.isAndroid)
                 _buildAndroidDirectorySection(context),
+
+              // Add the cache section
+              _buildCacheSection(context),
 
               _buildSection(
                   'Playback',

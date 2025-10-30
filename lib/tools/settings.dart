@@ -358,168 +358,69 @@ class Settings {
   }
 
   /// Get all directories where songs might be stored
-  static Future<List<Directory>> getAllSongDirs() async {
-    List<Directory> directories = [];
-    
-    if (Platform.isAndroid) {
-      _log("Getting Android song directories");
-      
-      // Check for user-selected directory first
-      final String? customDir = customMusicDirectory;
-      if (customDir != null && customDir.isNotEmpty) {
-        final dir = Directory(customDir);
-        
-        // Validate directory access
-        if (await isDirectoryAccessible(dir)) {
-          directories.add(dir);
-          _log("Using custom music directory: $customDir");
-          
-          // Test direct file access
-          if (await testDirectFileAccess(customDir)) {
-            _log("Direct file access to test file successful");
-          } else {
-            _log("Direct file access test failed");
-          }
-        } else {
-          _log("Custom directory isn't accessible: $customDir");
-        }
-      } else {
-        _log("No custom directory set, using default locations");
-      }
-      
-      // If no custom directory or it failed, use defaults
-      if (directories.isEmpty) {
-        // Common Android music directories as fallback
-        final List<String> commonPaths = [
-          '/storage/emulated/0/Music',
-          '/sdcard/Music',
-          '/storage/emulated/0/Download',
-          '/storage/emulated/0/Documents/Music'
-        ];
-        
-        for (String path in commonPaths) {
-          final dir = Directory(path);
-          if (await isDirectoryAccessible(dir)) {
-            directories.add(dir);
-            _log("Added default directory: $path");
-          } else {
-            _log("Default directory not accessible: $path");
-          }
-        }
-      }
-      
-      // Also include app's documents directory for backward compatibility
-      try {
-        final appDir = await getApplicationDocumentsDirectory();
-        _log("App documents directory: ${appDir.path}");
-        if (await isDirectoryAccessible(Directory(appDir.path))) {
-          directories.add(Directory(appDir.path));
-        }
-      } catch (e) {
-        _log("Error getting app documents directory: $e");
-      }
-      
-    } else if (Platform.isIOS) {
-      // iOS uses application documents directory
-      try {
-        final directory = await getApplicationDocumentsDirectory();
-        directories.add(Directory(directory.path));
-        _log("iOS using documents directory: ${directory.path}");
-      } catch (e) {
-        _log("Error getting iOS documents directory: $e");
-      }
-      
-    } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      // Desktop platforms use BlossomMedia folder in documents
-      try {
-        final directory = await getApplicationDocumentsDirectory();
-        final blossomMediaDir = Directory('${directory.path}/BlossomMedia');
-        if (!await blossomMediaDir.exists()) {
-          await blossomMediaDir.create(recursive: true);
-        }
-        directories.add(blossomMediaDir);
-        _log("Desktop using BlossomMedia directory: ${blossomMediaDir.path}");
-      } catch (e) {
-        _log("Error setting up desktop directory: $e");
-      }
-    }
-    
-    _log("Final directories list (${directories.length} directories):");
-    for (var dir in directories) {
-      _log(" - ${dir.path}");
-    }
-    
-    return directories;
-  }
-
-  /// Get the primary directory where songs are stored (for backward compatibility)
-  static Future<String> getSongDir() async {
-    if (Platform.isAndroid) {
-      _log("Getting primary Android song directory");
-      
-      // Check for user-selected directory first
-      final String? customDir = customMusicDirectory;
-      if (customDir != null && customDir.isNotEmpty) {
-        final dir = Directory(customDir);
-        if (await isDirectoryAccessible(dir)) {
-          _log("Using custom music directory as primary: $customDir");
-          return customDir;
-        } else {
-          _log("Custom directory not accessible, falling back to defaults");
-        }
-      }
-      
-      // For Android, prefer the standard Music directory if it exists
-      final musicDir = Directory('/storage/emulated/0/Music');
-      if (await isDirectoryAccessible(musicDir)) {
-        _log("Using /storage/emulated/0/Music as primary");
-        return musicDir.path;
-      }
-      
-      // Fallback to /sdcard/Music
-      final sdcardMusic = Directory('/sdcard/Music');
-      if (await isDirectoryAccessible(sdcardMusic)) {
-        _log("Using /sdcard/Music as primary");
-        return sdcardMusic.path;
-      }
-      
-      // If neither exists, use app's documents directory
-      try {
-        final directory = await getApplicationDocumentsDirectory();
-        _log("Using app documents as primary: ${directory.path}");
-        return directory.path;
-      } catch (e) {
-        _log("Error getting documents directory: $e");
-        return '/storage/emulated/0/Music'; // Last resort
-      }
-      
-    } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      // Desktop platforms use BlossomMedia folder in documents
-      try {
-        final directory = await getApplicationDocumentsDirectory();
-        final blossomMediaDir = Directory('${directory.path}/BlossomMedia');
-        if (!await blossomMediaDir.exists()) {
-          await blossomMediaDir.create(recursive: true);
-        }
-        _log("Desktop primary: ${blossomMediaDir.path}");
-        return blossomMediaDir.path;
-      } catch (e) {
-        _log("Error with desktop directory: $e");
-        final directory = await getApplicationDocumentsDirectory();
-        return directory.path;
-      }
+/// Get all directories where songs might be stored
+static Future<List<Directory>> getAllSongDirs() async {
+  List<Directory> directories = [];
+  
+  // Check for user-selected directory FIRST
+  final String? customDir = customMusicDirectory;
+  
+  if (customDir != null && customDir.isNotEmpty) {
+    _log("Using user-selected music directory: $customDir");
+    final dir = Directory(customDir);
+    if (await isDirectoryAccessible(dir)) {
+      directories.add(dir);
+      return directories; // RETURN IMMEDIATELY - use ONLY this directory
     } else {
-      // iOS uses application documents directory
-      try {
-        final directory = await getApplicationDocumentsDirectory();
-        _log("iOS primary: ${directory.path}");
-        return directory.path;
-      } catch (e) {
-        _log("Error with iOS directory: $e");
-        return '';
-      }
+      _log("WARNING: User-selected directory not accessible: $customDir");
     }
   }
+  
+  // If no custom directory set or it's not accessible, use platform default
+  _log("No custom directory set, using platform default");
+  
+  if (Platform.isAndroid) {
+    // Android: Use /storage/emulated/0/Music as default
+    final defaultDir = Directory('/storage/emulated/0/Music');
+    if (await isDirectoryAccessible(defaultDir)) {
+      directories.add(defaultDir);
+      _log("Using Android default: ${defaultDir.path}");
+    } else {
+      _log("WARNING: Default Music directory not accessible, using app documents");
+      final appDir = await getApplicationDocumentsDirectory();
+      directories.add(Directory(appDir.path));
+    }
+    
+  } else if (Platform.isIOS) {
+    // iOS: Use application documents directory
+    final directory = await getApplicationDocumentsDirectory();
+    directories.add(Directory(directory.path));
+    _log("Using iOS documents directory: ${directory.path}");
+    
+  } else {
+    // Desktop: Use BlossomMedia folder in documents
+    final directory = await getApplicationDocumentsDirectory();
+    final blossomMediaDir = Directory('${directory.path}/BlossomMedia');
+    if (!await blossomMediaDir.exists()) {
+      await blossomMediaDir.create(recursive: true);
+    }
+    directories.add(blossomMediaDir);
+    _log("Desktop using BlossomMedia directory: ${blossomMediaDir.path}");
+  }
+  
+  _log("Final directories list (${directories.length} directories):");
+  for (var dir in directories) {
+    _log(" - ${dir.path}");
+  }
+  
+  return directories;
+}
+
+/// Get the primary directory where songs are stored (for backward compatibility)
+static Future<String> getSongDir() async {
+  final dirs = await getAllSongDirs();
+  return dirs.isNotEmpty ? dirs.first.path : '';
+}
 
   ///***************************************************************************
   /// UI Settings
