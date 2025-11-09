@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:blossom/custom/search_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -68,88 +69,22 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
     }
   }
 
-  Widget _buildIntegratedSearchBar(NPlayer player, int playlistCount) {
+  Widget _buildPlaylistCountIndicator(int playlistCount) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Row(
         children: [
-          Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.search_rounded,
-                  size: 20,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (value) => _safeSetState(() {}),
-                    decoration: InputDecoration(
-                      hintText: 'Search playlists...',
-                      hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-                if (_searchController.text.isNotEmpty)
-                  GestureDetector(
-                    onTap: () {
-                      _searchController.clear();
-                      _safeSetState(() {});
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.clear_rounded,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+          Icon(
+            Icons.playlist_play_rounded,
+            size: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
           ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.playlist_play_rounded,
-                  size: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '$playlistCount ${playlistCount == 1 ? 'playlist' : 'playlists'}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
-                    fontSize: 11,
-                  ),
-                ),
-              ],
+          const SizedBox(width: 6),
+          Text(
+            '$playlistCount ${playlistCount == 1 ? 'playlist' : 'playlists'}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+              fontSize: 11,
             ),
           ),
         ],
@@ -157,7 +92,7 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
     );
   }
 
-  Widget _buildCompactHeader(NPlayer player) {
+  Widget _buildHeader(NPlayer player) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Row(
@@ -251,8 +186,19 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
               opacity: _fadeAnimation,
               child: Column(
                 children: [
-                  _buildCompactHeader(player),
-                  _buildIntegratedSearchBar(player, filteredPlaylists.length),
+                  _buildHeader(player),
+                  
+                  // Search bar without sort, shuffle, and settings buttons
+                  OptimizedSearchBar(
+                    searchController: _searchController,
+                    onSearchChanged: (value) => _safeSetState(() {}),
+                    hintText: 'Search playlists...',
+                    showSortButton: false,
+                    showShuffleButton: false,
+                    showSettingsButton: false,
+                    bottomWidget: _buildPlaylistCountIndicator(filteredPlaylists.length),
+                  ),
+                  
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
@@ -448,30 +394,24 @@ class _PlaylistCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Album artwork - properly centered and fitted
             Expanded(
-              child: Stack(
-                children: [
-                  GestureDetector(
-                    onTap: onImageTap,
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(12),
-                      ),
-                      child: Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        child: PlaylistArtwork(
-                          customImagePath: imagePath,
-                          songs: songs,
-                        ),
-                      ),
+              child: GestureDetector(
+                onTap: onImageTap,
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    child: PlaylistArtwork(
+                      customImagePath: imagePath,
+                      songs: songs,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-            // Playlist info
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(

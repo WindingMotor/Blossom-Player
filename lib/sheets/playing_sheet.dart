@@ -240,13 +240,6 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
     }
   }
 
-  void _scrollToTop() {
-    final songListBuilderState = _songListBuilderKey.currentState;
-    if (songListBuilderState != null) {
-      songListBuilderState.scrollToPosition(0);
-    }
-  }
-
   // ----------  Structural  ---------- //
 
   Widget _dragHandle() => Center(

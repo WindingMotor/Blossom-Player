@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 class LyricsSheet extends StatefulWidget {
   final String artist;

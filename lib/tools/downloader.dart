@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'settings.dart';
 
 class Downloader extends StatefulWidget {
@@ -128,50 +127,6 @@ class _DownloaderState extends State<Downloader> {
         _spotdlInstalled = true;
       });
     }
-  }
-
-  void _showFFmpegInstructions() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Install FFmpeg'),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                const Text('Please install FFmpeg for your system:'),
-                const SizedBox(height: 10),
-                if (Platform.isWindows)
-                  const Text(
-                      'Windows: Visit the official FFmpeg website and follow the installation instructions.'),
-                if (Platform.isMacOS)
-                  const Text('macOS: Run "brew install ffmpeg" in Terminal.'),
-                if (Platform.isLinux)
-                  const Text(
-                      'Linux: Run "sudo apt install ffmpeg" or use your distro\'s package manager.'),
-                const SizedBox(height: 10),
-                const Text('After installation, click "Confirm" below.'),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Open FFmpeg Website'),
-              onPressed: () {
-                launchUrl(Uri.parse('https://ffmpeg.org/download.html'));
-              },
-            ),
-            TextButton(
-              child: const Text('Confirm'),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _checkFFmpegInstallation();
-              },
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<void> _downloadSong(String url) async {

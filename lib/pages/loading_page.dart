@@ -254,7 +254,7 @@ class _LoadingPageState extends State<LoadingPage>
                                       style: TextStyle(
                                         fontSize: 17,
                                         fontWeight: FontWeight.w600,
-                                        color: widget.theme.colorScheme.onBackground,
+                                        color: widget.theme.colorScheme.onSurface,
                                         letterSpacing: 0.3,
                                       ),
                                     ),
@@ -265,7 +265,7 @@ class _LoadingPageState extends State<LoadingPage>
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontSize: 13,
-                                          color: widget.theme.colorScheme.onBackground
+                                          color: widget.theme.colorScheme.onSurface
                                               .withOpacity(0.65),
                                           height: 1.4,
                                         ),
