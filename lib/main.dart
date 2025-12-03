@@ -6,8 +6,8 @@ import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:blossom/audio/nplayer_extensions/nplayer_widget_desktop.dart';
-import 'package:blossom/binder/ios_mount_widget.dart';
 import 'package:blossom/custom/custom_appbar.dart';
+import 'package:blossom/pages/social_page.dart';
 import 'package:blossom/pages/standby/standby_page.dart';
 import 'package:blossom/pages/welcome_page.dart';
 import 'package:blossom/tools/downloader.dart';
@@ -24,6 +24,8 @@ import 'package:metadata_god/metadata_god.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'audio/nplayer.dart';
 import 'audio/widgets/nplayer_widget.dart';
@@ -104,12 +106,24 @@ Future<void> requestPermissions() async {
 void main() async {
   // Ensure Flutter bindings are initialized first
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize FFI for sqflite on desktop platforms (Linux/Windows)
+  if (Platform.isLinux || Platform.isWindows) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
   
   // Initialize metadata handling service
   MetadataGod.initialize();
   
   // Initialize app settings
   await Settings.init();
+
+  // Load friends list and initialize username
+  await Settings.loadFriendsList();
+  await Settings.initializeUsername();
+
+  // Load playlists
   await PlaylistManager.load();
 
   // Get directories first
@@ -211,7 +225,9 @@ class _MainStructureState extends State<MainStructure>
     super.initState();
 
     // Set high refresh rate for smooth animations
-    FlutterDisplayMode.setHighRefreshRate();
+    if (Platform.isAndroid || Platform.isIOS) {
+      FlutterDisplayMode.setHighRefreshRate();
+    } 
     
     _pageController = PageController(initialPage: _currentIndex);
     _showWelcomePage = !Settings.hasSeenWelcomePage;
@@ -252,40 +268,62 @@ class _MainStructureState extends State<MainStructure>
     });
   }
 
-  List<Widget> _getPages() {
-    List<Widget> pages = [
-      SongLibrary(onThemeChanged: _onThemeChanged),
-      const PlaylistPage(),
-      const SongAlbums(),
-      const ArtistsPage(),
-    ];
+List<Widget> _getPages() {
+  final pages = <Widget>[
+    SongLibrary(onThemeChanged: _onThemeChanged),
+    const PlaylistPage(),
+    const SongAlbums(),
+    const ArtistsPage(),
+  ];
 
-    if (!kIsWeb &&
-        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
-      pages.add(const Downloader());
-    }
-
-    return pages;
+  // Only add Social when sharing is enabled
+  if (Settings.isPublicSharingEnabled) {
+    pages.add(const SocialPage());
   }
 
-  String _getAppBarTitle() {
-    switch (_currentIndex) {
-      case 0:
-        return 'Song Library';
-      case 1:
-        return 'Playlists';
-      case 2:
-        return 'Albums';
-      case 3:
-        return 'Artists';
-      case 4:
-        return enableTesting ? 'Stream' : 'Downloader';
-      case 5:
-        return 'Downloader';
-      default:
-        return 'Blossom';
-    }
+  if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+    pages.add(const Downloader());
   }
+
+  return pages;
+}
+
+
+String _getAppBarTitle() {
+  // Base pages: 0–3
+  switch (_currentIndex) {
+    case 0:
+      return 'Song Library';
+    case 1:
+      return 'Playlists';
+    case 2:
+      return 'Albums';
+    case 3:
+      return 'Artists';
+  }
+
+  int idx = 4;
+
+  // Social (only if enabled)
+  if (Settings.isPublicSharingEnabled) {
+    if (_currentIndex == idx) return 'Social';
+    idx++;
+  }
+
+  // enableTesting: Server
+  if (enableTesting) {
+    if (_currentIndex == idx) return 'Stream';
+    idx++;
+  }
+
+  // Desktop downloader
+  final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+  if (isDesktop && _currentIndex == idx) {
+    return 'Downloader';
+  }
+
+  return 'Blossom';
+}
 
   /// Calculate proper bottom position for the player widget
   double _getPlayerBottomOffset() {
@@ -303,56 +341,72 @@ class _MainStructureState extends State<MainStructure>
   }
 
   /// Build the modern bottom navigation bar items
-  List<_ModernNavItem> _getNavItems() {
-    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-    
-    List<_ModernNavItem> items = [
-      _ModernNavItem(
-        icon: Icons.library_music_rounded,
-        activeIcon: Icons.library_music,
-        label: 'Library',
-        index: 0,
-      ),
-      _ModernNavItem(
-        icon: Icons.playlist_play_rounded,
-        activeIcon: Icons.playlist_play,
-        label: 'Playlists',
-        index: 1,
-      ),
-      _ModernNavItem(
-        icon: Icons.album_rounded,
-        activeIcon: Icons.album,
-        label: 'Albums',
-        index: 2,
-      ),
-      _ModernNavItem(
-        icon: Icons.person_rounded,
-        activeIcon: Icons.person,
-        label: 'Artists',
-        index: 3,
-      ),
-    ];
+List<_ModernNavItem> _getNavItems() {
+  final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
-    if (enableTesting) {
-      items.add(_ModernNavItem(
+  final items = <_ModernNavItem>[
+    _ModernNavItem(
+      icon: Icons.library_music_rounded,
+      activeIcon: Icons.library_music,
+      label: 'Library',
+      index: 0,
+    ),
+    _ModernNavItem(
+      icon: Icons.playlist_play_rounded,
+      activeIcon: Icons.playlist_play,
+      label: 'Playlists',
+      index: 1,
+    ),
+    _ModernNavItem(
+      icon: Icons.album_rounded,
+      activeIcon: Icons.album,
+      label: 'Albums',
+      index: 2,
+    ),
+    _ModernNavItem(
+      icon: Icons.person_rounded,
+      activeIcon: Icons.person,
+      label: 'Artists',
+      index: 3,
+    ),
+  ];
+
+  // Only add Social tab when sharing is enabled
+  if (Settings.isPublicSharingEnabled) {
+    items.add(
+      _ModernNavItem(
+        icon: Icons.people_outline_rounded,
+        activeIcon: Icons.people_rounded,
+        label: 'Social',
+        index: items.length, // next index
+      ),
+    );
+  }
+
+  if (enableTesting) {
+    items.add(
+      _ModernNavItem(
         icon: Icons.wifi_rounded,
         activeIcon: Icons.wifi,
         label: 'Server',
-        index: 4,
-      ));
-    }
+        index: items.length,
+      ),
+    );
+  }
 
-    if (isDesktop) {
-      items.add(_ModernNavItem(
+  if (isDesktop) {
+    items.add(
+      _ModernNavItem(
         icon: Icons.download_rounded,
         activeIcon: Icons.download,
         label: 'Download',
         index: items.length,
-      ));
-    }
-
-    return items;
+      ),
+    );
   }
+
+  return items;
+}
 
   /// Build the modern bottom navigation bar
   Widget _buildModernBottomNavBar() {
@@ -418,9 +472,15 @@ class _MainStructureState extends State<MainStructure>
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final pages = _getPages();
+@override
+Widget build(BuildContext context) {
+  final pages = _getPages();
+
+  if (_currentIndex >= pages.length) {
+    _currentIndex = 0;
+    _pageController.jumpToPage(0);
+  }
+
     final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
     
     if (_isLandscape(context)) {
@@ -486,8 +546,8 @@ class _MainStructureState extends State<MainStructure>
           _buildModernBottomNavBar(),
           const SleepTimerCountdown(),
           // Add the iOS mount widget
-          if (!Platform.isAndroid && !Platform.isIOS)
-            const iOSMountWidget(),
+          //if (!Platform.isAndroid && !Platform.isIOS)
+           // const iOSMountWidget(),
         ],
       ),
     );

@@ -9,10 +9,6 @@ part of '../nplayer.dart';
 /// - Storage permission management
 extension NPlayerSongLoading on NPlayer {
   
-  // ============================================================================
-  // MARK: - Public API
-  // ============================================================================
-  
   /// Completely reloads the song library from disk
   /// 
   /// Clears all existing songs and rescans directories.

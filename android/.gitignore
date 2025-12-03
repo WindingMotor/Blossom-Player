@@ -15,3 +15,4 @@ key.properties
 # Android build files
 /build/
 app/build/
+key.properties

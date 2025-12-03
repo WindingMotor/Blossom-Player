@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'package:blossom/custom/custom_searchbar.dart';
+import 'package:blossom/custom/search_bar.dart';
 import 'package:blossom/tools/settings.dart';
+import 'package:blossom/tools/ui_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
@@ -13,28 +14,45 @@ class SongAlbums extends StatefulWidget {
   _SongAlbumsState createState() => _SongAlbumsState();
 }
 
-class _SongAlbumsState extends State<SongAlbums> {
+class _SongAlbumsState extends State<SongAlbums> with TickerProviderStateMixin {
   late String _sortBy;
   late bool _sortAscending;
   late bool _organizeByFolder;
-  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
   List<AlbumInfo> _albumList = [];
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollDebounce;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  final GlobalKey _sortButtonKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
+    );
+    
     _loadSortPreferences();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeAlbumList();
+      if (mounted) {
+        _animationController.forward();
+      }
     });
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     _scrollDebounce?.cancel();
     _scrollController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -85,152 +103,193 @@ class _SongAlbumsState extends State<SongAlbums> {
     return false;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final filteredList = _filterAlbums();
-    
-    // Separate large and small albums (threshold: 8 songs)
-    final largeAlbums = filteredList.where((album) => album.songs.length >= 5).toList();
-    final smallAlbums = filteredList.where((album) => album.songs.length < 5).toList();
-
-    return Scaffold(
-      appBar: CustomSearchBar(
-        hintText: 'Search albums...',
-        onChanged: (value) {
-          if (mounted) {
-            setState(() {
-              _searchQuery = value;
-            });
-          }
-        },
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.sort),
-            tooltip: 'Sort by',
-            onSelected: (String value) {
-              if (value == 'organize_by_folder') {
-                setState(() {
-                  _organizeByFolder = !_organizeByFolder;
-                  _saveSortPreferences();
-                });
-              } else {
-                setState(() {
-                  if (_sortBy == value) {
-                    _sortAscending = !_sortAscending;
-                  } else {
-                    _sortBy = value;
-                    _sortAscending = true;
-                  }
-                  _sortAlbums();
-                  _saveSortPreferences();
-                });
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              _buildPopupMenuItem('name', Icons.abc_rounded),
-              _buildPopupMenuItem('songs', Icons.format_list_numbered_rounded),
-              _buildPopupMenuItem('year', Icons.calendar_today_rounded),
-              _buildPopupMenuItem('folder', Icons.folder_rounded),
-              PopupMenuItem(
-                value: 'organize_by_folder',
-                child: Row(
-                  children: [
-                    Icon(
-                        _organizeByFolder
-                            ? Icons.album_rounded
-                            : Icons.folder_rounded,
-                        size: 20),
-                    const SizedBox(width: 8),
-                    Text(_organizeByFolder
-                        ? 'Group by Album'
-                        : 'Organize by Folder'),
-                  ],
+  void _showSortMenu() {
+    UIHelpers.showSortMenu(
+      context,
+      buttonKey: _sortButtonKey,
+      items: [
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'name',
+          icon: Icons.abc_rounded,
+          isActive: _sortBy == 'name',
+          displayText: 'Name',
+        ),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'songs',
+          icon: Icons.format_list_numbered_rounded,
+          isActive: _sortBy == 'songs',
+          displayText: 'Number of Songs',
+        ),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'year',
+          icon: Icons.calendar_today_rounded,
+          isActive: _sortBy == 'year',
+          displayText: 'Year',
+        ),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'folder',
+          icon: Icons.folder_rounded,
+          isActive: _sortBy == 'folder',
+          displayText: 'Folder',
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'organize_by_folder',
+          child: Row(
+            children: [
+              Icon(
+                _organizeByFolder ? Icons.album_rounded : Icons.folder_rounded,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                _organizeByFolder ? 'Group by Album' : 'Organize by Folder',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ],
           ),
-          const SizedBox(width: 15),
-        ],
-      ),
-      body: NotificationListener<ScrollNotification>(
-        onNotification: _handleScrollNotification,
-        child: Scrollbar(
-          controller: _scrollController,
-          thumbVisibility: true,
-          child: CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              // Large albums in grid
-              if (largeAlbums.isNotEmpty) ...[
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  sliver: SliverToBoxAdapter(
-                    child: Text(
-                      'Albums (${largeAlbums.length})',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
+        ),
+      ],
+    ).then((String? value) {
+      if (value != null) {
+        if (value == 'organize_by_folder') {
+          setState(() {
+            _organizeByFolder = !_organizeByFolder;
+            _saveSortPreferences();
+          });
+        } else {
+          setState(() {
+            if (_sortBy == value) {
+              _sortAscending = !_sortAscending;
+            } else {
+              _sortBy = value;
+              _sortAscending = true;
+            }
+            _sortAlbums();
+            _saveSortPreferences();
+          });
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredList = _filterAlbums();
+    final largeAlbums = filteredList.where((album) => album.songs.length >= 5).toList();
+    final smallAlbums = filteredList.where((album) => album.songs.length < 5).toList();
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.1),
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: Column(
+            children: [
+              OptimizedSearchBar(
+                searchController: _searchController,
+                onSearchChanged: (value) {
+                  if (mounted) {
+                    setState(() {});
+                  }
+                },
+                hintText: 'Search albums...',
+                trailingWidget: UIHelpers.buildSortButton(
+                  context,
+                  key: _sortButtonKey,
+                  onTap: _showSortMenu,
+                  sortAscending: _sortAscending,
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final album = largeAlbums[index];
-                        return _AlbumCard(
-                          album: album,
-                          organizeByFolder: _organizeByFolder,
-                          onTap: () => _showAlbumSongs(context, album),
-                        );
-                      },
-                      childCount: largeAlbums.length,
-                    ),
-                  ),
-                ),
-              ],
-              // Small albums in compact list
-              if (smallAlbums.isNotEmpty) ...[
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                  sliver: SliverToBoxAdapter(
-                    child: Text(
-                      'Singles & EPs (${smallAlbums.length})',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final album = smallAlbums[index];
-                        return _AlbumListTile(
-                          album: album,
-                          organizeByFolder: _organizeByFolder,
-                          onTap: () => _showAlbumSongs(context, album),
-                        );
-                      },
-                      childCount: smallAlbums.length,
-                    ),
-                  ),
-                ),
-              ],
+              ),
               
-              // Bottom padding
-              const SliverPadding(padding: EdgeInsets.only(bottom: 16)),
+              Expanded(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: _handleScrollNotification,
+                  child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      slivers: [
+                        if (largeAlbums.isNotEmpty) ...[
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            sliver: SliverToBoxAdapter(
+                              child: Text(
+                                'Albums (${largeAlbums.length})',
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SliverPadding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            sliver: SliverGrid(
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
+                                childAspectRatio: 0.85,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                              ),
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final album = largeAlbums[index];
+                                  return _AlbumCard(
+                                    album: album,
+                                    organizeByFolder: _organizeByFolder,
+                                    onTap: () => _showAlbumSongs(context, album),
+                                  );
+                                },
+                                childCount: largeAlbums.length,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (smallAlbums.isNotEmpty) ...[
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                            sliver: SliverToBoxAdapter(
+                              child: Text(
+                                'Singles & EPs (${smallAlbums.length})',
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SliverPadding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            sliver: SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final album = smallAlbums[index];
+                                  return _AlbumListTile(
+                                    album: album,
+                                    organizeByFolder: _organizeByFolder,
+                                    onTap: () => _showAlbumSongs(context, album),
+                                  );
+                                },
+                                childCount: smallAlbums.length,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SliverPadding(padding: EdgeInsets.only(bottom: 16)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -239,10 +298,10 @@ class _SongAlbumsState extends State<SongAlbums> {
   }
 
   List<AlbumInfo> _filterAlbums() {
-    if (_searchQuery.isEmpty) {
+    if (_searchController.text.isEmpty) {
       return _albumList;
     }
-    final lowercaseQuery = _searchQuery.toLowerCase();
+    final lowercaseQuery = _searchController.text.toLowerCase();
     return _albumList
         .where((album) =>
             album.name.toLowerCase().contains(lowercaseQuery) ||
@@ -310,36 +369,6 @@ class _SongAlbumsState extends State<SongAlbums> {
     }
     return folderMap;
   }
-
-  PopupMenuItem<String> _buildPopupMenuItem(String value, IconData icon) {
-    String displayText;
-    switch (value) {
-      case 'name':
-        displayText = 'Name';
-        break;
-      case 'songs':
-        displayText = 'Number of Songs';
-        break;
-      case 'year':
-        displayText = 'Year';
-        break;
-      case 'folder':
-        displayText = 'Folder';
-        break;
-      default:
-        displayText = value.capitalize();
-    }
-    return PopupMenuItem<String>(
-      value: value,
-      child: Row(
-        children: [
-          Icon(icon, size: 20),
-          const SizedBox(width: 8),
-          Text(displayText),
-        ],
-      ),
-    );
-  }
 }
 
 class AlbumInfo {
@@ -350,14 +379,6 @@ class AlbumInfo {
   AlbumInfo({required this.name, required this.songs, required this.firstSong});
 }
 
-extension StringExtension on String {
-  String capitalize() {
-    if (isEmpty) return this;
-    return "${this[0].toUpperCase()}${substring(1)}";
-  }
-}
-
-// Grid card for large albums (similar to playlist cards)
 class _AlbumCard extends StatelessWidget {
   final AlbumInfo album;
   final bool organizeByFolder;
@@ -370,22 +391,13 @@ class _AlbumCard extends StatelessWidget {
     required this.onTap,
   }) : super(key: key);
 
-  String _getYearRange() {
-    if (album.songs.length == 1) {
-      return album.firstSong.year;
-    }
-
-    final years = album.songs.map((song) => song.year).where((year) => year.isNotEmpty).toList();
-    if (years.isEmpty) return '';
-    
-    final minYear = years.reduce((a, b) => a.compareTo(b) < 0 ? a : b);
-    final maxYear = years.reduce((a, b) => a.compareTo(b) > 0 ? a : b);
-
-    return minYear == maxYear ? minYear : '$minYear - $maxYear';
-  }
-
   @override
   Widget build(BuildContext context) {
+    final yearRange = UIHelpers.getYearRange(
+      album.songs,
+      (song) => song.year,
+    );
+
     return Card(
       elevation: 0,
       color: Theme.of(context).colorScheme.surface,
@@ -402,7 +414,6 @@ class _AlbumCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Album artwork
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
@@ -422,7 +433,6 @@ class _AlbumCard extends StatelessWidget {
                 ),
               ),
             ),
-            // Album info
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -463,7 +473,7 @@ class _AlbumCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        _getYearRange(),
+                        yearRange,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 11,
@@ -481,7 +491,6 @@ class _AlbumCard extends StatelessWidget {
   }
 }
 
-// Compact list tile for small albums
 class _AlbumListTile extends StatelessWidget {
   final AlbumInfo album;
   final bool organizeByFolder;
@@ -494,24 +503,13 @@ class _AlbumListTile extends StatelessWidget {
     required this.onTap,
   }) : super(key: key);
 
-  String _getYearRange() {
-    if (album.songs.length == 1) {
-      return album.firstSong.year;
-    }
-
-    final years = album.songs.map((song) => song.year).where((year) => year.isNotEmpty).toList();
-    if (years.isEmpty) return '';
-    
-    final minYear = years.reduce((a, b) => a.compareTo(b) < 0 ? a : b);
-    final maxYear = years.reduce((a, b) => a.compareTo(b) > 0 ? a : b);
-
-    return minYear == maxYear ? minYear : '$minYear - $maxYear';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isDesktopPlatform = [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
-        .contains(Theme.of(context).platform);
+    final isDesktopPlatform = UIHelpers.isDesktopPlatform(context);
+    final yearRange = UIHelpers.getYearRange(
+      album.songs,
+      (song) => song.year,
+    );
 
     return Card(
       color: Theme.of(context).cardColor,
@@ -549,7 +547,7 @@ class _AlbumListTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Text(
-          _getYearRange(),
+          yearRange,
           style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
         onTap: onTap,

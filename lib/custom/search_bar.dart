@@ -4,6 +4,7 @@
 /// - Search functionality with clear button
 /// - Optional sort/filter menu integration
 /// - Optional quick action buttons (shuffle, settings)
+/// - Optional custom trailing widget
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -22,6 +23,8 @@ import '../audio/nplayer.dart';
 /// - [showSortButton]: Whether to show sort button (default: true)
 /// - [showShuffleButton]: Whether to show shuffle button (default: true)
 /// - [showSettingsButton]: Whether to show settings button (default: true)
+/// - [trailingWidget]: Optional custom widget to show at the end
+/// - [bottomWidget]: Optional widget to show below the search bar
 class OptimizedSearchBar extends StatefulWidget {
   final TextEditingController searchController;
   final Function(String) onSearchChanged;
@@ -33,6 +36,7 @@ class OptimizedSearchBar extends StatefulWidget {
   final bool showSortButton;
   final bool showShuffleButton;
   final bool showSettingsButton;
+  final Widget? trailingWidget;
   final Widget? bottomWidget;
 
   const OptimizedSearchBar({
@@ -47,6 +51,7 @@ class OptimizedSearchBar extends StatefulWidget {
     this.showSortButton = true,
     this.showShuffleButton = true,
     this.showSettingsButton = true,
+    this.trailingWidget,
     this.bottomWidget,
   }) : super(key: key);
 
@@ -142,8 +147,15 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                     else
                       const SizedBox(width: 20),
                     
-                    // Filter/Sort button (if enabled)
-                    if (widget.showSortButton && widget.onShowSortMenu != null)
+                    // Custom trailing widget (if provided)
+                    if (widget.trailingWidget != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: widget.trailingWidget!,
+                      ),
+                    
+                    // Filter/Sort button (if enabled and no trailing widget)
+                    if (widget.trailingWidget == null && widget.showSortButton && widget.onShowSortMenu != null)
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: Material(
@@ -182,8 +194,8 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                         ),
                       ),
                     
-                    // Shuffle button (if enabled)
-                    if (widget.showShuffleButton && widget.onShuffle != null)
+                    // Shuffle button (if enabled and no trailing widget)
+                    if (widget.trailingWidget == null && widget.showShuffleButton && widget.onShuffle != null)
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: Material(
@@ -203,8 +215,8 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                         ),
                       ),
                     
-                    // Settings button (if enabled)
-                    if (widget.showSettingsButton && widget.onSettings != null)
+                    // Settings button (if enabled and no trailing widget)
+                    if (widget.trailingWidget == null && widget.showSettingsButton && widget.onSettings != null)
                       Padding(
                         padding: const EdgeInsets.only(left: 4),
                         child: Material(

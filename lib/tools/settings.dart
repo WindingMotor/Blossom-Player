@@ -2,6 +2,7 @@
 /// Handles persistent storage and retrieval of application settings
 /// Uses SharedPreferences for data persistence
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:blossom/audio/song_data.dart';
@@ -10,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path/path.dart' as path;
+import 'dart:math'; 
 
 /// Keys used for storing settings
 /// Centralizes all setting keys to avoid typos and make maintenance easier
@@ -49,15 +51,27 @@ class Settings {
   static late SharedPreferences _prefs;
   static bool _hasAndroidPermissions = false;
   static bool _debugMode = false;
+
+  static String uuid = '';
+  static String? publicUsername;
+  static bool isPublicSharingEnabled = false;
   
   /// Initialize settings system
   static Future<void> init() async {
+
     _prefs = await SharedPreferences.getInstance();
     await SongData.init();
     
     // Set debug mode
     _debugMode = _prefs.getBool(SettingsKeys.debugMode) ?? true;
     
+    uuid = _prefs.getString('uuid') ?? '';
+  if (uuid.isEmpty) {
+    await generateAndSaveUuid();
+  }
+  publicUsername = _prefs.getString('publicUsername');
+  isPublicSharingEnabled = _prefs.getBool('isPublicSharingEnabled') ?? false;
+
     // Migrate existing favorites if needed
     if (_prefs.containsKey('favoriteSongs')) {
       final oldFavorites = _prefs.getStringList('favoriteSongs') ?? [];
@@ -127,6 +141,76 @@ class Settings {
       }
     }
   }
+
+// Friends list
+static List<String> _friendsList = [];
+static const String _friendsListKey = 'friends_list';
+
+static List<String> get friendsList => _friendsList;
+
+static Future<void> loadFriendsList() async {
+  final prefs = await SharedPreferences.getInstance();
+  final friendsJson = prefs.getString(_friendsListKey);
+  if (friendsJson != null) {
+    try {
+      _friendsList = (jsonDecode(friendsJson) as List<dynamic>).cast<String>();
+    } catch (e) {
+      print('Error loading friends list: $e');
+      _friendsList = [];
+    }
+  }
+}
+
+static Future<void> saveFriendsList(List<String> friends) async {
+  _friendsList = friends;
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_friendsListKey, jsonEncode(friends));
+}
+
+static Future<void> addFriend(String uuid) async {
+  if (!_friendsList.contains(uuid)) {
+    _friendsList.add(uuid);
+    await saveFriendsList(_friendsList);
+  }
+}
+
+static Future<void> removeFriend(String uuid) async {
+  _friendsList.remove(uuid);
+  await saveFriendsList(_friendsList);
+}
+
+// Generate random username
+static const List<String> _adjectives = [
+  'Cosmic', 'Electric', 'Melodic', 'Rhythmic', 'Harmonic',
+  'Sonic', 'Groovy', 'Funky', 'Jazzy', 'Rockin',
+  'Stellar', 'Lunar', 'Solar', 'Nebula', 'Quantum',
+  'Digital', 'Analog', 'Synth', 'Vinyl', 'Echo',
+  'Retro', 'Neon', 'Crystal', 'Velvet', 'Thunder',
+];
+
+static const List<String> _nouns = [
+  'Dreamer', 'Wanderer', 'Explorer', 'Listener', 'Dancer',
+  'Seeker', 'Vibes', 'Beats', 'Notes', 'Waves',
+  'Soul', 'Spirit', 'Phoenix', 'Dragon', 'Tiger',
+  'Wolf', 'Eagle', 'Hawk', 'Raven', 'Falcon',
+  'Storm', 'Breeze', 'Thunder', 'Lightning', 'Aurora',
+];
+
+static String generateRandomUsername() {
+  final random = Random();
+  final adjective = _adjectives[random.nextInt(_adjectives.length)];
+  final noun = _nouns[random.nextInt(_nouns.length)];
+  return '$adjective $noun';
+}
+
+// Initialize random username if not set
+static Future<void> initializeUsername() async {
+  if (publicUsername == null || publicUsername!.isEmpty) {  // ✅ Check for null first
+    final randomUsername = generateRandomUsername();
+    await setPublicUsername(randomUsername);
+  }
+}
+
 
   ///***************************************************************************
   /// Favorites Settings
@@ -433,4 +517,27 @@ static Future<String> getSongDir() async {
   /// Set whether welcome page has been seen
   static Future<void> setHasSeenWelcomePage(bool seen) => 
       _prefs.setBool(SettingsKeys.hasSeenWelcomePage, seen);
+
+  ///***************************************************************************
+  /// Public Sharing Settings 
+  ///***************************************************************************
+  
+  /// Generate and save a unique UUID for this user
+  static Future<void> generateAndSaveUuid() async {
+    uuid = 'user-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
+    await _prefs.setString('uuid', uuid);
+    _log('Generated new UUID: $uuid');
+  }
+  
+  /// Set public username
+  static Future<void> setPublicUsername(String username) async {
+    publicUsername = username;
+    await _prefs.setString('publicUsername', username);
+  }
+  
+  /// Set public sharing enabled state
+  static Future<void> setPublicSharingEnabled(bool enabled) async {
+    isPublicSharingEnabled = enabled;
+    await _prefs.setBool('isPublicSharingEnabled', enabled);
+  }
 }

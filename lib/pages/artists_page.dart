@@ -1,7 +1,7 @@
 import 'dart:async';
-
-import 'package:blossom/custom/custom_searchbar.dart';
+import 'package:blossom/custom/search_bar.dart';
 import 'package:blossom/tools/settings.dart';
+import 'package:blossom/tools/ui_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
@@ -14,27 +14,44 @@ class ArtistsPage extends StatefulWidget {
   _ArtistsPageState createState() => _ArtistsPageState();
 }
 
-class _ArtistsPageState extends State<ArtistsPage> {
+class _ArtistsPageState extends State<ArtistsPage> with TickerProviderStateMixin {
   late String _sortBy;
   late bool _sortAscending;
-  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
   List<ArtistInfo> _artistList = [];
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollDebounce;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  final GlobalKey _sortButtonKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
+    );
+    
     _loadSortPreferences();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeArtistList();
+      if (mounted) {
+        _animationController.forward();
+      }
     });
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     _scrollDebounce?.cancel();
     _scrollController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -79,67 +96,105 @@ class _ArtistsPageState extends State<ArtistsPage> {
     return false;
   }
 
+  void _showSortMenu() {
+    UIHelpers.showSortMenu(
+      context,
+      buttonKey: _sortButtonKey,
+      items: [
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'name',
+          icon: Icons.person_rounded,
+          isActive: _sortBy == 'name',
+        ),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'songs',
+          icon: Icons.format_list_numbered_rounded,
+          isActive: _sortBy == 'songs',
+        ),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'albums',
+          icon: Icons.album_rounded,
+          isActive: _sortBy == 'albums',
+        ),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'year',
+          icon: Icons.calendar_today_rounded,
+          isActive: _sortBy == 'year',
+        ),
+      ],
+    ).then((String? value) {
+      if (value != null) {
+        setState(() {
+          if (_sortBy == value) {
+            _sortAscending = !_sortAscending;
+          } else {
+            _sortBy = value;
+            _sortAscending = true;
+          }
+          _sortArtists();
+          _saveSortPreferences();
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredList = _filterArtists();
 
     return Scaffold(
-      appBar: CustomSearchBar(
-        hintText: 'Search artists...',
-        onChanged: (value) {
-          setState(() {
-            _searchQuery = value;
-          });
-        },
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.sort),
-            tooltip: 'Sort by',
-            onSelected: (String value) {
-              setState(() {
-                if (_sortBy == value) {
-                  _sortAscending = !_sortAscending;
-                } else {
-                  _sortBy = value;
-                  _sortAscending = true;
-                }
-                _sortArtists();
-                _saveSortPreferences();
-              });
-            },
-            itemBuilder: (BuildContext context) => [
-              _buildPopupMenuItem('name', Icons.person_rounded),
-              _buildPopupMenuItem('songs', Icons.format_list_numbered_rounded),
-              _buildPopupMenuItem('albums', Icons.album_rounded),
-              _buildPopupMenuItem('year', Icons.calendar_today_rounded),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.1),
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: Column(
+            children: [
+              OptimizedSearchBar(
+                searchController: _searchController,
+                onSearchChanged: (value) {
+                  setState(() {});
+                },
+                hintText: 'Search artists...',
+                trailingWidget: UIHelpers.buildSortButton(
+                  context,
+                  key: _sortButtonKey,
+                  onTap: _showSortMenu,
+                  sortAscending: _sortAscending,
+                ),
+              ),
+              
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: _handleScrollNotification,
+                    child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.only(top: 0),
+                        controller: _scrollController,
+                        itemCount: filteredList.length,
+                        itemExtent: UIHelpers.isDesktopPlatform(context) ? 60.0 : 80.0,
+                        cacheExtent: 1000,
+                        itemBuilder: (context, index) {
+                          final artist = filteredList[index];
+                          return _ArtistListTile(
+                            key: ValueKey(artist.name),
+                            artist: artist,
+                            onTap: () => _showArtistSongs(context, artist),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
-          ),
-          const SizedBox(width: 15),
-        ],
-      ),
-      body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 10),
-        child: NotificationListener<ScrollNotification>(
-          onNotification: _handleScrollNotification,
-          child: Scrollbar(
-            controller: _scrollController,
-            thumbVisibility: true,
-            child: ListView.builder(
-  padding: const EdgeInsets.only(top: 10),
-  controller: _scrollController,
-  itemCount: filteredList.length,
-  itemExtent: [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
-      .contains(Theme.of(context).platform) ? 60.0 : 80.0,
-  cacheExtent: 1000,
-  itemBuilder: (context, index) {
-    final artist = filteredList[index];
-    return _ArtistListTile(
-      key: ValueKey(artist.name),
-      artist: artist,
-      onTap: () => _showArtistSongs(context, artist),
-    );
-  },
-)
           ),
         ),
       ),
@@ -147,10 +202,10 @@ class _ArtistsPageState extends State<ArtistsPage> {
   }
 
   List<ArtistInfo> _filterArtists() {
-    if (_searchQuery.isEmpty) {
+    if (_searchController.text.isEmpty) {
       return _artistList;
     }
-    final lowercaseQuery = _searchQuery.toLowerCase();
+    final lowercaseQuery = _searchController.text.toLowerCase();
     return _artistList.where((artist) =>
         artist.name.toLowerCase().contains(lowercaseQuery)
     ).toList();
@@ -200,19 +255,6 @@ class _ArtistsPageState extends State<ArtistsPage> {
       }
     });
   }
-
-  PopupMenuItem<String> _buildPopupMenuItem(String value, IconData icon) {
-    return PopupMenuItem<String>(
-      value: value,
-      child: Row(
-        children: [
-          Icon(icon, size: 20),
-          const SizedBox(width: 8),
-          Text(value.capitalize()),
-        ],
-      ),
-    );
-  }
   
   void _saveSortPreferences() {
     Settings.setArtistSort(_sortBy, _sortAscending);
@@ -225,16 +267,15 @@ class ArtistInfo {
   final Music firstSong;
   final List<Music> songs;
 
-  ArtistInfo({required this.name, required this.songCount, required this.firstSong, required this.songs});
+  ArtistInfo({
+    required this.name,
+    required this.songCount,
+    required this.firstSong,
+    required this.songs,
+  });
 }
 
-extension StringExtension on String {
-  String capitalize() {
-    return "${this[0].toUpperCase()}${substring(1)}";
-  }
-}
-
-class _ArtistListTile extends StatefulWidget {
+class _ArtistListTile extends StatelessWidget {
   final ArtistInfo artist;
   final VoidCallback onTap;
 
@@ -245,71 +286,53 @@ class _ArtistListTile extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _ArtistListTileState createState() => _ArtistListTileState();
-}
+  Widget build(BuildContext context) {
+    final isDesktopPlatform = UIHelpers.isDesktopPlatform(context);
+    final yearRange = UIHelpers.getYearRange(
+      artist.songs,
+      (song) => song.year,
+    );
 
-class _ArtistListTileState extends State<_ArtistListTile> {
-  String _getYearRange() {
-    if (widget.artist.songs.length == 1) {
-      return widget.artist.firstSong.year;
-    }
-
-    // Find min and max years
-    final years = widget.artist.songs.map((song) => song.year).where((year) => year.isNotEmpty).toList();
-    if (years.isEmpty) return '';
-    
-    final minYear = years.reduce((a, b) => a.compareTo(b) < 0 ? a : b);
-    final maxYear = years.reduce((a, b) => a.compareTo(b) > 0 ? a : b);
-
-    return minYear == maxYear ? minYear : '$minYear - $maxYear';
-  }
-
-
-@override
-Widget build(BuildContext context) {
-  final isDesktopPlatform = [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
-      .contains(Theme.of(context).platform);
-
-  return Card(
-    color: Theme.of(context).cardColor,
-    elevation: 0,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-    ),
-    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    child: ListTile(
-      dense: isDesktopPlatform,
-      visualDensity: isDesktopPlatform 
-          ? VisualDensity.compact 
-          : VisualDensity.standard,
-      leading: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: SizedBox(
-          width: isDesktopPlatform ? 36 : 48,  // Smaller width for desktop
-          height: isDesktopPlatform ? 36 : 48, // Smaller height for desktop
-          child: widget.artist.firstSong.picture != null
-              ? Image.memory(widget.artist.firstSong.picture!, fit: BoxFit.cover)
-              : Container(
-                  color: Colors.grey[800],
-                  child: Icon(Icons.album, color: Colors.grey[600]),
-                ),
-        ),
+    return Card(
+      color: Theme.of(context).cardColor,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
       ),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: ListTile(
+        dense: isDesktopPlatform,
+        visualDensity: isDesktopPlatform 
+            ? VisualDensity.compact 
+            : VisualDensity.standard,
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: SizedBox(
+            width: isDesktopPlatform ? 36 : 48,
+            height: isDesktopPlatform ? 36 : 48,
+            child: artist.firstSong.picture != null
+                ? Image.memory(artist.firstSong.picture!, fit: BoxFit.cover)
+                : Container(
+                    color: Colors.grey[800],
+                    child: Icon(Icons.album, color: Colors.grey[600]),
+                  ),
+          ),
+        ),
         title: Text(
-          widget.artist.name,
-          style: TextStyle(color: Colors.white),
+          artist.name,
+          style: const TextStyle(color: Colors.white),
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
-          '${widget.artist.songCount} songs • ${widget.artist.songs.map((s) => s.album).toSet().length} albums',
+          '${artist.songCount} songs • ${artist.songs.map((s) => s.album).toSet().length} albums',
           style: TextStyle(fontSize: 12, color: Colors.grey[400]),
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Text(
-          _getYearRange(),
+          yearRange,
           style: TextStyle(fontSize: 12, color: Colors.grey[400]),
         ),
-        onTap: widget.onTap,
+        onTap: onTap,
       ),
     );
   }

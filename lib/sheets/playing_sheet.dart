@@ -25,8 +25,6 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
     curve: Curves.easeOut,
   );
 
-
-
   // Cached statistics - computed once when sheet opens
   Duration _total = Duration.zero;
   int _albumCount = 0;
@@ -320,10 +318,12 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
                 builder: (_) => LyricsSheet(
                   artist: now.artist,
                   title: now.title,
+                  picture: now.picture,  // Add this line
                 ),
               );
             }
           }),
+
         ],
       ),
     );

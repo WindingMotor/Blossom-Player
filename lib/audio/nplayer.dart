@@ -1,9 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'dart:io';
 import 'package:blossom/audio/nplayer_extensions/song_cache.dart';
 import 'package:flutter/foundation.dart';
-import 'package:audioplayers/audioplayers.dart' as ap; // Add prefix 
+import 'package:audioplayers/audioplayers.dart' as ap; 
 import 'package:audio_session/audio_session.dart';
 import 'package:blossom/audio/nplaylist.dart';
 import 'package:blossom/audio/nserver.dart';
@@ -11,6 +12,7 @@ import 'package:blossom/binder/ios_binder.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:fuzzy/fuzzy.dart';
 import 'package:headset_connection_event/headset_event.dart';
+import 'package:http/http.dart' as http;
 import 'package:metadata_god/metadata_god.dart';
 import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
@@ -18,6 +20,8 @@ import 'package:blossom/audio/song_data.dart';
 import 'package:blossom/audio/nplayer_extensions/nplayer_audio_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:audio_service/audio_service.dart' as audio_service;
+import 'package:blossom/audio/nplayer.dart';
+import 'package:image/image.dart' as img;
 
 part 'nplayer_extensions/nplayer_sorting.dart';
 part 'nplayer_extensions/nplayer_playback.dart';
@@ -26,6 +30,7 @@ part 'nplayer_extensions/nplayer_playlist_management.dart';
 part 'nplayer_extensions/nplayer_song_loading.dart';
 part 'nplayer_extensions/nplayer_server.dart';
 part 'nplayer_extensions/nplayer_song_utils.dart';
+part 'nplayer_extensions/nplayer_public.dart';
 
 /// Represents a music file with its metadata and associated playlists.
 class Music {
@@ -325,6 +330,9 @@ Future<void> _initialize() async {
       // Apply initial sort based on loaded settings
       sortSongs(sortBy: _sortBy, ascending: _sortAscending);
 
+      // Initialize public sharing
+       await _initializePublicSharing();
+
       _log("NPlayer initialization complete.");
       notifyListeners(); // Notify UI that everything is ready
     } catch (e) {
@@ -370,20 +378,22 @@ Future<void> _initialize() async {
   }
 
   void _initHeadsetDetection() {
-    _headsetPlugin.getCurrentState.then((val) {
-      _isHeadphonesConnected = val == HeadsetState.CONNECT;
-      notifyListeners();
-    });
+    if (!Platform.isLinux && !Platform.isWindows) {
+      _headsetPlugin.getCurrentState.then((val) {
+        _isHeadphonesConnected = val == HeadsetState.CONNECT;
+        notifyListeners();
+      });
 
-    _headsetPlugin.setListener((val) {
-      bool wasConnected = _isHeadphonesConnected;
-      _isHeadphonesConnected = val == HeadsetState.CONNECT;
+      _headsetPlugin.setListener((val) {
+        bool wasConnected = _isHeadphonesConnected;
+        _isHeadphonesConnected = val == HeadsetState.CONNECT;
 
-      if (wasConnected && !_isHeadphonesConnected && _isPlaying) {
-        pauseSong();
-      }
-      notifyListeners();
-    });
+        if (wasConnected && !_isHeadphonesConnected && _isPlaying) {
+          pauseSong();
+        }
+        notifyListeners();
+      });
+    }
   }
 
   Future<Map<String, dynamic>> getCacheStats() async {

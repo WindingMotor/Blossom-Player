@@ -1,5 +1,6 @@
 import 'package:blossom/main.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:blossom/audio/nplayer.dart';
@@ -288,6 +289,114 @@ Future<void> _clearCache(BuildContext context) async {
     );
   }
 
+Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
+  return _buildSection(
+    'Public Sharing',
+    [
+      _buildInfoTile(
+        'About Public Sharing',
+        'Share what you\'re listening to with friends. '
+        'When enabled, your current song and online status will be visible to anyone with your User ID.',
+        context,
+      ),
+      SizedBox(height: 8),
+      
+      // Enable/Disable Toggle
+      _buildSwitchTile(
+        'Enable Public Sharing',
+        player.isSharingEnabled,
+        (bool value) async {
+          await player.togglePublicSharing(value);
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(value 
+                ? 'Public sharing enabled - Friends can see what you\'re listening to'
+                : 'Public sharing disabled'
+              ),
+            ),
+          );
+        },
+        context,
+      ),
+      
+      Divider(height: 32, indent: 16, endIndent: 16),
+      
+      // User ID (UUID) - Read-only with copy button
+      ListTile(
+        title: Text('Your User ID'),
+        subtitle: Text(
+          player.userUuid.isNotEmpty ? player.userUuid : 'Generating...',
+          style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+        ),
+        leading: Icon(Icons.fingerprint, color: Theme.of(context).colorScheme.secondary),
+        trailing: IconButton(
+          icon: Icon(Icons.copy),
+          tooltip: 'Copy User ID',
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: player.userUuid));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('User ID copied to clipboard')),
+            );
+          },
+        ),
+      ),
+      _buildInfoTile(
+        'Share this ID',
+        'Friends can use your User ID to see what you\'re currently listening to. '
+        'Your ID is unique and cannot be changed.',
+        context,
+      ),
+      
+      SizedBox(height: 16),
+      
+      // Public Username
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: TextField(
+          decoration: InputDecoration(
+            labelText: 'Public Display Name',
+            hintText: 'Music Lover',
+            helperText: 'This name is shown to friends viewing your status',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            prefixIcon: Icon(Icons.person),
+          ),
+          controller: TextEditingController(
+            text: player.publicUsername ?? '',
+          )..selection = TextSelection.collapsed(
+            offset: (player.publicUsername ?? '').length,
+          ),
+          onSubmitted: (value) async {
+            if (value.trim().isNotEmpty) {
+              await player.setPublicUsername(value.trim());
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Display name updated to "$value"')),
+              );
+            }
+          },
+        ),
+      ),
+      
+      SizedBox(height: 8),
+      
+      // Current Status Preview
+      if (player.isSharingEnabled) ...[
+        Divider(height: 32, indent: 16, endIndent: 16),
+        _buildInfoTile(
+          'Current Public Status',
+          player.isPlaying && player.getCurrentSong() != null
+            ? 'Now sharing: "${player.getCurrentSong()!.title}" by ${player.getCurrentSong()!.artist}'
+            : 'Online (not playing)',
+          context,
+        ),
+      ],
+      
+      SizedBox(height: 8),
+    ],
+    context,
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -372,6 +481,8 @@ Future<void> _clearCache(BuildContext context) async {
                     ),
                   ],
                   context),
+
+              _buildPublicSharingSection(context, player),
               _buildSection(
                 'Appearance',
                 [
@@ -405,15 +516,6 @@ Future<void> _clearCache(BuildContext context) async {
                 ],
                 context
               ),
-              /*
-              _buildSection(
-                'Fun',
-                [
-                  _buildConfettiToggle(context),
-                ],
-                context
-              ),
-              */
               _buildSection(
                 'Developer Options',
                 [

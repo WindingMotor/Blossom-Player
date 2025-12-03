@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:blossom/custom/search_bar.dart';
+import 'package:blossom/tools/ui_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -26,13 +27,9 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
     super.initState();
     _isMounted = true;
     
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
-    );
+    // Initialize animations using helper
+    _animationController = UIHelpers.createFadeAnimationController(this);
+    _fadeAnimation = UIHelpers.createFadeAnimation(_animationController);
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -69,107 +66,6 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
     }
   }
 
-  Widget _buildPlaylistCountIndicator(int playlistCount) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Row(
-        children: [
-          Icon(
-            Icons.playlist_play_rounded,
-            size: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '$playlistCount ${playlistCount == 1 ? 'playlist' : 'playlists'}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(NPlayer player) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Row(
-        children: [
-          Text(
-            'Playlists',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const Spacer(),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _showCreatePlaylistDialog(context, player),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.add_rounded,
-                  size: 20,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.playlist_play_rounded,
-            size: 48,
-            color: Theme.of(context).colorScheme.outline,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No playlists yet',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Create a playlist to get started',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _showCreatePlaylistDialog(context, context.read<NPlayer>()),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Create Playlist'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<NPlayer>(
@@ -186,9 +82,7 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
               opacity: _fadeAnimation,
               child: Column(
                 children: [
-                  _buildHeader(player),
-                  
-                  // Search bar without sort, shuffle, and settings buttons
+                  // Search bar with add playlist button
                   OptimizedSearchBar(
                     searchController: _searchController,
                     onSearchChanged: (value) => _safeSetState(() {}),
@@ -196,14 +90,38 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
                     showSortButton: false,
                     showShuffleButton: false,
                     showSettingsButton: false,
-                    bottomWidget: _buildPlaylistCountIndicator(filteredPlaylists.length),
+                    trailingWidget: UIHelpers.buildPrimaryIconButton(
+                      context,
+                      icon: Icons.add_rounded,
+                      onTap: () => _showCreatePlaylistDialog(context, player),
+                      tooltip: 'Create Playlist',
+                    ),
                   ),
                   
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
+                      padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
                       child: filteredPlaylists.isEmpty
-                          ? _buildEmptyState()
+                          ? UIHelpers.buildEmptyState(
+                              context,
+                              icon: Icons.playlist_play_rounded,
+                              title: 'No playlists yet',
+                              subtitle: 'Create a playlist to get started',
+                              action: ElevatedButton.icon(
+                                onPressed: () => _showCreatePlaylistDialog(context, player),
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Create Playlist'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            )
                           : _buildPlaylistGrid(player, filteredPlaylists),
                     ),
                   ),

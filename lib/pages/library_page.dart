@@ -9,6 +9,7 @@ import 'dart:math';
 import 'package:blossom/custom/search_bar.dart';
 import 'package:blossom/song_list/song_list_builder.dart';
 import 'package:blossom/tools/settings.dart';
+import 'package:blossom/tools/ui_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
@@ -45,14 +46,9 @@ class _SongLibraryState extends State<SongLibrary> with TickerProviderStateMixin
   void initState() {
     super.initState();
     
-    // Initialize animations
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
-    );
+    // Initialize animations using helper
+    _animationController = UIHelpers.createFadeAnimationController(this);
+    _fadeAnimation = UIHelpers.createFadeAnimation(_animationController);
 
     // Initialize song list with sort preferences after frame is rendered
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -68,7 +64,6 @@ class _SongLibraryState extends State<SongLibrary> with TickerProviderStateMixin
         }
       });
     });
-    print("initState lib/pages/library_page.dart");
   }
 
   @override
@@ -96,47 +91,72 @@ class _SongLibraryState extends State<SongLibrary> with TickerProviderStateMixin
 
   /// Shows the sort menu with proper positioning relative to filter button
   void _showSortMenu() {
-    final RenderBox? buttonBox = _filterButtonKey.currentContext?.findRenderObject() as RenderBox?;
-    if (buttonBox == null) return;
+    final player = context.read<NPlayer>();
     
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final Offset buttonPosition = buttonBox.localToGlobal(Offset.zero, ancestor: overlay);
-    
-    final RelativeRect position = RelativeRect.fromLTRB(
-      buttonPosition.dx - 150,
-      buttonPosition.dy + buttonBox.size.height + 8,
-      buttonPosition.dx + buttonBox.size.width,
-      buttonPosition.dy + buttonBox.size.height + 300,
-    );
-
-    showMenu<String>(
-      context: context,
-      position: position,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 8,
+    UIHelpers.showSortMenu(
+      context,
+      buttonKey: _filterButtonKey,
       items: [
-        _buildPopupMenuItem('title', Icons.abc_rounded, context.read<NPlayer>().sortBy == 'title'),
-        _buildPopupMenuItem('artist', Icons.person_rounded, context.read<NPlayer>().sortBy == 'artist'),
-        _buildPopupMenuItem('album', Icons.album_rounded, context.read<NPlayer>().sortBy == 'album'),
-        
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'title',
+          icon: Icons.abc_rounded,
+          isActive: player.sortBy == 'title',
+        ),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'artist',
+          icon: Icons.person_rounded,
+          isActive: player.sortBy == 'artist',
+        ),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'album',
+          icon: Icons.album_rounded,
+          isActive: player.sortBy == 'album',
+        ),
         const PopupMenuDivider(),
-        
-        _buildPopupMenuItem('favorite', Icons.favorite_rounded, context.read<NPlayer>().sortBy == 'favorite'),
-        _buildPopupMenuItem('plays', Icons.play_circle_outline_rounded, context.read<NPlayer>().sortBy == 'plays'),
-        
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'favorite',
+          icon: Icons.favorite_rounded,
+          isActive: player.sortBy == 'favorite',
+        ),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'plays',
+          icon: Icons.play_circle_outline_rounded,
+          isActive: player.sortBy == 'plays',
+        ),
         const PopupMenuDivider(),
-        
-        _buildPopupMenuItem('duration', Icons.timer_rounded, context.read<NPlayer>().sortBy == 'duration'),
-        _buildPopupMenuItem('year', Icons.calendar_today_rounded, context.read<NPlayer>().sortBy == 'year'),
-        
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'duration',
+          icon: Icons.timer_rounded,
+          isActive: player.sortBy == 'duration',
+        ),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'year',
+          icon: Icons.calendar_today_rounded,
+          isActive: player.sortBy == 'year',
+        ),
         const PopupMenuDivider(),
-        
-        _buildPopupMenuItem('folder', Icons.folder_rounded, context.read<NPlayer>().sortBy == 'folder'),
-        _buildPopupMenuItem('modified', Icons.update_rounded, context.read<NPlayer>().sortBy == 'modified'),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'folder',
+          icon: Icons.folder_rounded,
+          isActive: player.sortBy == 'folder',
+        ),
+        UIHelpers.buildPopupMenuItem(
+          context,
+          value: 'modified',
+          icon: Icons.update_rounded,
+          isActive: player.sortBy == 'modified',
+        ),
       ],
     ).then((String? value) {
       if (value != null) {
-        final player = context.read<NPlayer>();
         if (player.sortBy == value) {
           player.sortSongs(sortBy: value, ascending: !player.sortAscending);
         } else {
@@ -144,6 +164,58 @@ class _SongLibraryState extends State<SongLibrary> with TickerProviderStateMixin
         }
       }
     });
+  }
+
+  /// Builds the trailing widget with sort, shuffle, and settings buttons
+  Widget _buildTrailingButtons() {
+    return Consumer<NPlayer>(
+      builder: (context, player, child) {
+        final currentSort = UIHelpers.capitalize(player.sortBy);
+        final sortDirection = player.sortAscending ? '↑' : '↓';
+        
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Filter/Sort button
+            UIHelpers.buildSortButton(
+              context,
+              key: _filterButtonKey,
+              onTap: _showSortMenu,
+              sortAscending: player.sortAscending,
+              tooltip: 'Sorted by $currentSort $sortDirection',
+            ),
+            
+            const SizedBox(width: 8),
+            
+            // Shuffle button
+            UIHelpers.buildIconButton(
+              context,
+              icon: Icons.shuffle_rounded,
+              onTap: _scrollToRandomSong,
+              tooltip: 'Shuffle',
+            ),
+            
+            const SizedBox(width: 4),
+            
+            // Settings button
+            UIHelpers.buildIconButton(
+              context,
+              icon: Icons.settings_rounded,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => SettingsPage(
+                      onThemeChanged: widget.onThemeChanged,
+                    ),
+                  ),
+                );
+              },
+              tooltip: 'Settings',
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -157,22 +229,11 @@ class _SongLibraryState extends State<SongLibrary> with TickerProviderStateMixin
               opacity: _fadeAnimation,
               child: Column(
                 children: [
-                  // Optimized search bar with integrated controls
+                  // Optimized search bar with trailing buttons
                   OptimizedSearchBar(
                     searchController: _searchController,
                     onSearchChanged: (value) => player.setSearchQuery(value),
-                    onShowSortMenu: _showSortMenu,
-                    onShuffle: _scrollToRandomSong,
-                    onSettings: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => SettingsPage(
-                            onThemeChanged: widget.onThemeChanged,
-                          ),
-                        ),
-                      );
-                    },
-                    filterButtonKey: _filterButtonKey,
+                    trailingWidget: _buildTrailingButtons(),
                   ),
                   
                   // Song list
@@ -180,7 +241,12 @@ class _SongLibraryState extends State<SongLibrary> with TickerProviderStateMixin
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
                       child: player.sortedSongs.isEmpty
-                          ? _buildEmptyState()
+                          ? UIHelpers.buildEmptyState(
+                              context,
+                              icon: Icons.music_note_outlined,
+                              title: 'No songs found',
+                              subtitle: 'Add some music to get started',
+                            )
                           : _buildSongList(player),
                     ),
                   ),
@@ -207,74 +273,5 @@ class _SongLibraryState extends State<SongLibrary> with TickerProviderStateMixin
         },
       ),
     );
-  }
-
-  /// Builds empty state when no songs are available
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.music_note_outlined,
-            size: 48,
-            color: Theme.of(context).colorScheme.outline,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No songs found',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Add some music to get started',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Builds a popup menu item for sorting options with active state
-  PopupMenuItem<String> _buildPopupMenuItem(String value, IconData icon, bool isActive) {
-    return PopupMenuItem<String>(
-      value: value,
-      child: Row(
-        children: [
-          Icon(
-            icon, 
-            size: 18,
-            color: isActive ? Theme.of(context).colorScheme.primary : null,
-          ),
-          const SizedBox(width: 10),
-          Text(
-            _capitalize(value),
-            style: TextStyle(
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              color: isActive ? Theme.of(context).colorScheme.primary : null,
-            ),
-          ),
-          if (isActive) ...[
-            const Spacer(),
-            Icon(
-              Icons.check_rounded,
-              size: 16,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// Capitalizes the first letter of a string
-  String _capitalize(String s) {
-    if (s.isEmpty) return s;
-    return s[0].toUpperCase() + s.substring(1);
   }
 }

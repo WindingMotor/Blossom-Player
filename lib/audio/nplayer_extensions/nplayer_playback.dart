@@ -4,51 +4,56 @@ extension NPlayerPlayback on NPlayer {
   // MARK: Core Playback Logic
     
     /// Centralized method to handle starting playback of any song queue.
-  Future<void> _startPlayback(List<Music> queue, int startIndex) async {
-    // Ensure AudioHandler is initialized before proceeding
-    await _ensureInitialized();
-    
-    if (_audioHandler == null) {
-      _log("AudioHandler not initialized, cannot start playback");
-      return;
-    }
-
-    if (startIndex < 0 || startIndex >= queue.length) {
-      _log("Invalid start index for playback: $startIndex. Stopping playback.");
-      await stopSong();
-      return;
-    }
-
-    _playingSongs = List.from(queue);
-    _currentSongIndex = startIndex;
-    final songToPlay = _playingSongs[startIndex];
-
-    // Ensure media item is updated BEFORE starting playback
-    await _audioHandler!.updateMediaItemFromSong(songToPlay);
-    
-    // Add explicit state update before playing
-    await _audioHandler!.stop(); // Clear any previous state
-
-    try {
-      await _audioPlayer.play(ap.DeviceFileSource(songToPlay.path));
-      // A short delay and resume check can help on some platforms.
-      Future.delayed(Duration(milliseconds: 100), () async {
-        if (_audioPlayer.state != ap.PlayerState.playing) {
-          await _audioPlayer.resume();
-        }
-      });
-      _isPlaying = true;
-      _currentPosition = Duration.zero;
-      await Settings.setLastPlayingSong(songToPlay.path);
-    } catch (e) {
-      _log("Error starting playback: $e");
-      _isPlaying = false;
-    } finally {
-      _internalNotifyListeners();
-    }
+/// Centralized method to handle starting playback of any song queue.
+Future<void> _startPlayback(List<Music> queue, int startIndex) async {
+  // Ensure AudioHandler is initialized before proceeding
+  await _ensureInitialized();
+  
+  if (_audioHandler == null) {
+    _log("AudioHandler not initialized, cannot start playback");
+    return;
   }
 
+  if (startIndex < 0 || startIndex >= queue.length) {
+    _log("Invalid start index for playback: $startIndex. Stopping playback.");
+    await stopSong();
+    return;
+  }
+
+  _playingSongs = List.from(queue);
+  _currentSongIndex = startIndex;
+  final songToPlay = _playingSongs[startIndex];
+
+  // Ensure media item is updated BEFORE starting playback
+  await _audioHandler!.updateMediaItemFromSong(songToPlay);
+  
+  // Add explicit state update before playing
+  await _audioHandler!.stop(); // Clear any previous state
+
+  try {
+    await _audioPlayer.play(ap.DeviceFileSource(songToPlay.path));
+    // A short delay and resume check can help on some platforms.
+    Future.delayed(Duration(milliseconds: 100), () async {
+      if (_audioPlayer.state != ap.PlayerState.playing) {
+        await _audioPlayer.resume();
+      }
+    });
+    _isPlaying = true;
+    _currentPosition = Duration.zero;
+    await Settings.setLastPlayingSong(songToPlay.path);
     
+    if (Settings.isPublicSharingEnabled) {
+      updatePublicStatus();  // Update Railway server with new song
+    }
+    
+  } catch (e) {
+    _log("Error starting playback: $e");
+    _isPlaying = false;
+  } finally {
+    _internalNotifyListeners();
+  }
+}
+
   // MARK: Playback Control
   
   /// Plays a song from the main sorted list, creating a new queue.

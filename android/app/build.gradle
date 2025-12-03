@@ -4,6 +4,13 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// 1. Load keystore properties
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.wmstudios.blossom"
     compileSdk = flutter.compileSdkVersion
@@ -24,17 +31,30 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        //multiDexEnabled = true  // Add multidex support
+    }
+
+    // 2. Define signing configurations
+    signingConfigs {
+        release {
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+            storePassword keystoreProperties['storePassword']
+        }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.debug
-            minifyEnabled false
-            shrinkResources false
+            // 3. Use the release signing config (FIXED!)
+            signingConfig signingConfigs.release
+            
+            // Recommended for production
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
         debug {
-            // Debug configuration
+            signingConfig signingConfigs.debug
         }
     }
 }
@@ -45,39 +65,4 @@ flutter {
 
 dependencies {
     implementation "androidx.multidex:multidex:2.0.1"
-}
-
-// Define tasks AFTER flutter and dependencies blocks
-tasks.register("copyDebugApk", Copy) {
-    from "${buildDir}/outputs/apk/debug"
-    into "../../build/app/outputs/flutter-apk"
-    include "*.apk"
-}
-
-tasks.register("copyReleaseApk", Copy) {
-    from "${buildDir}/outputs/apk/release" 
-    into "../../build/app/outputs/flutter-apk"
-    include "*.apk"
-}
-
-tasks.register("copyProfileApk", Copy) {
-    from "${buildDir}/outputs/apk/profile"
-    into "../../build/app/outputs/flutter-apk"
-    include "*.apk"
-}
-
-// Use afterEvaluate to ensure tasks exist before configuring them
-afterEvaluate {
-    tasks.named("assembleDebug").configure {
-        finalizedBy "copyDebugApk"
-    }
-    
-    tasks.named("assembleRelease").configure {
-        finalizedBy "copyReleaseApk"
-    }
-    
- 
-    tasks.named("assembleProfile").configure {
-        finalizedBy "copyProfileApk"
-    }
 }
