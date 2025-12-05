@@ -1,6 +1,7 @@
 /// Blossom Music Player - A modern cross-platform music player built with Flutter
 /// This is the main entry point of the application.
 
+import 'dart:async'; // Added for runZonedGuarded
 import 'dart:io';
 import 'dart:ui';
 
@@ -34,10 +35,7 @@ import 'widgets/sleep_timer_countdown.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 
-/// Requests necessary permissions for file access based on the platform
-/// For Android: Storage and External Storage permissions
-/// For iOS: Photos permission
-/// Requests necessary permissions for file access based on the platform
+/// Requests necessary permissions for file access safely
 Future<void> requestPermissions() async {
   if (Platform.isAndroid) {
     try {
@@ -48,53 +46,23 @@ Future<void> requestPermissions() async {
       
       if (sdkVersion >= 33) { // Android 13+
         // Request granular media permissions for Android 13+
-        await Permission.audio.request();
-        
-        // Check if permission was granted
-        final bool audioGranted = await Permission.audio.isGranted;
-        
-        if (audioGranted) {
-          print('Audio permission granted successfully');
-        } else {
-          print('Audio permission denied - please enable in Settings');
+        // Check if already granted first to avoid unnecessary requests
+        if (!await Permission.audio.isGranted) {
+             await Permission.audio.request();
         }
       } else {
         // For Android 12 and below, use storage permission
-        await Permission.storage.request();
-        final bool storageGranted = await Permission.storage.isGranted;
-        
-        if (storageGranted) {
-          print('Storage permission granted successfully');
-        } else {
-          print('Storage permission denied - please enable in Settings');
+        if (!await Permission.storage.isGranted) {
+            await Permission.storage.request();
         }
       }
     } catch (e) {
       print('Error requesting Android permissions: $e');
-      // Try a fallback approach
-      try {
-        await Permission.storage.request();
-      } catch (fallbackError) {
-        print('Fallback permission request also failed: $fallbackError');
-      }
     }
   } else if (Platform.isIOS) {
     try {
-      // For iOS, request both photos and media library permissions
-      final photosStatus = await Permission.photos.request();
-      final mediaLibraryStatus = await Permission.mediaLibrary.request();
-      
-      if (photosStatus.isGranted) {
-        print('iOS Photos permission granted');
-      } else {
-        print('iOS Photos permission denied');
-      }
-      
-      if (mediaLibraryStatus.isGranted) {
-        print('iOS Media Library permission granted');
-      } else {
-        print('iOS Media Library permission denied');
-      }
+      await Permission.photos.request();
+      await Permission.mediaLibrary.request();
     } catch (e) {
       print('Error requesting iOS permissions: $e');
     }
@@ -103,74 +71,90 @@ Future<void> requestPermissions() async {
 
 /// Application entry point
 /// Initializes essential services and launches the app
-void main() async {
-  // Ensure Flutter bindings are initialized first
-  WidgetsFlutterBinding.ensureInitialized();
+void main() {
+  // PROTECTIVE LAYER: Catch any error during startup to prevent crash-on-launch
+  runZonedGuarded(() async {
+    // Ensure Flutter bindings are initialized first
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize FFI for sqflite on desktop platforms (Linux/Windows)
-  if (Platform.isLinux || Platform.isWindows) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
-  
-  // Initialize metadata handling service
-  MetadataGod.initialize();
-  
-  // Initialize app settings
-  await Settings.init();
-
-  // Load friends list and initialize username
-  await Settings.loadFriendsList();
-  await Settings.initializeUsername();
-
-  // Load playlists
-  await PlaylistManager.load();
-
-  // Get directories first
-  final songDir = await Settings.getSongDir();
-  print("SONG SETTINGS DIRECTORY: $songDir");
-
-  final applicationsDir = await getApplicationDocumentsDirectory();
-  print("APPLICATIONS DIRECTORY: $applicationsDir");
-
-  // Request permissions after UI is initialized
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    requestPermissions();
-  });
-
-  // Desktop window configuration
-  if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
     try {
-      await windowManager.ensureInitialized();
-      WindowOptions windowOptions = const WindowOptions(
-        size: Size(800, 600),
-        minimumSize: Size(400, 300),
-        center: true,
-        backgroundColor: Colors.transparent,
-        skipTaskbar: false,
-        titleBarStyle: TitleBarStyle.hidden,
-      );
-      await windowManager.waitUntilReadyToShow(windowOptions);
-      await windowManager.setResizable(true);
-      await windowManager.show();
-      await windowManager.focus();
-    } catch (e) {
-      print('Error initializing window manager: $e');
-    }
-  }
+      // Initialize FFI for sqflite on desktop platforms (Linux/Windows)
+      if (!kIsWeb && (Platform.isLinux || Platform.isWindows)) {
+        sqfliteFfiInit();
+        databaseFactory = databaseFactoryFfi;
+      }
+      
+      // Initialize metadata handling service safely
+      try {
+        MetadataGod.initialize();
+      } catch (e) {
+        print("MetadataGod init error (safe to ignore): $e");
+      }
+      
+      // Initialize app settings
+      await Settings.init();
 
-  runApp(
-    ChangeNotifierProvider(
-      create: (context) => NPlayer(),
-      child: AudioServiceWidget(
-        child: const MyApp(),
+      // Load friends list and initialize username
+      await Settings.loadFriendsList();
+      await Settings.initializeUsername();
+
+      // Load playlists
+      try {
+        await PlaylistManager.load();
+      } catch (e) {
+        print("Playlist load error: $e");
+      }
+
+      // Desktop window configuration (Wrapped in try-catch specifically)
+      if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+        try {
+          await windowManager.ensureInitialized();
+          WindowOptions windowOptions = const WindowOptions(
+            size: Size(800, 600),
+            minimumSize: Size(400, 300),
+            center: true,
+            backgroundColor: Colors.transparent,
+            skipTaskbar: false,
+            titleBarStyle: TitleBarStyle.hidden,
+          );
+          await windowManager.waitUntilReadyToShow(windowOptions);
+          await windowManager.setResizable(true);
+          await windowManager.show();
+          await windowManager.focus();
+        } catch (e) {
+          print('Error initializing window manager (safe to ignore on mobile): $e');
+        }
+      }
+
+      // Request permissions safely after UI is ready
+      // We don't await this so the app launches immediately
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        requestPermissions();
+      });
+
+    } catch (e, stack) {
+      print("CRITICAL INITIALIZATION ERROR: $e");
+      print(stack);
+      // Even if init fails, we proceed to runApp so the user sees *something*
+    }
+
+    runApp(
+      ChangeNotifierProvider(
+        create: (context) => NPlayer(),
+        child: AudioServiceWidget(
+          child: const MyApp(),
+        ),
       ),
-    ),
-  );
+    );
+  }, (error, stack) {
+    // GLOBAL ERROR CATCHER
+    // This prevents the app from "Force Closing" on unhandled errors
+    print("GLOBAL UNCAUGHT ERROR: $error");
+    print(stack);
+  });
 }
 
 /// Root widget of the application
-/// Handles theme management and provides the basic app structure
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -181,7 +165,9 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
+    // Use a safe fallback theme if Settings.appTheme isn't ready
     final theme = getThemeData(Settings.appTheme);
+    
     return MaterialApp(
       title: 'Blossom',
       theme: theme,
@@ -198,7 +184,6 @@ class _MyAppState extends State<MyApp> {
 }
 
 /// Main application structure widget
-/// Manages the primary navigation and layout of the application
 class MainStructure extends StatefulWidget {
   const MainStructure({super.key});
 
@@ -206,12 +191,6 @@ class MainStructure extends StatefulWidget {
   _MainStructureState createState() => _MainStructureState();
 }
 
-/// State management for MainStructure
-/// Handles:
-/// - Page navigation
-/// - Theme changes
-/// - Layout adjustments
-/// - Player positioning
 class _MainStructureState extends State<MainStructure>
     with SingleTickerProviderStateMixin {
   bool _showWelcomePage = true;
@@ -224,13 +203,24 @@ class _MainStructureState extends State<MainStructure>
   void initState() {
     super.initState();
 
-    // Set high refresh rate for smooth animations
-    if (Platform.isAndroid || Platform.isIOS) {
-      FlutterDisplayMode.setHighRefreshRate();
-    } 
+    // Safely set refresh rate
+    try {
+      if (Platform.isAndroid || Platform.isIOS) {
+        FlutterDisplayMode.setHighRefreshRate();
+      } 
+    } catch (e) {
+      print("Display mode error: $e");
+    }
     
     _pageController = PageController(initialPage: _currentIndex);
-    _showWelcomePage = !Settings.hasSeenWelcomePage;
+    
+    // Safe access to Settings
+    try {
+      _showWelcomePage = !Settings.hasSeenWelcomePage;
+    } catch (e) {
+      _showWelcomePage = true; // Default to true on error
+    }
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -244,9 +234,12 @@ class _MainStructureState extends State<MainStructure>
   }
 
   bool _isLandscape(BuildContext context) {
-    // Only trigger standby page on mobile devices in landscape
-    return MediaQuery.of(context).orientation == Orientation.landscape &&
-           (Platform.isAndroid || Platform.isIOS);
+    try {
+      return MediaQuery.of(context).orientation == Orientation.landscape &&
+             (Platform.isAndroid || Platform.isIOS);
+    } catch (e) {
+      return false;
+    }
   }
 
   @override
@@ -266,66 +259,69 @@ class _MainStructureState extends State<MainStructure>
     setState(() {
       _showWelcomePage = false;
     });
+    // Save settings safely
+    try {
+        Settings.setHasSeenWelcomePage(true);
+    } catch(e) {
+        print("Error saving welcome page state: $e");
+    }
   }
 
-List<Widget> _getPages() {
-  final pages = <Widget>[
-    SongLibrary(onThemeChanged: _onThemeChanged),
-    const PlaylistPage(),
-    const SongAlbums(),
-    const ArtistsPage(),
-  ];
+  List<Widget> _getPages() {
+    final pages = <Widget>[
+      SongLibrary(onThemeChanged: _onThemeChanged),
+      const PlaylistPage(),
+      const SongAlbums(),
+      const ArtistsPage(),
+    ];
 
-  // Only add Social when sharing is enabled
-  if (Settings.isPublicSharingEnabled) {
-    pages.add(const SocialPage());
+    if (Settings.isPublicSharingEnabled) {
+      pages.add(const SocialPage());
+    }
+
+    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      pages.add(const Downloader());
+    }
+
+    return pages;
   }
 
-  if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
-    pages.add(const Downloader());
+  String _getAppBarTitle() {
+    // Base pages: 0–3
+    switch (_currentIndex) {
+      case 0:
+        return 'Song Library';
+      case 1:
+        return 'Playlists';
+      case 2:
+        return 'Albums';
+      case 3:
+        return 'Artists';
+    }
+
+    int idx = 4;
+
+    // Social (only if enabled)
+    if (Settings.isPublicSharingEnabled) {
+      if (_currentIndex == idx) return 'Social';
+      idx++;
+    }
+
+    // enableTesting: Server
+    if (enableTesting) {
+      if (_currentIndex == idx) return 'Stream';
+      idx++;
+    }
+
+    // Desktop downloader
+    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    if (isDesktop && _currentIndex == idx) {
+      return 'Downloader';
+    }
+
+    return 'Blossom';
   }
 
-  return pages;
-}
-
-
-String _getAppBarTitle() {
-  // Base pages: 0–3
-  switch (_currentIndex) {
-    case 0:
-      return 'Song Library';
-    case 1:
-      return 'Playlists';
-    case 2:
-      return 'Albums';
-    case 3:
-      return 'Artists';
-  }
-
-  int idx = 4;
-
-  // Social (only if enabled)
-  if (Settings.isPublicSharingEnabled) {
-    if (_currentIndex == idx) return 'Social';
-    idx++;
-  }
-
-  // enableTesting: Server
-  if (enableTesting) {
-    if (_currentIndex == idx) return 'Stream';
-    idx++;
-  }
-
-  // Desktop downloader
-  final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-  if (isDesktop && _currentIndex == idx) {
-    return 'Downloader';
-  }
-
-  return 'Blossom';
-}
-
-  /// Calculate proper bottom position for the player widget
   double _getPlayerBottomOffset() {
     if (_showWelcomePage) return 10;
     
@@ -333,82 +329,78 @@ String _getAppBarTitle() {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     
     if (isDesktop) {
-      return 80; // Account for bottom nav bar height + margin
+      return 80; 
     } else {
-      // Mobile: account for bottom nav bar + system UI
       return 80 + bottomPadding;
     }
   }
 
-  /// Build the modern bottom navigation bar items
-List<_ModernNavItem> _getNavItems() {
-  final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+  List<_ModernNavItem> _getNavItems() {
+    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
-  final items = <_ModernNavItem>[
-    _ModernNavItem(
-      icon: Icons.library_music_rounded,
-      activeIcon: Icons.library_music,
-      label: 'Library',
-      index: 0,
-    ),
-    _ModernNavItem(
-      icon: Icons.playlist_play_rounded,
-      activeIcon: Icons.playlist_play,
-      label: 'Playlists',
-      index: 1,
-    ),
-    _ModernNavItem(
-      icon: Icons.album_rounded,
-      activeIcon: Icons.album,
-      label: 'Albums',
-      index: 2,
-    ),
-    _ModernNavItem(
-      icon: Icons.person_rounded,
-      activeIcon: Icons.person,
-      label: 'Artists',
-      index: 3,
-    ),
-  ];
-
-  // Only add Social tab when sharing is enabled
-  if (Settings.isPublicSharingEnabled) {
-    items.add(
+    final items = <_ModernNavItem>[
       _ModernNavItem(
-        icon: Icons.people_outline_rounded,
-        activeIcon: Icons.people_rounded,
-        label: 'Social',
-        index: items.length, // next index
+        icon: Icons.library_music_rounded,
+        activeIcon: Icons.library_music,
+        label: 'Library',
+        index: 0,
       ),
-    );
+      _ModernNavItem(
+        icon: Icons.playlist_play_rounded,
+        activeIcon: Icons.playlist_play,
+        label: 'Playlists',
+        index: 1,
+      ),
+      _ModernNavItem(
+        icon: Icons.album_rounded,
+        activeIcon: Icons.album,
+        label: 'Albums',
+        index: 2,
+      ),
+      _ModernNavItem(
+        icon: Icons.person_rounded,
+        activeIcon: Icons.person,
+        label: 'Artists',
+        index: 3,
+      ),
+    ];
+
+    if (Settings.isPublicSharingEnabled) {
+      items.add(
+        _ModernNavItem(
+          icon: Icons.people_outline_rounded,
+          activeIcon: Icons.people_rounded,
+          label: 'Social',
+          index: items.length, 
+        ),
+      );
+    }
+
+    if (enableTesting) {
+      items.add(
+        _ModernNavItem(
+          icon: Icons.wifi_rounded,
+          activeIcon: Icons.wifi,
+          label: 'Server',
+          index: items.length,
+        ),
+      );
+    }
+
+    if (isDesktop) {
+      items.add(
+        _ModernNavItem(
+          icon: Icons.download_rounded,
+          activeIcon: Icons.download,
+          label: 'Download',
+          index: items.length,
+        ),
+      );
+    }
+
+    return items;
   }
 
-  if (enableTesting) {
-    items.add(
-      _ModernNavItem(
-        icon: Icons.wifi_rounded,
-        activeIcon: Icons.wifi,
-        label: 'Server',
-        index: items.length,
-      ),
-    );
-  }
-
-  if (isDesktop) {
-    items.add(
-      _ModernNavItem(
-        icon: Icons.download_rounded,
-        activeIcon: Icons.download,
-        label: 'Download',
-        index: items.length,
-      ),
-    );
-  }
-
-  return items;
-}
-
-  /// Build the modern bottom navigation bar
   Widget _buildModernBottomNavBar() {
     if (_showWelcomePage) return const SizedBox.shrink();
 
@@ -425,7 +417,7 @@ List<_ModernNavItem> _getNavItems() {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
-              height: 50, // Fixed compact height
+              height: 50, 
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(isDesktop ? 16 : 20),
@@ -438,11 +430,6 @@ List<_ModernNavItem> _getNavItems() {
                     color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
                     blurRadius: 20,
                     offset: const Offset(0, -2),
-                  ),
-                  BoxShadow(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
-                    blurRadius: 40,
-                    offset: const Offset(0, -5),
                   ),
                 ],
               ),
@@ -472,14 +459,14 @@ List<_ModernNavItem> _getNavItems() {
     );
   }
 
-@override
-Widget build(BuildContext context) {
-  final pages = _getPages();
+  @override
+  Widget build(BuildContext context) {
+    final pages = _getPages();
 
-  if (_currentIndex >= pages.length) {
-    _currentIndex = 0;
-    _pageController.jumpToPage(0);
-  }
+    if (_currentIndex >= pages.length) {
+      _currentIndex = 0;
+      _pageController.jumpToPage(0);
+    }
 
     final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
     
@@ -519,6 +506,9 @@ Widget build(BuildContext context) {
             controller: _pageController,
             itemCount: pages.length,
             itemBuilder: (context, index) {
+              // Safely handle index out of bounds
+              if (index >= pages.length) return const SizedBox.shrink();
+              
               if (index == 0) {
                 return SongLibrary(onThemeChanged: _onThemeChanged);
               }
@@ -531,7 +521,7 @@ Widget build(BuildContext context) {
             WelcomePage(
               onDismiss: _dismissWelcomePage,
             ),
-          // Player widget positioned properly above bottom nav
+          // Player widget
           Positioned(
             left: 0,
             right: 0,
@@ -545,9 +535,6 @@ Widget build(BuildContext context) {
           // Bottom navigation bar
           _buildModernBottomNavBar(),
           const SleepTimerCountdown(),
-          // Add the iOS mount widget
-          //if (!Platform.isAndroid && !Platform.isIOS)
-           // const iOSMountWidget(),
         ],
       ),
     );
@@ -639,7 +626,7 @@ class _ModernNavButtonState extends State<_ModernNavButton>
               return Transform.scale(
                 scale: _scaleAnimation.value,
                 child: SizedBox(
-                  height: 50, // Fixed height to prevent overflow
+                  height: 50, 
                   child: Center(
                     child: Container(
                       padding: EdgeInsets.all(widget.isActive ? 8 : 6),

@@ -4,7 +4,6 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
-// 1. Load keystore properties
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('key.properties')
 if (keystorePropertiesFile.exists()) {
@@ -33,7 +32,6 @@ android {
         versionName = flutter.versionName
     }
 
-    // 2. Define signing configurations
     signingConfigs {
         release {
             keyAlias keystoreProperties['keyAlias']
@@ -45,10 +43,7 @@ android {
 
     buildTypes {
         release {
-            // 3. Use the release signing config (FIXED!)
             signingConfig signingConfigs.release
-            
-            // Recommended for production
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
@@ -65,4 +60,21 @@ flutter {
 
 dependencies {
     implementation "androidx.multidex:multidex:2.0.1"
+}
+
+// Copy APK to Flutter's expected location
+android.applicationVariants.all { variant ->
+    variant.assembleProvider.get().doLast {
+        variant.outputs.all { output ->
+            def outputDir = output.outputFile.parentFile
+            def flutterApkDir = file("${project.rootDir}/../build/app/outputs/flutter-apk")
+            flutterApkDir.mkdirs()
+            
+            copy {
+                from outputDir
+                into flutterApkDir
+                include '*.apk'
+            }
+        }
+    }
 }

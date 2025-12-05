@@ -1,3 +1,4 @@
+import 'package:blossom/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
@@ -48,7 +49,7 @@ class _LoadingPageState extends State<LoadingPage>
     await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
     
-    int lastSongCount = 0;
+    int lastSongCount = -1;
     int stableCount = 0;
     int lastUpdateCount = 0;
     final loadStartTime = DateTime.now();
@@ -72,10 +73,15 @@ class _LoadingPageState extends State<LoadingPage>
         
         // More descriptive status messages
         if (currentSongCount == 0) {
-          _loadingStatus = 'Initializing audio engine...';
-          _detailStatus = elapsed < 2 
-              ? 'Connecting to media scanner'
-              : 'Scanning music directories';
+          if (elapsed < 3) {
+            _loadingStatus = 'Initializing audio engine...';
+            _detailStatus = elapsed < 2 
+                ? 'Connecting to media scanner'
+                : 'Scanning music directories';
+          } else {
+             _loadingStatus = 'Finalizing...';
+             _detailStatus = 'Checking storage';
+          }
         } else if (currentSongCount < 10) {
           _loadingStatus = 'Discovering music files...';
           _detailStatus = 'Reading file metadata and album art';
@@ -103,35 +109,52 @@ class _LoadingPageState extends State<LoadingPage>
         }
       });
       
-      // Stability detection
+      // --- FIXED STABILITY LOGIC ---
+      
+      // Case 1: Empty Library (0 songs)
+      // If 0 songs found after 3 seconds, we assume the device is empty and proceed.
+      if (currentSongCount == 0 && elapsed >= 3) {
+        _log("Empty library detected (3s elapsed) - proceeding");
+        _isInitialized = true;
+        break;
+      }
+
+      // Case 2: Normal Loading Stability Check
+      // If count hasn't changed since last check...
       if (currentSongCount > 0 && currentSongCount == lastSongCount) {
         stableCount++;
+        // Wait for 3 stable checks (approx 600ms) before finishing
         final requiredStable = currentSongCount > 1000 ? 5 : 3;
         
         if (stableCount >= requiredStable) {
+           _log("Library stable at $currentSongCount songs - proceeding");
           _isInitialized = true;
           break;
         }
       } else {
-        stableCount = 0;
+        // Count changed, reset stability counter
+        if (currentSongCount != lastSongCount) {
+            stableCount = 0;
+        }
       }
       
       lastSongCount = currentSongCount;
       
-      if (elapsed > 900) {
-        _log("Timeout reached after 15 minutes");
+      // Safety Timeout: 10 seconds (down from 15 mins)
+      if (elapsed > 10) {
+        _log("Safety timeout reached (10s) - forcing entry");
         _isInitialized = true;
         break;
       }
     }
     
-    // Complete
+    // Complete and Transition
     if (mounted) {
       setState(() {
         _loadingStatus = 'Library ready!';
         _detailStatus = _songsLoaded > 0 
-            ? '$_songsLoaded songs cached and indexed' 
-            : 'Ready to play';
+            ? '$_songsLoaded songs indexed' 
+            : 'No music found';
       });
       
       await Future.delayed(const Duration(milliseconds: 600));
@@ -139,9 +162,11 @@ class _LoadingPageState extends State<LoadingPage>
       if (mounted) {
         _fadeController.forward().then((_) {
           if (mounted) {
-            setState(() {
-              _isLoading = false;
-            });
+            // Navigate to Home Screen
+            // (Assuming parent handles navigation or this widget is replaced)
+             Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const MainStructure()), // Ensure MainStructure is imported
+             );
           }
         });
       }

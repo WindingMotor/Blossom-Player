@@ -94,78 +94,75 @@ extension NPlayerSongLoading on NPlayer {
   // ============================================================================
   // MARK: - Core Loading Logic
   // ============================================================================
-  
-  /// Main song loading method with integrated caching
+
   Future<void> _loadSongs() async {
     try {
       _log("Starting to load songs...");
       final loadStartTime = DateTime.now();
       
-      // Initialize cache if not already done
-      await _songCache.initialize();
-      
-      // **OPTIMIZATION: Load entire cache into memory at once**
-      final cacheMap = await _songCache.loadAll();
-      _log("Cache loaded with ${cacheMap.length} entries, starting file scan...");
-      
-      // Platform-specific initialization
-      if (!Platform.isAndroid && !Platform.isIOS) {
-        await iOS_Binder.getInitialCheck();
+      // 1. Initialize Cache Safely
+      try {
+        await _songCache.initialize();
+      } catch (e) {
+        _log("Cache init failed (continuing): $e");
       }
+      
+      final cacheMap = await _songCache.loadAll();
+      _log("Cache loaded with ${cacheMap.length} entries.");
 
-      // Get configured music directories
+      // 2. Get Directories
       final List<Directory> directories = await Settings.getAllSongDirs();
       if (directories.isEmpty) {
-        _log('No valid directories found');
+        _log('No valid directories found - stopping load.');
+        _internalNotifyListeners(); // Unstick the UI!
         return;
       }
       
       _log("Scanning ${directories.length} directories");
 
-      // Android-specific direct access test
-      if (Platform.isAndroid) {
-        await _testDirectAccess();
-      }
-      
-      // Track all valid file paths for cache cleanup
+      // 3. Process Directories with TIMEOUT safety
       final Set<String> validPaths = {};
-      
-      // Track loaded song titles to prevent duplicate titles
       final Set<String> loadedTitles = {};
-      
       int cacheHits = 0;
       int cacheMisses = 0;
-      
-      // Process directories with cache map
+
+      // SAFETY: Limit total scan time to avoid freezing on huge/slow storage
+      final scanTimeout = DateTime.now().add(const Duration(seconds: 15));
+
       for (var dir in directories) {
+        if (DateTime.now().isAfter(scanTimeout)) {
+          _log("⚠️ Scan timed out - aborting directory scan");
+          break;
+        }
+
         final result = await _processDirectoryFast(dir, validPaths, loadedTitles, cacheMap);
         cacheHits += result['hits'] as int;
         cacheMisses += result['misses'] as int;
       }
+
+      _log("Cache performance: $cacheHits hits, $cacheMisses misses");
       
-      _log("Cache performance: $cacheHits hits, $cacheMisses misses (${(cacheHits / (cacheHits + cacheMisses) * 100).toStringAsFixed(1)}% hit rate)");
-      
-      // Clean up cache entries for files that no longer exist
-      await _songCache.cleanInvalidEntries(validPaths);
-      
-      // Save cache after processing all files
-      await _songCache.save();
-      
+      // 4. Clean Cache
+      if (validPaths.isNotEmpty) {
+        await _songCache.cleanInvalidEntries(validPaths);
+        await _songCache.save();
+      }
+
       final totalTime = DateTime.now().difference(loadStartTime).inMilliseconds;
-      _log("Finished loading ${_allSongs.length} songs in ${totalTime}ms (${((_allSongs.length / totalTime) * 1000).round()} songs/sec)");
+      _log("Finished loading ${_allSongs.length} songs in ${totalTime}ms");
 
-      // Restore playlist associations for all loaded songs
+      // 5. Restore & Notify
       _restorePlaylistAssociations();
-
-      // Load favorites from settings
       await _loadFavorites();
-      
-      // Apply current sorting and filtering
       _filterAndSortSongs();
       
+      _internalNotifyListeners(); // CRITICAL: Updates the UI to remove loading spinner!
+
+    } catch (e, stack) {
+      _log("CRITICAL Error loading songs: $e");
+      print(stack);
+      // Even on error, notify UI so it stops loading
       _internalNotifyListeners();
-    } catch (e) {
-      _log("Error loading songs: $e");
     }
   }
 

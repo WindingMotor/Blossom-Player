@@ -111,7 +111,7 @@ Future<void> _clearCache(BuildContext context) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['mp3', 'flac'],
+        allowedExtensions: ['mp3', 'flac', 'm4a', 'aac'],
         allowMultiple: true,
       );
 
@@ -407,6 +407,18 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
         builder: (context, player, child) {
           return ListView(
             children: [
+              // Verison info 
+              _buildSection(
+                'Version',
+                [
+                  _buildInfoTile(
+                    'Version',
+                    '1.1.1+6',
+                    context
+                  ),
+                ],
+                context
+              ),
               _buildSection(
                 'Library',
                 [
