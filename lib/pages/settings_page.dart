@@ -1,4 +1,5 @@
 import 'package:blossom/main.dart';
+import 'package:blossom/tools/supported_formats.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -109,9 +110,19 @@ Future<void> _clearCache(BuildContext context) async {
 
   Future<void> _copyFilesToBlossomFolder(BuildContext context) async {
     try {
+      // Get supported extensions dynamically
+      final allowedExtensions = SupportedFormats.supportedAudioFormats
+          .where((format) => 
+              format['platform'] == 'ALL' || 
+              (Platform.isAndroid && format['platform'] == 'ANDROID') ||
+              (Platform.isIOS && format['platform'] == 'IOS'))
+          .map((format) => format['extension']!.substring(1)) // Remove leading dot
+          .toSet()
+          .toList();
+
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['mp3', 'flac', 'm4a', 'aac'],
+        allowedExtensions: allowedExtensions,
         allowMultiple: true,
       );
 
@@ -194,6 +205,18 @@ Future<void> _clearCache(BuildContext context) async {
         SnackBar(content: Text('Error selecting directory: $e')),
       );
     }
+  }
+
+  String _getSupportedFormatsDescription() {
+    final formats = SupportedFormats.supportedAudioFormats
+        .where((format) => 
+            format['platform'] == 'ALL' || 
+            (Platform.isAndroid && format['platform'] == 'ANDROID') ||
+            (Platform.isIOS && format['platform'] == 'IOS'))
+        .map((format) => format['extension']!.toUpperCase().substring(1))
+        .toSet()
+        .join(', ');
+    return formats;
   }
 
   Widget _buildAndroidDirectorySection(BuildContext context) {
@@ -438,7 +461,7 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
                   ),
                   _buildInfoTile(
                     'Supported formats', 
-                    'MP3, FLAC, and M4A audio files',
+                    '${_getSupportedFormatsDescription()} audio files',
                     context
                   ),
                   SizedBox(height: 8),

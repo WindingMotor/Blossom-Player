@@ -74,16 +74,14 @@ extension NPlayerSongLoading on NPlayer {
           .list(recursive: true, followLinks: false)
           .toList();
 
-      // Filter to include only supported audio formats
+      // Filter using SupportedFormats
       files = files.where((file) {
         if (file is! File) return false;
         final extension = path.extension(file.path).toLowerCase();
-        return extension == '.mp3' || 
-               extension == '.flac' || 
-               extension == '.m4a';
+        return _isSupportedAudioFormat(extension);
       }).toList();
 
-      _log("Found ${files.length} audio files (.mp3, .flac, .m4a)");
+      _log("Found ${files.length} audio files (${_getSupportedExtensionsList()})");
       return files;
     } catch (e) {
       _log("Error while listing files: $e");
@@ -347,10 +345,29 @@ Future<bool> _processAudioFileFast(
     _log("Restored playlist associations for ${_allSongs.length} songs");
   }
   
-  /// Checks if a file extension is a supported audio format
   bool _isSupportedAudioFormat(String extension) {
-    return extension == '.mp3' || 
-           extension == '.flac' || 
-           extension == '.m4a';
+    // Remove leading dot if present for comparison
+    final cleanExt = extension.startsWith('.') ? extension : '.$extension';
+    
+    return SupportedFormats.supportedAudioFormats.any((format) {
+      final matchesExtension = format['extension']!.toLowerCase() == cleanExt.toLowerCase();
+      final platformMatch = format['platform'] == 'ALL' || 
+                           (Platform.isAndroid && format['platform'] == 'ANDROID') ||
+                           (Platform.isIOS && format['platform'] == 'IOS');
+      return matchesExtension && platformMatch;
+    });
+  }
+
+  /// Returns a comma-separated list of supported extensions for logging
+  String _getSupportedExtensionsList() {
+    final extensions = SupportedFormats.supportedAudioFormats
+        .where((format) => 
+            format['platform'] == 'ALL' || 
+            (Platform.isAndroid && format['platform'] == 'ANDROID') ||
+            (Platform.isIOS && format['platform'] == 'IOS'))
+        .map((format) => format['extension'])
+        .toSet()
+        .join(', ');
+    return extensions;
   }
 }
