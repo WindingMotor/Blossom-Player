@@ -436,7 +436,7 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
                 [
                   _buildInfoTile(
                     'Version',
-                    '1.1.1+6',
+                    '1.1.2+7',
                     context
                   ),
                 ],

@@ -10,7 +10,8 @@ class SleepTimerSheet extends StatefulWidget {
 }
 
 class _SleepTimerSheetState extends State<SleepTimerSheet> {
-  final List<int> _presets = [1, 5, 15, 30, 45, 60, 90];
+  // UPDATED: Added 120 and 200 minutes
+  final List<int> _presets = [1, 5, 15, 30, 45, 60, 90, 120, 200];
   late PageController _pageController;
   int _selectedIndex = 0;
   
@@ -38,11 +39,13 @@ class _SleepTimerSheetState extends State<SleepTimerSheet> {
           final index = _presets.indexOf(player.sleepTimerMinutes!);
           if (index != -1 && index != _selectedIndex) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              _pageController.animateToPage(
-                index,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-              );
+              if (_pageController.hasClients) {
+                _pageController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                );
+              }
             });
           }
         }

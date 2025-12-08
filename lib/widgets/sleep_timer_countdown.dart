@@ -48,38 +48,38 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
     if (duration == null) return "0:00";
     
     String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
     
-    if (minutes > 0) {
+    // UPDATED: Handle hours for durations > 60 minutes
+    if (duration.inHours > 0) {
+      final hours = duration.inHours;
+      final minutes = duration.inMinutes.remainder(60);
+      final seconds = duration.inSeconds.remainder(60);
+      return '$hours:${twoDigits(minutes)}:${twoDigits(seconds)}';
+    } else {
+      final minutes = duration.inMinutes;
+      final seconds = duration.inSeconds.remainder(60);
       return '$minutes:${twoDigits(seconds)}';
     }
-    return '0:${twoDigits(seconds)}';
   }
 
   void _startCloseAnimation() async {
-    // Start ringing animation
     setState(() => _isRinging = true);
     _ringController.forward();
     
-    // Ring for 1 second (4 cycles)
     await Future.delayed(const Duration(seconds: 1));
     
     if (!mounted) return;
     
-    // Stop ringing and start fade out
     setState(() {
       _isRinging = false;
       _isClosing = true;
     });
     _ringController.stop();
     
-    // Wait for fade animation to complete
     await _fadeController.forward();
     
     if (!mounted) return;
     
-    // Reset the sleep timer in NPlayer which will trigger widget removal
     Provider.of<NPlayer>(context, listen: false).cancelSleepTimer();
   }
 
