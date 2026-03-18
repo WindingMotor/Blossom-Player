@@ -1,4 +1,5 @@
 import 'package:blossom/main.dart';
+import 'package:blossom/sheets/library_stats_sheet.dart';
 import 'package:blossom/tools/supported_formats.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -551,6 +552,23 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
                 ],
                 context
               ),
+            _buildSection(
+              'Library Stats',
+              [
+                _buildInfoTile(
+                  'Analyse your library',
+                  'View top artists, albums, genres, listening time, file sizes, and more.',
+                  context,
+                ),
+                _buildButton(
+                  'View Library Stats',
+                  () => showLibraryStatsSheet(context),
+                  context,
+                ),
+                const SizedBox(height: 8),
+              ],
+              context,
+            ),
               _buildSection(
                 'Developer Options',
                 [

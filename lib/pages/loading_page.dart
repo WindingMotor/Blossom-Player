@@ -159,17 +159,16 @@ class _LoadingPageState extends State<LoadingPage>
       
       await Future.delayed(const Duration(milliseconds: 600));
       
-      if (mounted) {
-        _fadeController.forward().then((_) {
-          if (mounted) {
-            // Navigate to Home Screen
-            // (Assuming parent handles navigation or this widget is replaced)
-             Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const MainStructure()), // Ensure MainStructure is imported
-             );
-          }
-        });
-      }
+    if (mounted) {
+      _fadeController.forward().then((_) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false; // Simply remove the overlay
+          });
+        }
+      });
+    }
+
     }
   }
 

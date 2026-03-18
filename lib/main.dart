@@ -107,14 +107,21 @@ void main() {
       if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
         try {
           await windowManager.ensureInitialized();
+          
+          // FIX: Use slightly larger default size for Linux to help with scaling issues
+          // If the OS scaling is 200%, 800 logical pixels might be rendered as 400 physical if not handled right.
+          // Setting a generous default size helps ensure it's usable even if scaling is weird.
+          const initialSize = Size(1024, 768); 
+          
           WindowOptions windowOptions = const WindowOptions(
-            size: Size(800, 600),
+            size: initialSize,
             minimumSize: Size(400, 300),
             center: true,
             backgroundColor: Colors.transparent,
             skipTaskbar: false,
             titleBarStyle: TitleBarStyle.hidden,
           );
+          
           await windowManager.waitUntilReadyToShow(windowOptions);
           await windowManager.setResizable(true);
           await windowManager.show();

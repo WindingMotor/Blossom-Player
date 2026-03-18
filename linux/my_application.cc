@@ -20,15 +20,8 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-      gtk_window_set_icon_from_file(GTK_WINDOW(window), "assets/BlossomIcon.ico", NULL);
-      
-  // Use a header bar when running in GNOME as this is the common style used
-  // by applications and is the setup most users will be using (e.g. Ubuntu
-  // desktop).
-  // If running on X and not using GNOME then just use a traditional title bar
-  // in case the window manager does more exotic layout, e.g. tiling.
-  // If running on Wayland assume the header bar will work (may need changing
-  // if future cases occur).
+  gtk_window_set_icon_from_file(GTK_WINDOW(window), "assets/BlossomIcon.ico", NULL);
+
   gboolean use_header_bar = TRUE;
 #ifdef GDK_WINDOWING_X11
   GdkScreen* screen = gtk_window_get_screen(window);
@@ -49,7 +42,37 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "blossom");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  // Realize the window first so we can access monitor info
+  gtk_widget_realize(GTK_WIDGET(window));
+  
+  // LOGIC TO FIX TINY WINDOW ON HIGH DPI
+  // Get the display and monitor
+  GdkDisplay *display = gtk_widget_get_display(GTK_WIDGET(window));
+  GdkMonitor *monitor = gdk_display_get_primary_monitor(display);
+  
+  // Fallback to first monitor if primary is null
+  if (!monitor) {
+    monitor = gdk_display_get_monitor(display, 0);
+  }
+
+  if (monitor) {
+    GdkRectangle geometry;
+    gdk_monitor_get_geometry(monitor, &geometry);
+    
+    // If the screen width is high res (e.g. > 2500 pixels like your 2880x1920)
+    // Force a larger default window size
+    if (geometry.width >= 2560) {
+        gtk_window_set_default_size(window, 2000, 1300);
+    } else if (geometry.width >= 1920) {
+        gtk_window_set_default_size(window, 1400, 900);
+    } else {
+        gtk_window_set_default_size(window, 1280, 720);
+    }
+  } else {
+     // Fallback if monitor detection fails
+     gtk_window_set_default_size(window, 1280, 720);
+  }
+  
   gtk_widget_show(GTK_WIDGET(window));
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
@@ -85,19 +108,11 @@ static gboolean my_application_local_command_line(GApplication* application, gch
 
 // Implements GApplication::startup.
 static void my_application_startup(GApplication* application) {
-  //MyApplication* self = MY_APPLICATION(object);
-
-  // Perform any actions required at application startup.
-
   G_APPLICATION_CLASS(my_application_parent_class)->startup(application);
 }
 
 // Implements GApplication::shutdown.
 static void my_application_shutdown(GApplication* application) {
-  //MyApplication* self = MY_APPLICATION(object);
-
-  // Perform any actions required at application shutdown.
-
   G_APPLICATION_CLASS(my_application_parent_class)->shutdown(application);
 }
 
