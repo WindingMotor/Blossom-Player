@@ -57,7 +57,7 @@ class SongCache {
       _log("Cache initialized with $count entries");
     } catch (e) {
       _log("Error initializing cache: $e");
-      _isInitialized = true;
+      // Leave _isInitialized = false so a retry is possible on next call
     }
   }
   

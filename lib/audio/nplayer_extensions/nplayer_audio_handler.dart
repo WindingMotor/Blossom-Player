@@ -15,6 +15,8 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
   bool _isInitializing = false;
   Timer? _positionTimer;
   bool _completionHandled = false;
+  Timer? _backupCompletionTimer;
+  Timer? _stateDebounceTimer;
 
   CustomAudioHandler(this._player, this._nPlayer) {
     _initialize();
@@ -124,9 +126,11 @@ _audioSession.interruptionEventStream.listen((event) async {
    _player.onPlayerStateChanged.listen((state) {
   try {
     final isPlaying = state == PlayerState.playing;
-    
+
     // Add debouncing for rapid state changes
-    Timer(const Duration(milliseconds: 100), () {
+    _stateDebounceTimer?.cancel();
+    _stateDebounceTimer = Timer(const Duration(milliseconds: 100), () {
+      _stateDebounceTimer = null;
       playbackState.add(playbackState.value.copyWith(
         playing: isPlaying,
         processingState: AudioProcessingState.ready,
@@ -183,12 +187,14 @@ _audioSession.interruptionEventStream.listen((event) async {
           final duration = mediaItem.value?.duration ?? Duration.zero;
           if (duration.inMilliseconds > 0) {
             final timeRemaining = duration - position;
-            if (timeRemaining.inMilliseconds <= 100 && 
+            if (timeRemaining.inMilliseconds <= 100 &&
                 timeRemaining.inMilliseconds > 0 &&
-                !_completionHandled) {
+                !_completionHandled &&
+                _backupCompletionTimer == null) {
               print('AudioHandler: Near end detected, preparing completion');
               // Set a timer for the exact completion moment
-              Timer(timeRemaining, () async {
+              _backupCompletionTimer = Timer(timeRemaining, () async {
+                _backupCompletionTimer = null;
                 if (!_completionHandled && _player.state == PlayerState.playing) {
                   print('AudioHandler: Backup completion triggered');
                   _completionHandled = true;
@@ -454,12 +460,18 @@ Future<void> seek(Duration position) async {
   
   mediaItem.add(item);
   _completionHandled = false;
+  _backupCompletionTimer?.cancel();
+  _backupCompletionTimer = null;
 }
 
 
   Future<void> dispose() async {
     try {
       _stopPositionTimer();
+      _backupCompletionTimer?.cancel();
+      _backupCompletionTimer = null;
+      _stateDebounceTimer?.cancel();
+      _stateDebounceTimer = null;
       if (_hasAudioFocus && Platform.isAndroid) {
         await _audioSession.setActive(false);
         _hasAudioFocus = false;

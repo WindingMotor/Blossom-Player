@@ -155,7 +155,7 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
       }
       await _startPlayback(_playingSongs, nextIndex);
     } finally {
-      Future.delayed(Duration(milliseconds: 200), () => _isChangingSong = false);
+      _isChangingSong = false;
     }
   }
 
@@ -170,7 +170,7 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
         await _startPlayback(_playingSongs, prevIndex);
       }
     } finally {
-      Future.delayed(Duration(milliseconds: 200), () => _isChangingSong = false);
+      _isChangingSong = false;
     }
   }
   

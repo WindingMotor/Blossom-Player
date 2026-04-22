@@ -141,8 +141,8 @@ void _handleFadeOut() {
   if (_fadeTimer == null && _remainingTime != null) {
     // Store original volume when fade starts
     _originalVolume ??= _audioPlayer.volume;
-    
-    _fadeTimer = Timer.periodic(Duration(milliseconds: NPlayer.fadeUpdateInterval), (timer) {
+
+    _fadeTimer = Timer.periodic(Duration(milliseconds: NPlayer.fadeUpdateInterval), (timer) async {
       if (_remainingTime == null || _remainingTime!.inSeconds <= 0) {
         _fadeTimer?.cancel();
         _fadeTimer = null;
@@ -151,12 +151,12 @@ void _handleFadeOut() {
 
       // Calculate progress (0.0 to 1.0) where 1.0 is start of fade and 0.0 is end
       final progress = _remainingTime!.inMilliseconds / (NPlayer.fadeStartSeconds * 1000);
-      
+
       // Apply ease-out curve to the volume
       final volumeMultiplier = _easeOutVolume(1 - progress);
       final targetVolume = _originalVolume! * volumeMultiplier;
-      
-      _audioPlayer.setVolume(targetVolume.clamp(0.0, 1.0));
+
+      await setVolume(targetVolume.clamp(0.0, 1.0));
     });
   }
 }
@@ -181,12 +181,13 @@ void startSleepTimer(int minutes) {
         cancelSleepTimer();
         pauseSong();
         // Restore original volume after a brief pause
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (_originalVolume != null) {
-            _audioPlayer.setVolume(_originalVolume!); // Error: The getter '_audioPlayer' isn't defined for the type 'NPlayer'.
-            _originalVolume = null;
-          }
-        });
+        final volumeToRestore = _originalVolume;
+        _originalVolume = null;
+        if (volumeToRestore != null) {
+          Future.delayed(const Duration(milliseconds: 100), () async {
+            await setVolume(volumeToRestore);
+          });
+        }
       }
     }
   });
@@ -198,11 +199,9 @@ void cancelSleepTimer() {
   _sleepTimer = null;
   _fadeTimer?.cancel();
   _fadeTimer = null;
-  // Only reset the minutes if we're not in the middle of the sleep animation
-  if (_sleepTimerMinutes != 0) {
-    _sleepTimerMinutes = null;
-  }
-  _originalVolume = null; // Reset original volume if timer is cancelled
+  _sleepTimerMinutes = null;
+  _remainingTime = null;
+  _originalVolume = null;
   _internalNotifyListeners();
   }
 }

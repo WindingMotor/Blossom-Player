@@ -122,8 +122,11 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
+            onPressed: () {
+              _addFriendController.clear();
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: _addFriend,
@@ -136,53 +139,54 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
 
   void _addFriend() async {
     final uuid = _addFriendController.text.trim();
-    
+
     if (uuid.isEmpty) {
+      _addFriendController.clear();
       Navigator.pop(context);
       return;
     }
-    
+
     if (!uuid.startsWith('user-')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid User ID format')),
+        const SnackBar(content: Text('Invalid User ID format')),
       );
       return;
     }
-    
+
     if (_friends.contains(uuid)) {
+      _addFriendController.clear();
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Friend already added')),
+        const SnackBar(content: Text('Friend already added')),
       );
       return;
     }
-    
-    // Add and save
+
     await Settings.addFriend(uuid);
+    if (!mounted) return;
+
+    _addFriendController.clear();
     setState(() {
       _friends = List.from(Settings.friendsList);
-      _addFriendController.clear();
     });
-    
+
     Navigator.pop(context);
-    
-    // Fetch their status immediately
     _refreshAllStatuses();
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Friend added!')),
+      const SnackBar(content: Text('Friend added!')),
     );
   }
 
   void _removeFriend(String uuid) async {
     await Settings.removeFriend(uuid);
+    if (!mounted) return;
     setState(() {
       _friends = List.from(Settings.friendsList);
       _statusCache.remove(uuid);
     });
-    
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Friend removed')),
+      const SnackBar(content: Text('Friend removed')),
     );
   }
 
@@ -408,7 +412,7 @@ leading: Stack(
 ),
 
         title: Text(
-          status?.username ?? friendUuid.substring(0, 18) + '...',
+          status?.username ?? '${friendUuid.substring(0, friendUuid.length.clamp(0, 18))}...',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
             fontSize: 14,

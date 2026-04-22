@@ -65,8 +65,8 @@ extension NPlayerPublic on NPlayer {
   /// Start periodic heartbeat when enabled
   void _startHeartbeatTimer() {
     print('[NPlayerPublic] Starting heartbeat timer (30s interval)');
-    
-    Timer.periodic(const Duration(seconds: 30), (timer) {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (Settings.isPublicSharingEnabled && _isPlaying) {
         print('[NPlayerPublic] Sending heartbeat...');
         _sendHeartbeat();

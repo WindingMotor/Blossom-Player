@@ -298,7 +298,7 @@ extension NPlayerSorting on NPlayer {
     _sortBy = sortBy ?? _sortBy;
     _sortAscending = ascending ?? _sortAscending;
     _filterAndSortSongs();
-    Settings.setLibrarySongSort(_sortBy, _sortAscending);
+    Settings.setLibrarySongSort(_sortBy, _sortAscending); // fire-and-forget is acceptable here
   }
 
   Future<void> loadSortSettings() async {

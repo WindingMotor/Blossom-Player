@@ -1,2 +1,2 @@
-/home/isaac/Documents/Blossom-Player/android/app/.cxx/RelWithDebInfo/455f6c5b/x86_64/CMakeFiles/edit_cache.dir
-/home/isaac/Documents/Blossom-Player/android/app/.cxx/RelWithDebInfo/455f6c5b/x86_64/CMakeFiles/rebuild_cache.dir
+/home/isaac/CS_Documents/Blossom-Player/android/app/.cxx/RelWithDebInfo/455f6c5b/x86_64/CMakeFiles/edit_cache.dir
+/home/isaac/CS_Documents/Blossom-Player/android/app/.cxx/RelWithDebInfo/455f6c5b/x86_64/CMakeFiles/rebuild_cache.dir

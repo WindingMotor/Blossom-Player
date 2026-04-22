@@ -1,5 +1,7 @@
 import 'package:blossom/main.dart';
+import 'package:blossom/pages/nextcloud_page.dart';
 import 'package:blossom/sheets/library_stats_sheet.dart';
+import 'package:blossom/tools/nextcloud_sync.dart';
 import 'package:blossom/tools/supported_formats.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -24,24 +26,46 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   Map<String, dynamic>? _cacheStats;
   bool _isLoadingCache = false;
+  late final TextEditingController _usernameController;
 
   @override
   void initState() {
     super.initState();
+    _usernameController = TextEditingController();
     _loadCacheStats();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Sync controller text only when it differs (avoids clobbering in-progress edits)
+    final username = Provider.of<NPlayer>(context, listen: false).publicUsername ?? '';
+    if (_usernameController.text != username) {
+      _usernameController.text = username;
+      _usernameController.selection = TextSelection.collapsed(offset: username.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadCacheStats() async {
+    if (!mounted) return;
     setState(() => _isLoadingCache = true);
     try {
       final player = Provider.of<NPlayer>(context, listen: false);
       final stats = await player.getCacheStats();
+      if (!mounted) return;
       setState(() {
         _cacheStats = stats;
         _isLoadingCache = false;
       });
     } catch (e) {
       print('Error loading cache stats: $e');
+      if (!mounted) return;
       setState(() => _isLoadingCache = false);
     }
   }
@@ -73,35 +97,32 @@ Future<void> _clearCache(BuildContext context) async {
     ),
   );
 
-  if (confirmed == true) {
+  if (confirmed == true && mounted) {
     try {
       final player = Provider.of<NPlayer>(context, listen: false);
-      
+
       // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
       // Clear cache WITHOUT reloading
       await player.cache.clear();
-      
-      // Close loading dialog
+
+      if (!mounted) return;
       Navigator.of(context).pop();
-      
-      // Reload cache stats to show empty cache
+
       await _loadCacheStats();
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cache deleted successfully')),
+        const SnackBar(content: Text('Cache deleted successfully')),
       );
     } catch (e) {
-      // Close loading dialog if still open
+      if (!mounted) return;
       Navigator.of(context).pop();
-      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error clearing cache: $e')),
       );
@@ -165,16 +186,14 @@ Future<void> _clearCache(BuildContext context) async {
       String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
       
       if (selectedDirectory != null) {
-        // Save the selected directory
         await Settings.setCustomMusicDirectory(selectedDirectory);
-        setState(() {}); // Refresh UI
-        
-        // Show confirmation to user
+        if (!mounted) return;
+        setState(() {});
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Music folder set to: $selectedDirectory')),
         );
-        
-        // Ask if they want to scan for music now
+
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -385,11 +404,7 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             prefixIcon: Icon(Icons.person),
           ),
-          controller: TextEditingController(
-            text: player.publicUsername ?? '',
-          )..selection = TextSelection.collapsed(
-            offset: (player.publicUsername ?? '').length,
-          ),
+          controller: _usernameController,
           onSubmitted: (value) async {
             if (value.trim().isNotEmpty) {
               await player.setPublicUsername(value.trim());
@@ -552,6 +567,48 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
                 ],
                 context
               ),
+// ── Nextcloud Sync ──────────────────────────────────────────
+          _buildSection(
+            'Nextcloud Sync',
+            [
+              _buildInfoTile(
+                'Sync your music library',
+                'Bidirectional sync between this device and your Nextcloud server.',
+                context,
+              ),
+              Consumer<NextcloudSync>(    // ← needs nextcloud_sync import too
+                builder: (context, nc, _) => ListTile(
+                  leading: Icon(
+                    nc.status == SyncStatus.syncing || nc.status == SyncStatus.checking
+                        ? Icons.sync
+                        : nc.status == SyncStatus.success
+                            ? Icons.check_circle_outline
+                            : nc.status == SyncStatus.error
+                                ? Icons.error_outline
+                                : Icons.cloud_outlined,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+                  title: Text(nc.isConfigured ? 'Status' : 'Not configured'),
+                  subtitle: Text(nc.statusMessage),
+                ),
+              ),
+              _buildButton(
+                'Open Nextcloud Settings',
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChangeNotifierProvider.value(
+                      value: NextcloudSync(),
+                      child: const NextcloudPage(),
+                    ),
+                  ),
+                ),
+                context,
+              ),
+              const SizedBox(height: 8),
+            ],
+            context,
+          ),
             _buildSection(
               'Library Stats',
               [

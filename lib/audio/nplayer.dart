@@ -149,6 +149,7 @@ class NPlayer extends ChangeNotifier {
   
   Timer? _sleepTimer;
   Timer? _fadeTimer;
+  Timer? _heartbeatTimer;
   int? _sleepTimerMinutes;
   Duration? _remainingTime;
   double? _originalVolume;
@@ -207,7 +208,8 @@ class NPlayer extends ChangeNotifier {
   }
 
   Future<void> _ensureInitialized() async {
-    if (!_isInitialized && _initializationCompleter != null) {
+    if (_isInitialized) return;
+    if (_initializationCompleter != null) {
       await _initializationCompleter!.future;
     }
   }
@@ -239,8 +241,8 @@ Future<void> _initializeAudioHandler() async {
 }
 
 Future<void> _initialize() async {
-  if (_isInitialized) return;
-  _isInitialized = true;
+  if (_isInitialized || _initializationCompleter != null) return;
+  _initializationCompleter = Completer<void>();
 
   try {
     // Configure AudioPlayer to NOT handle audio focus automatically
@@ -333,10 +335,13 @@ Future<void> _initialize() async {
       // Initialize public sharing
        await _initializePublicSharing();
 
+      _isInitialized = true;
+      _initializationCompleter!.complete();
       _log("NPlayer initialization complete.");
       notifyListeners(); // Notify UI that everything is ready
     } catch (e) {
       _log('Error during initialization: $e');
+      _initializationCompleter!.completeError(e);
       rethrow;
     }
   }
@@ -411,6 +416,9 @@ Future<void> _initialize() async {
   void dispose() {
     _audioPlayer.dispose();
     _debounceTimer?.cancel();
+    _sleepTimer?.cancel();
+    _fadeTimer?.cancel();
+    _heartbeatTimer?.cancel();
     super.dispose();
   }
 }

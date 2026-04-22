@@ -149,8 +149,7 @@ static const String _friendsListKey = 'friends_list';
 static List<String> get friendsList => _friendsList;
 
 static Future<void> loadFriendsList() async {
-  final prefs = await SharedPreferences.getInstance();
-  final friendsJson = prefs.getString(_friendsListKey);
+  final friendsJson = _prefs.getString(_friendsListKey);
   if (friendsJson != null) {
     try {
       _friendsList = (jsonDecode(friendsJson) as List<dynamic>).cast<String>();
@@ -163,8 +162,7 @@ static Future<void> loadFriendsList() async {
 
 static Future<void> saveFriendsList(List<String> friends) async {
   _friendsList = friends;
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(_friendsListKey, jsonEncode(friends));
+  await _prefs.setString(_friendsListKey, jsonEncode(friends));
 }
 
 static Future<void> addFriend(String uuid) async {

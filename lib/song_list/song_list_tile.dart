@@ -85,6 +85,10 @@ class _AlbumArt extends StatelessWidget {
             ? Image(
                 image: _AlbumArtCache.of(songPath, picture!),
                 fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: theme.colorScheme.surface,
+                  child: Icon(Icons.music_note, color: theme.colorScheme.onSurface),
+                ),
               )
             : Container(
                 color: theme.colorScheme.surface,

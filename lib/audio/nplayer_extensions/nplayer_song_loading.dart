@@ -120,7 +120,7 @@ extension NPlayerSongLoading on NPlayer {
 
       // 3. Process Directories with TIMEOUT safety
       final Set<String> validPaths = {};
-      final Set<String> loadedTitles = {};
+      final Set<String> loadedPaths = {};
       int cacheHits = 0;
       int cacheMisses = 0;
 
@@ -133,7 +133,7 @@ extension NPlayerSongLoading on NPlayer {
           break;
         }
 
-        final result = await _processDirectoryFast(dir, validPaths, loadedTitles, cacheMap);
+        final result = await _processDirectoryFast(dir, validPaths, loadedPaths, cacheMap);
         cacheHits += result['hits'] as int;
         cacheMisses += result['misses'] as int;
       }
@@ -168,27 +168,27 @@ extension NPlayerSongLoading on NPlayer {
   Future<Map<String, int>> _processDirectoryFast(
     Directory directory,
     Set<String> validPaths,
-    Set<String> loadedTitles,
+    Set<String> loadedPaths,
     Map<String, CachedSongEntry> cacheMap,
   ) async {
     int hits = 0;
     int misses = 0;
-    
+
     try {
       List<FileSystemEntity> entities = await directory
           .list(recursive: false)
           .toList();
-      
+
       for (final entity in entities) {
         if (entity is File) {
           final extension = path.extension(entity.path).toLowerCase();
           if (_isSupportedAudioFormat(extension)) {
-            final result = await _processAudioFileFast(entity, validPaths, loadedTitles, cacheMap);
+            final result = await _processAudioFileFast(entity, validPaths, loadedPaths, cacheMap);
             if (result) hits++; else misses++;
           }
         } else if (entity is Directory) {
           // Recursively process subdirectories
-          final result = await _processDirectoryFast(entity, validPaths, loadedTitles, cacheMap);
+          final result = await _processDirectoryFast(entity, validPaths, loadedPaths, cacheMap);
           hits += result['hits'] as int;
           misses += result['misses'] as int;
         }
@@ -196,80 +196,79 @@ extension NPlayerSongLoading on NPlayer {
     } catch (e) {
       _log("Error processing directory ${directory.path}: $e");
     }
-    
+
     return {'hits': hits, 'misses': misses};
   }
 
   /// Fast file processing with in-memory cache lookup
   /// Returns true if cache hit, false if cache miss
-  /// Fast file processing with in-memory cache lookup
-/// Returns true if cache hit, false if cache miss
-Future<bool> _processAudioFileFast(
-  File file,
-  Set<String> validPaths,
-  Set<String> loadedTitles,
-  Map<String, CachedSongEntry> cacheMap,
-) async {
-  try {
-    final filePath = file.path;
-    validPaths.add(filePath);
-    
-    // **KEY OPTIMIZATION: Check cache FIRST before calling stat()**
-    final cachedEntry = cacheMap[filePath];
-    
-    if (cachedEntry != null) {
-      // File is cached - load picture data separately (lazy)
-      Uint8List? picture;
-      try {
-        picture = await _songCache.getPicture(filePath);
-      } catch (e) {
-        _log("Error loading picture for ${filePath}: $e");
-        picture = null;
-      }
-      
-      // Create music entry with separately-loaded picture
-      final music = Music(
-        path: cachedEntry.path,
-        folderName: cachedEntry.folderName,
-        lastModified: DateTime.fromMillisecondsSinceEpoch(cachedEntry.lastModified),
-        title: cachedEntry.title,
-        album: cachedEntry.album,
-        artist: cachedEntry.artist,
-        duration: cachedEntry.duration,
-        picture: picture, // Loaded separately
-        year: cachedEntry.year,
-        genre: cachedEntry.genre,
-        size: cachedEntry.fileSize,
-        isFavorite: SongData.isFavorite(filePath),
-      );
-      
-      if (!loadedTitles.contains(music.title)) {
+  Future<bool> _processAudioFileFast(
+    File file,
+    Set<String> validPaths,
+    Set<String> loadedPaths,
+    Map<String, CachedSongEntry> cacheMap,
+  ) async {
+    try {
+      final filePath = file.path;
+      validPaths.add(filePath);
+
+      // Skip files already loaded (deduplicate by path, not title)
+      if (loadedPaths.contains(filePath)) return true;
+
+      // **KEY OPTIMIZATION: Check cache FIRST before calling stat()**
+      final cachedEntry = cacheMap[filePath];
+
+      if (cachedEntry != null) {
+        // File is cached - load picture data separately (lazy)
+        Uint8List? picture;
+        try {
+          picture = await _songCache.getPicture(filePath);
+        } catch (e) {
+          _log("Error loading picture for $filePath: $e");
+          picture = null;
+        }
+
+        // Create music entry with separately-loaded picture
+        final music = Music(
+          path: cachedEntry.path,
+          folderName: cachedEntry.folderName,
+          lastModified: DateTime.fromMillisecondsSinceEpoch(cachedEntry.lastModified),
+          title: cachedEntry.title,
+          album: cachedEntry.album,
+          artist: cachedEntry.artist,
+          duration: cachedEntry.duration,
+          picture: picture, // Loaded separately
+          year: cachedEntry.year,
+          genre: cachedEntry.genre,
+          size: cachedEntry.fileSize,
+          isFavorite: SongData.isFavorite(filePath),
+        );
+
         _allSongs.add(music);
-        loadedTitles.add(music.title);
+        loadedPaths.add(filePath);
+        return true; // Cache hit
       }
-      return true; // Cache hit
+
+      // Only call stat() if NOT in cache
+      final fileStat = await file.stat();
+
+      // Skip empty files
+      if (fileStat.size <= 0) return false;
+
+      // Process metadata and cache it (file was not cached)
+      final music = await _processMetadata(file, fileStat);
+
+      if (music != null) {
+        _allSongs.add(music);
+        loadedPaths.add(filePath);
+      }
+
+      return false; // Cache miss
+    } catch (e) {
+      _log('Error parsing file ${file.path}: $e');
+      return false;
     }
-    
-    // Only call stat() if NOT in cache
-    final fileStat = await file.stat();
-    
-    // Skip empty files
-    if (fileStat.size <= 0) return false;
-    
-    // Process metadata and cache it (file was not cached)
-    final music = await _processMetadata(file, fileStat);
-    
-    if (music != null && !loadedTitles.contains(music.title)) {
-      _allSongs.add(music);
-      loadedTitles.add(music.title);
-    }
-    
-    return false; // Cache miss
-  } catch (e) {
-    _log('Error parsing file ${file.path}: $e');
-    return false;
   }
-}
 
 
   Future<Music?> _processMetadata(File file, FileStat fileStat) async {
@@ -317,9 +316,9 @@ Future<bool> _processAudioFileFast(
       
       if (await testFile.exists()) {
         final Set<String> testValidPaths = {};
-        final Set<String> testLoadedTitles = {};
+        final Set<String> testLoadedPaths = {};
         final Map<String, CachedSongEntry> emptyCache = {};
-        await _processAudioFileFast(testFile, testValidPaths, testLoadedTitles, emptyCache);
+        await _processAudioFileFast(testFile, testValidPaths, testLoadedPaths, emptyCache);
         _log("Direct access test successful");
         return true;
       }

@@ -28,6 +28,7 @@ class SongData {
   }
 
   static bool isFavorite(String songPath) {
+    if (!_initialized) return false;
     final songData = _data[songPath] ?? {};
     return songData['favorite'] ?? false;
   }
@@ -41,6 +42,7 @@ class SongData {
   }
 
   static int getPlayCount(String songPath) {
+    if (!_initialized) return 0;
     final songData = _data[songPath] ?? {};
     return songData['playCount'] ?? 0;
   }
@@ -55,6 +57,7 @@ class SongData {
   }
 
   static List<String> getFavoriteSongs() {
+    if (!_initialized) return [];
     return _data.entries
         .where((entry) => entry.value['favorite'] == true)
         .map((entry) => entry.key)

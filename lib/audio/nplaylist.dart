@@ -147,9 +147,9 @@ class PlaylistManager {
         }
         
         // Validate image path
-        if (playlist['imagePath'] != null && 
-            playlist['imagePath'] is String && 
-            !File(playlist['imagePath']).existsSync()) {
+        if (playlist['imagePath'] != null &&
+            playlist['imagePath'] is String &&
+            !await File(playlist['imagePath'] as String).exists()) {
           playlist['imagePath'] = null;
         }
         
@@ -201,7 +201,7 @@ class PlaylistManager {
     } else {
       // Try to find an image with the playlist name in the _playlistArtDir
       try {
-        Directory dir = Directory(_playlistArtDir);
+        final dir = Directory(_playlistArtDir);
         if (dir.existsSync()) {
           List<FileSystemEntity> files = dir.listSync();
           for (var file in files) {

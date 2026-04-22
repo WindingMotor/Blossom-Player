@@ -1,2 +1,2 @@
-/home/isaac/Documents/Blossom-Player/android/app/.cxx/Debug/r3s5er85/x86/CMakeFiles/edit_cache.dir
-/home/isaac/Documents/Blossom-Player/android/app/.cxx/Debug/r3s5er85/x86/CMakeFiles/rebuild_cache.dir
+/home/isaac/CS_Documents/Blossom-Player/android/app/.cxx/Debug/r3s5er85/x86/CMakeFiles/edit_cache.dir
+/home/isaac/CS_Documents/Blossom-Player/android/app/.cxx/Debug/r3s5er85/x86/CMakeFiles/rebuild_cache.dir

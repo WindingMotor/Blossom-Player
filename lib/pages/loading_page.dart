@@ -8,8 +8,9 @@ import '../audio/nplayer.dart';
 class LoadingPage extends StatefulWidget {
   final Widget child;
   final ThemeData theme;
+   final VoidCallback? onLoaded; 
 
-  const LoadingPage({Key? key, required this.child, required this.theme})
+  const LoadingPage({Key? key, required this.child, required this.theme, this.onLoaded})
       : super(key: key);
 
   @override
@@ -165,6 +166,7 @@ class _LoadingPageState extends State<LoadingPage>
           setState(() {
             _isLoading = false; // Simply remove the overlay
           });
+          widget.onLoaded?.call(); 
         }
       });
     }

@@ -1,23 +1,26 @@
 /// Blossom Music Player - A modern cross-platform music player built with Flutter
 /// This is the main entry point of the application.
 
-import 'dart:async'; // Added for runZonedGuarded
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:blossom/audio/nplayer_extensions/nplayer_widget_desktop.dart';
 import 'package:blossom/custom/custom_appbar.dart';
+import 'package:blossom/dialog/nextcloud_startup_check.dart';
 import 'package:blossom/pages/social_page.dart';
 import 'package:blossom/pages/standby/standby_page.dart';
 import 'package:blossom/pages/welcome_page.dart';
 import 'package:blossom/tools/downloader.dart';
 import 'package:blossom/pages/loading_page.dart';
 import 'package:blossom/audio/nplaylist.dart';
+import 'package:blossom/tools/nextcloud_sync.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:blossom/pages/albums_page.dart';
 import 'package:blossom/pages/artists_page.dart';
 import 'package:blossom/pages/playlist_page.dart';
+import 'package:blossom/tools/sync_notification.dart';
 import 'package:blossom/tools/themes.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -37,21 +40,17 @@ import 'package:flutter_displaymode/flutter_displaymode.dart';
 Future<void> requestPermissions() async {
   if (Platform.isAndroid) {
     try {
-      // Get device info to check Android version
       final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
       final AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
       final int sdkVersion = androidInfo.version.sdkInt;
-      
-      if (sdkVersion >= 33) { // Android 13+
-        // Request granular media permissions for Android 13+
-        // Check if already granted first to avoid unnecessary requests
+
+      if (sdkVersion >= 33) {
         if (!await Permission.audio.isGranted) {
-             await Permission.audio.request();
+          await Permission.audio.request();
         }
       } else {
-        // For Android 12 and below, use storage permission
         if (!await Permission.storage.isGranted) {
-            await Permission.storage.request();
+          await Permission.storage.request();
         }
       }
     } catch (e) {
@@ -68,51 +67,51 @@ Future<void> requestPermissions() async {
 }
 
 /// Application entry point
-/// Initializes essential services and launches the app
 void main() {
-  // PROTECTIVE LAYER: Catch any error during startup to prevent crash-on-launch
   runZonedGuarded(() async {
-    // Ensure Flutter bindings are initialized first
+    
     WidgetsFlutterBinding.ensureInitialized();
+    try {
+      await SyncNotificationManager.instance.initialize();
+    } catch (e) {
+      debugPrint('[SyncNotification] init failed — notifications disabled: $e');
+    }
+
+
 
     try {
-      // Initialize FFI for sqflite on desktop platforms (Linux/Windows)
       if (!kIsWeb && (Platform.isLinux || Platform.isWindows)) {
         sqfliteFfiInit();
         databaseFactory = databaseFactoryFfi;
       }
-      
-      // Initialize metadata handling service safely
+
       try {
         MetadataGod.initialize();
       } catch (e) {
         print("MetadataGod init error (safe to ignore): $e");
       }
-      
-      // Initialize app settings
-      await Settings.init();
 
-      // Load friends list and initialize username
+      await Settings.init();
+      await NextcloudSync().initialize();
+      final notifier = SyncNotificationManager.instance;
+      await notifier.initialize();
+      await notifier.requestPermissionIfNeeded();
+      notifier.attachTo(NextcloudSync());
+
       await Settings.loadFriendsList();
       await Settings.initializeUsername();
 
-      // Load playlists
       try {
         await PlaylistManager.load();
       } catch (e) {
         print("Playlist load error: $e");
       }
 
-      // Desktop window configuration (Wrapped in try-catch specifically)
-      if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+      if (!kIsWeb &&
+          (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
         try {
           await windowManager.ensureInitialized();
-          
-          // FIX: Use slightly larger default size for Linux to help with scaling issues
-          // If the OS scaling is 200%, 800 logical pixels might be rendered as 400 physical if not handled right.
-          // Setting a generous default size helps ensure it's usable even if scaling is weird.
-          const initialSize = Size(1024, 768); 
-          
+          const initialSize = Size(1024, 768);
           WindowOptions windowOptions = const WindowOptions(
             size: initialSize,
             minimumSize: Size(400, 300),
@@ -121,39 +120,38 @@ void main() {
             skipTaskbar: false,
             titleBarStyle: TitleBarStyle.hidden,
           );
-          
           await windowManager.waitUntilReadyToShow(windowOptions);
           await windowManager.setResizable(true);
           await windowManager.show();
           await windowManager.focus();
         } catch (e) {
-          print('Error initializing window manager (safe to ignore on mobile): $e');
+          print('Error initializing window manager: $e');
         }
       }
 
-      // Request permissions safely after UI is ready
-      // We don't await this so the app launches immediately
       WidgetsBinding.instance.addPostFrameCallback((_) {
         requestPermissions();
       });
-
     } catch (e, stack) {
       print("CRITICAL INITIALIZATION ERROR: $e");
       print(stack);
-      // Even if init fails, we proceed to runApp so the user sees *something*
     }
 
     runApp(
-      ChangeNotifierProvider(
-        create: (context) => NPlayer(),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => NPlayer()),
+          // Expose the already-initialized singleton so every
+          // Consumer<NextcloudSync> in the widget tree can find it without a
+          // ProviderNotFoundException (library_page, nextcloud_page, etc.).
+          ChangeNotifierProvider.value(value: NextcloudSync()),
+        ],
         child: AudioServiceWidget(
           child: const MyApp(),
         ),
       ),
     );
   }, (error, stack) {
-    // GLOBAL ERROR CATCHER
-    // This prevents the app from "Force Closing" on unhandled errors
     print("GLOBAL UNCAUGHT ERROR: $error");
     print(stack);
   });
@@ -170,19 +168,16 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
-    // Use a safe fallback theme if Settings.appTheme isn't ready
     final theme = getThemeData(Settings.appTheme);
-    
     return MaterialApp(
       title: 'Blossom',
       theme: theme,
       debugShowCheckedModeBanner: false,
+      // LoadingPage is now inside MainStructure so onLoaded has access to the
+      // fully-mounted NPlayer context when it fires.
       home: Container(
         color: theme.scaffoldBackgroundColor,
-        child: LoadingPage(
-          child: const MainStructure(),
-          theme: theme,
-        ),
+        child: const MainStructure(),
       ),
     );
   }
@@ -208,22 +203,20 @@ class _MainStructureState extends State<MainStructure>
   void initState() {
     super.initState();
 
-    // Safely set refresh rate
     try {
       if (Platform.isAndroid || Platform.isIOS) {
         FlutterDisplayMode.setHighRefreshRate();
-      } 
+      }
     } catch (e) {
       print("Display mode error: $e");
     }
-    
+
     _pageController = PageController(initialPage: _currentIndex);
-    
-    // Safe access to Settings
+
     try {
       _showWelcomePage = !Settings.hasSeenWelcomePage;
     } catch (e) {
-      _showWelcomePage = true; // Default to true on error
+      _showWelcomePage = true;
     }
 
     _animationController = AnimationController(
@@ -232,16 +225,22 @@ class _MainStructureState extends State<MainStructure>
     );
   }
 
+  /// Triggered by LoadingPage once allSongs is confirmed stable.
+  void _onLibraryLoaded() {
+    if (!mounted) return;
+    final nplayer = Provider.of<NPlayer>(context, listen: false);
+    final snapshot = List<Music>.unmodifiable(nplayer.allSongs);
+    checkNextcloudOnStartup(context, localMusic: snapshot);
+  }
+
   void _onThemeChanged() {
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   bool _isLandscape(BuildContext context) {
     try {
       return MediaQuery.of(context).orientation == Orientation.landscape &&
-             (Platform.isAndroid || Platform.isIOS);
+          (Platform.isAndroid || Platform.isIOS);
     } catch (e) {
       return false;
     }
@@ -255,20 +254,15 @@ class _MainStructureState extends State<MainStructure>
   }
 
   void _onPageChanged(int index) {
-    if (mounted) {
-      setState(() => _currentIndex = index);
-    }
+    if (mounted) setState(() => _currentIndex = index);
   }
 
   void _dismissWelcomePage() {
-    setState(() {
-      _showWelcomePage = false;
-    });
-    // Save settings safely
+    setState(() => _showWelcomePage = false);
     try {
-        Settings.setHasSeenWelcomePage(true);
-    } catch(e) {
-        print("Error saving welcome page state: $e");
+      Settings.setHasSeenWelcomePage(true);
+    } catch (e) {
+      print("Error saving welcome page state: $e");
     }
   }
 
@@ -284,7 +278,8 @@ class _MainStructureState extends State<MainStructure>
       pages.add(const SocialPage());
     }
 
-    if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+    if (!kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
       pages.add(const Downloader());
     }
 
@@ -292,7 +287,6 @@ class _MainStructureState extends State<MainStructure>
   }
 
   String _getAppBarTitle() {
-    // Base pages: 0–3
     switch (_currentIndex) {
       case 0:
         return 'Song Library';
@@ -306,42 +300,34 @@ class _MainStructureState extends State<MainStructure>
 
     int idx = 4;
 
-    // Social (only if enabled)
     if (Settings.isPublicSharingEnabled) {
       if (_currentIndex == idx) return 'Social';
       idx++;
     }
 
-    // enableTesting: Server
     if (enableTesting) {
       if (_currentIndex == idx) return 'Stream';
       idx++;
     }
 
-    // Desktop downloader
-    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-    if (isDesktop && _currentIndex == idx) {
-      return 'Downloader';
-    }
+    final isDesktop = !kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    if (isDesktop && _currentIndex == idx) return 'Downloader';
 
     return 'Blossom';
   }
 
   double _getPlayerBottomOffset() {
     if (_showWelcomePage) return 10;
-    
-    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    final isDesktop = !kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    
-    if (isDesktop) {
-      return 80; 
-    } else {
-      return 80 + bottomPadding;
-    }
+    return isDesktop ? 80 : 80 + bottomPadding;
   }
 
   List<_ModernNavItem> _getNavItems() {
-    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    final isDesktop = !kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
     final items = <_ModernNavItem>[
       _ModernNavItem(
@@ -371,36 +357,30 @@ class _MainStructureState extends State<MainStructure>
     ];
 
     if (Settings.isPublicSharingEnabled) {
-      items.add(
-        _ModernNavItem(
-          icon: Icons.people_outline_rounded,
-          activeIcon: Icons.people_rounded,
-          label: 'Social',
-          index: items.length, 
-        ),
-      );
+      items.add(_ModernNavItem(
+        icon: Icons.people_outline_rounded,
+        activeIcon: Icons.people_rounded,
+        label: 'Social',
+        index: items.length,
+      ));
     }
 
     if (enableTesting) {
-      items.add(
-        _ModernNavItem(
-          icon: Icons.wifi_rounded,
-          activeIcon: Icons.wifi,
-          label: 'Server',
-          index: items.length,
-        ),
-      );
+      items.add(_ModernNavItem(
+        icon: Icons.wifi_rounded,
+        activeIcon: Icons.wifi,
+        label: 'Server',
+        index: items.length,
+      ));
     }
 
     if (isDesktop) {
-      items.add(
-        _ModernNavItem(
-          icon: Icons.download_rounded,
-          activeIcon: Icons.download,
-          label: 'Download',
-          index: items.length,
-        ),
-      );
+      items.add(_ModernNavItem(
+        icon: Icons.download_rounded,
+        activeIcon: Icons.download,
+        label: 'Download',
+        index: items.length,
+      ));
     }
 
     return items;
@@ -410,7 +390,8 @@ class _MainStructureState extends State<MainStructure>
     if (_showWelcomePage) return const SizedBox.shrink();
 
     final navItems = _getNavItems();
-    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    final isDesktop = !kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
     return Positioned(
       left: isDesktop ? 16 : 8,
@@ -422,17 +403,26 @@ class _MainStructureState extends State<MainStructure>
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
-              height: 50, 
+              height: 50,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                color: Theme.of(context)
+                    .colorScheme
+                    .surface
+                    .withOpacity(0.9),
                 borderRadius: BorderRadius.circular(isDesktop ? 16 : 20),
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outline
+                      .withOpacity(0.1),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .shadow
+                        .withOpacity(0.1),
                     blurRadius: 20,
                     offset: const Offset(0, -2),
                   ),
@@ -440,22 +430,22 @@ class _MainStructureState extends State<MainStructure>
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: navItems.map((item) => 
-                  _ModernNavButton(
-                    item: item,
-                    isActive: _currentIndex == item.index,
-                    onTap: () {
-                      if (mounted) {
-                        setState(() => _currentIndex = item.index);
-                        _pageController.jumpToPage(item.index);
-                        _animationController.forward().then((_) {
-                          _animationController.reverse();
-                        });
-                      }
-                    },
-                    isDesktop: isDesktop,
-                  ),
-                ).toList(),
+                children: navItems
+                    .map((item) => _ModernNavButton(
+                          item: item,
+                          isActive: _currentIndex == item.index,
+                          onTap: () {
+                            if (mounted) {
+                              setState(() => _currentIndex = item.index);
+                              _pageController.jumpToPage(item.index);
+                              _animationController.forward().then((_) {
+                                _animationController.reverse();
+                              });
+                            }
+                          },
+                          isDesktop: isDesktop,
+                        ))
+                    .toList(),
               ),
             ),
           ),
@@ -466,6 +456,7 @@ class _MainStructureState extends State<MainStructure>
 
   @override
   Widget build(BuildContext context) {
+    final theme = getThemeData(Settings.appTheme);
     final pages = _getPages();
 
     if (_currentIndex >= pages.length) {
@@ -473,74 +464,75 @@ class _MainStructureState extends State<MainStructure>
       _pageController.jumpToPage(0);
     }
 
-    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-    
+    final isDesktop = !kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
     if (_isLandscape(context)) {
       return const StandbyPage();
     }
 
-    return Scaffold(
-      appBar: !Platform.isIOS && !Platform.isAndroid
-          ? CustomAppBar(
-              titleWidget: Text(
-                _getAppBarTitle(),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+    return LoadingPage(
+      theme: theme,
+      onLoaded: _onLibraryLoaded,
+      child: Scaffold(
+        appBar: !Platform.isIOS && !Platform.isAndroid
+            ? CustomAppBar(
+                titleWidget: Text(
+                  _getAppBarTitle(),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              additionalActions: isDesktop ? [
-                IconButton(
-                  icon: const Icon(Icons.fullscreen),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const StandbyPage(),
-                      ),
-                    );
-                  },
-                  tooltip: 'Enter Standby Mode',
-                ),
-              ] : null,
-            )
-          : null,
-      extendBody: true,
-      body: Stack(
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            itemCount: pages.length,
-            itemBuilder: (context, index) {
-              // Safely handle index out of bounds
-              if (index >= pages.length) return const SizedBox.shrink();
-              
-              if (index == 0) {
-                return SongLibrary(onThemeChanged: _onThemeChanged);
-              }
-              return pages[index];
-            },
-            onPageChanged: _onPageChanged,
-            physics: const ClampingScrollPhysics(),
-          ),
-          if (_showWelcomePage)
-            WelcomePage(
-              onDismiss: _dismissWelcomePage,
+                additionalActions: isDesktop
+                    ? [
+                        IconButton(
+                          icon: const Icon(Icons.fullscreen),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const StandbyPage(),
+                              ),
+                            );
+                          },
+                          tooltip: 'Enter Standby Mode',
+                        ),
+                      ]
+                    : null,
+              )
+            : null,
+        extendBody: true,
+        body: Stack(
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              itemCount: pages.length,
+              itemBuilder: (context, index) {
+                if (index >= pages.length) return const SizedBox.shrink();
+                if (index == 0) {
+                  return SongLibrary(onThemeChanged: _onThemeChanged);
+                }
+                return pages[index];
+              },
+              onPageChanged: _onPageChanged,
+              physics: const ClampingScrollPhysics(),
             ),
-          // Player widget
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: _getPlayerBottomOffset(),
-            child: _isLandscape(context)
-                ? const SizedBox.shrink()
-                : isDesktop
-                    ? const NPlayerWidgetDesktop()
-                    : const NPlayerWidget(),
-          ),
-          // Bottom navigation bar
-          _buildModernBottomNavBar(),
-          const SleepTimerCountdown(),
-        ],
+            if (_showWelcomePage)
+              WelcomePage(onDismiss: _dismissWelcomePage),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: _getPlayerBottomOffset(),
+              child: _isLandscape(context)
+                  ? const SizedBox.shrink()
+                  : isDesktop
+                      ? const NPlayerWidgetDesktop()
+                      : const NPlayerWidget(),
+            ),
+            _buildModernBottomNavBar(),
+            const SleepTimerCountdown(),
+          ],
+        ),
       ),
     );
   }
@@ -591,10 +583,9 @@ class _ModernNavButtonState extends State<_ModernNavButton>
       duration: const Duration(milliseconds: 150),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.95,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -623,30 +614,41 @@ class _ModernNavButtonState extends State<_ModernNavButton>
         child: InkWell(
           onTap: widget.onTap,
           borderRadius: BorderRadius.circular(12),
-          splashColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-          highlightColor: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+          splashColor:
+              Theme.of(context).colorScheme.primary.withOpacity(0.1),
+          highlightColor:
+              Theme.of(context).colorScheme.primary.withOpacity(0.05),
           child: AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {
               return Transform.scale(
                 scale: _scaleAnimation.value,
                 child: SizedBox(
-                  height: 50, 
+                  height: 50,
                   child: Center(
                     child: Container(
-                      padding: EdgeInsets.all(widget.isActive ? 8 : 6),
+                      padding:
+                          EdgeInsets.all(widget.isActive ? 8 : 6),
                       decoration: BoxDecoration(
                         color: widget.isActive
-                            ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                            ? Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.15)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
-                        widget.isActive ? widget.item.activeIcon : widget.item.icon,
+                        widget.isActive
+                            ? widget.item.activeIcon
+                            : widget.item.icon,
                         size: widget.isDesktop ? 18 : 22,
                         color: widget.isActive
                             ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                            : Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant
+                                .withOpacity(0.6),
                       ),
                     ),
                   ),
