@@ -36,6 +36,12 @@ class SettingsKeys {
   static const String albumSortAscending = 'albumSortAscending';
   static const String albumOrganizeByFolder = 'albumOrganizeByFolder';
   
+  // Scroll position keys
+  static const String libraryScrollPosition = 'libraryScrollPosition';
+  static const String artistsScrollPosition = 'artistsScrollPosition';
+  static const String albumsScrollPosition = 'albumsScrollPosition';
+  static const String playlistScrollPosition = 'playlistScrollPosition';
+
   // UI related keys
   static const String hasSeenWelcomePage = 'hasSeenWelcomePage';
   
@@ -44,6 +50,12 @@ class SettingsKeys {
   
   // New debug key
   static const String debugMode = 'debugMode';
+
+  // Audio focus / interruption keys
+  static const String audioDuckBehavior = 'audioDuckBehavior';
+  static const String duckVolume = 'duckVolume';
+  static const String pauseOnUnplug = 'pauseOnUnplug';
+  static const String autoResumeAfterInterruption = 'autoResumeAfterInterruption';
 }
 
 /// Manages application settings and preferences
@@ -346,6 +358,52 @@ static Future<void> initializeUsername() async {
     await _prefs.setBool(SettingsKeys.albumSortAscending, ascending);
     await _prefs.setBool(SettingsKeys.albumOrganizeByFolder, organizeByFolder);
   }
+
+  ///***************************************************************************
+  /// Scroll Position Settings
+  ///***************************************************************************
+
+  static double get libraryScrollPosition =>
+      _prefs.getDouble(SettingsKeys.libraryScrollPosition) ?? 0.0;
+  static Future<void> setLibraryScrollPosition(double pos) =>
+      _prefs.setDouble(SettingsKeys.libraryScrollPosition, pos);
+
+  static double get artistsScrollPosition =>
+      _prefs.getDouble(SettingsKeys.artistsScrollPosition) ?? 0.0;
+  static Future<void> setArtistsScrollPosition(double pos) =>
+      _prefs.setDouble(SettingsKeys.artistsScrollPosition, pos);
+
+  static double get albumsScrollPosition =>
+      _prefs.getDouble(SettingsKeys.albumsScrollPosition) ?? 0.0;
+  static Future<void> setAlbumsScrollPosition(double pos) =>
+      _prefs.setDouble(SettingsKeys.albumsScrollPosition, pos);
+
+  static double get playlistScrollPosition =>
+      _prefs.getDouble(SettingsKeys.playlistScrollPosition) ?? 0.0;
+  static Future<void> setPlaylistScrollPosition(double pos) =>
+      _prefs.setDouble(SettingsKeys.playlistScrollPosition, pos);
+
+  // Audio focus / interruption settings
+  // Values: 'duck', 'pause', 'ignore'
+  static String get audioDuckBehavior =>
+      _prefs.getString(SettingsKeys.audioDuckBehavior) ?? 'duck';
+  static Future<void> setAudioDuckBehavior(String behavior) =>
+      _prefs.setString(SettingsKeys.audioDuckBehavior, behavior);
+
+  static double get duckVolume =>
+      _prefs.getDouble(SettingsKeys.duckVolume) ?? 0.5;
+  static Future<void> setDuckVolume(double vol) =>
+      _prefs.setDouble(SettingsKeys.duckVolume, vol);
+
+  static bool get pauseOnUnplug =>
+      _prefs.getBool(SettingsKeys.pauseOnUnplug) ?? true;
+  static Future<void> setPauseOnUnplug(bool value) =>
+      _prefs.setBool(SettingsKeys.pauseOnUnplug, value);
+
+  static bool get autoResumeAfterInterruption =>
+      _prefs.getBool(SettingsKeys.autoResumeAfterInterruption) ?? true;
+  static Future<void> setAutoResumeAfterInterruption(bool value) =>
+      _prefs.setBool(SettingsKeys.autoResumeAfterInterruption, value);
 
   ///***************************************************************************
   /// Custom Music Directory Settings

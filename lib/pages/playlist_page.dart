@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:blossom/custom/search_bar.dart';
+import 'package:blossom/tools/settings.dart';
 import 'package:blossom/tools/ui_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,9 +18,12 @@ class PlaylistPage extends StatefulWidget {
   _PlaylistPageState createState() => _PlaylistPageState();
 }
 
-class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMixin {
+class _PlaylistPageState extends State<PlaylistPage>
+    with TickerProviderStateMixin {
   bool _isMounted = false;
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  Timer? _saveDebounce;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -26,22 +31,35 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
   void initState() {
     super.initState();
     _isMounted = true;
-    
-    // Initialize animations using helper
+
     _animationController = UIHelpers.createFadeAnimationController(this);
     _fadeAnimation = UIHelpers.createFadeAnimation(_animationController);
-    
+    _scrollController.addListener(_onScroll);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _animationController.forward();
+        final saved = Settings.playlistScrollPosition;
+        if (saved > 0 && _scrollController.hasClients) {
+          _scrollController.jumpTo(saved);
+        }
       }
+    });
+  }
+
+  void _onScroll() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 400), () {
+      Settings.setPlaylistScrollPosition(_scrollController.offset);
     });
   }
 
   @override
   void dispose() {
     _isMounted = false;
+    _saveDebounce?.cancel();
     _searchController.dispose();
+    _scrollController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -85,7 +103,10 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
                   // Search bar with add playlist button
                   OptimizedSearchBar(
                     searchController: _searchController,
-                    onSearchChanged: (value) => _safeSetState(() {}),
+                    onSearchChanged: (value) {
+                      if (value.length == 1) _scrollController.jumpTo(0);
+                      _safeSetState(() {});
+                    },
                     hintText: 'Search playlists...',
                     showSortButton: false,
                     showShuffleButton: false,
@@ -136,6 +157,7 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
 
   Widget _buildPlaylistGrid(NPlayer player, List<String> playlists) {
     return GridView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,

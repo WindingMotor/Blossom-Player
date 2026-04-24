@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:blossom/custom/search_bar.dart';
 import 'package:blossom/song_list/song_list_tile.dart';
 import 'package:blossom/tools/settings.dart';
@@ -14,13 +15,15 @@ class SongAlbums extends StatefulWidget {
   _SongAlbumsState createState() => _SongAlbumsState();
 }
 
-class _SongAlbumsState extends State<SongAlbums> with TickerProviderStateMixin {
+class _SongAlbumsState extends State<SongAlbums>
+    with TickerProviderStateMixin {
   late String _sortBy;
   late bool _sortAscending;
   late bool _organizeByFolder;
   final TextEditingController _searchController = TextEditingController();
   List<AlbumInfo> _albumList = [];
   final ScrollController _scrollController = ScrollController();
+  Timer? _saveDebounce;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   final GlobalKey _sortButtonKey = GlobalKey();
@@ -38,16 +41,29 @@ class _SongAlbumsState extends State<SongAlbums> with TickerProviderStateMixin {
     );
     
     _loadSortPreferences();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeAlbumList();
       if (mounted) {
         _animationController.forward();
+        final saved = Settings.albumsScrollPosition;
+        if (saved > 0 && _scrollController.hasClients) {
+          _scrollController.jumpTo(saved);
+        }
       }
+    });
+  }
+
+  void _onScroll() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 400), () {
+      Settings.setAlbumsScrollPosition(_scrollController.offset);
     });
   }
 
   @override
   void dispose() {
+    _saveDebounce?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
     _animationController.dispose();
@@ -178,9 +194,11 @@ class _SongAlbumsState extends State<SongAlbums> with TickerProviderStateMixin {
               OptimizedSearchBar(
                 searchController: _searchController,
                 onSearchChanged: (value) {
-                  if (mounted) {
-                    setState(() {});
+                  if (value.length == 1) {
+                    _scrollController.jumpTo(0);
+                    Settings.setAlbumsScrollPosition(0);
                   }
+                  if (mounted) setState(() {});
                 },
                 hintText: 'Search albums...',
                 trailingWidget: UIHelpers.buildSortButton(
@@ -357,8 +375,10 @@ class AlbumInfo {
   final String name;
   final List<Music> songs;
   final Music firstSong;
+  final String yearRange;
 
-  AlbumInfo({required this.name, required this.songs, required this.firstSong});
+  AlbumInfo({required this.name, required this.songs, required this.firstSong})
+      : yearRange = UIHelpers.getYearRange(songs, (s) => (s as Music).year);
 }
 
 class _AlbumCard extends StatelessWidget {
@@ -375,11 +395,6 @@ class _AlbumCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final yearRange = UIHelpers.getYearRange(
-      album.songs,
-      (song) => song.year,
-    );
-
     return Card(
       elevation: 0,
       color: Theme.of(context).colorScheme.surface,
@@ -458,7 +473,7 @@ class _AlbumCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        yearRange,
+                        album.yearRange,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 11,
@@ -490,29 +505,22 @@ class _AlbumListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktopPlatform = UIHelpers.isDesktopPlatform(context);
-    final yearRange = UIHelpers.getYearRange(
-      album.songs,
-      (song) => song.year,
-    );
+    final isDesktop = UIHelpers.isDesktopPlatform(context);
+    final tileSize = isDesktop ? 36.0 : 48.0;
 
     return Card(
       color: Theme.of(context).cardColor,
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: ListTile(
-        dense: isDesktopPlatform,
-        visualDensity: isDesktopPlatform 
-            ? VisualDensity.compact 
-            : VisualDensity.standard,
+        dense: isDesktop,
+        visualDensity: isDesktop ? VisualDensity.compact : VisualDensity.standard,
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: SizedBox(
-            width: isDesktopPlatform ? 36 : 48,
-            height: isDesktopPlatform ? 36 : 48,
+            width: tileSize,
+            height: tileSize,
             child: album.firstSong.picture != null
                 ? Image(
                     image: AlbumArtCache.of(album.firstSong.path, album.firstSong.picture!),
@@ -524,17 +532,14 @@ class _AlbumListTile extends StatelessWidget {
                   ),
           ),
         ),
-        title: Text(
-          album.name,
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: Text(album.name, overflow: TextOverflow.ellipsis),
         subtitle: Text(
           '${album.songs.length} songs • ${organizeByFolder ? 'Folder' : album.firstSong.artist}',
           style: const TextStyle(fontSize: 12, color: Colors.grey),
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Text(
-          yearRange,
+          album.yearRange,
           style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
         onTap: onTap,

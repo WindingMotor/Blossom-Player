@@ -84,42 +84,59 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
       }
 
       _subscriptions.add(_audioSession.interruptionEventStream.listen((event) async {
-  try {
-    print('AudioHandler: Audio interruption - begin: ${event.begin}, type: ${event.type}');
-    
-    if (event.begin) {
-      if (Platform.isAndroid && event.type == AudioInterruptionType.duck) {
-        await _player.setVolume(0.2);
-      } else {
-        _hasAudioFocus = false;
-        await _nPlayer.pauseSong(isInterruption: true);
-      }
-    } else {
-      // Interruption ended
-      if (Platform.isAndroid && event.type == AudioInterruptionType.duck) {
-        await _player.setVolume(Settings.volume);
-      } else if (_nPlayer.isPausedByInterruption) {
-        print('AudioHandler: Trying to resume after interruption');
-        await Future.delayed(const Duration(milliseconds: 1000));
-        
-        // Try to regain focus
-        final focusRequest = await _audioSession.setActive(true);
-        if (focusRequest) {
-          _hasAudioFocus = true;
-          await _nPlayer.resumeSong();
-          print('AudioHandler: Successfully resumed after interruption');
-        } else {
-          print('AudioHandler: Could not regain focus after interruption');
+        try {
+          print('AudioHandler: Audio interruption - begin: ${event.begin}, type: ${event.type}');
+
+          if (event.begin) {
+            if (Platform.isAndroid && event.type == AudioInterruptionType.duck) {
+              final behavior = Settings.audioDuckBehavior;
+              if (behavior == 'duck') {
+                await _player.setVolume(Settings.duckVolume);
+              } else if (behavior == 'pause') {
+                await _nPlayer.pauseSong(isInterruption: true);
+              }
+              // 'ignore' → do nothing
+            } else {
+              _hasAudioFocus = false;
+              await _nPlayer.pauseSong(isInterruption: true);
+            }
+          } else {
+            if (Platform.isAndroid && event.type == AudioInterruptionType.duck) {
+              // Restore volume only if we ducked it
+              if (Settings.audioDuckBehavior == 'duck') {
+                await _player.setVolume(Settings.volume);
+              } else if (Settings.audioDuckBehavior == 'pause' && _nPlayer.isPausedByInterruption) {
+                if (Settings.autoResumeAfterInterruption) {
+                  await Future.delayed(const Duration(milliseconds: 500));
+                  final focusRequest = await _audioSession.setActive(true);
+                  if (focusRequest) {
+                    _hasAudioFocus = true;
+                    await _nPlayer.resumeSong();
+                  }
+                }
+              }
+            } else if (_nPlayer.isPausedByInterruption) {
+              if (Settings.autoResumeAfterInterruption) {
+                print('AudioHandler: Trying to resume after interruption');
+                await Future.delayed(const Duration(milliseconds: 1000));
+                final focusRequest = await _audioSession.setActive(true);
+                if (focusRequest) {
+                  _hasAudioFocus = true;
+                  await _nPlayer.resumeSong();
+                  print('AudioHandler: Successfully resumed after interruption');
+                } else {
+                  print('AudioHandler: Could not regain focus after interruption');
+                }
+              }
+            }
+          }
+        } catch (e) {
+          print('AudioHandler: Error handling interruption: $e');
         }
-      }
-    }
-  } catch (e) {
-    print('AudioHandler: Error handling interruption: $e');
-  }
       }));
 
       _subscriptions.add(_audioSession.becomingNoisyEventStream.listen((_) {
-        _nPlayer.pauseSong();
+        if (Settings.pauseOnUnplug) _nPlayer.pauseSong();
       }));
 
       // Enhanced state monitoring with position tracking

@@ -182,8 +182,13 @@ class _SongLibraryState extends State<SongLibrary>
                 children: [
                   OptimizedSearchBar(
                     searchController: _searchController,
-                    onSearchChanged: (value) =>
-                        player.setSearchQuery(value),
+                    onSearchChanged: (value) {
+                      if (value.length == 1) {
+                        _songListBuilderKey.currentState?.scrollToPosition(0);
+                        Settings.setLibraryScrollPosition(0);
+                      }
+                      player.setSearchQuery(value);
+                    },
                     trailingWidget: _buildTrailingButtons(),
                   ),
                   Expanded(

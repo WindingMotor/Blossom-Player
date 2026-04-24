@@ -533,6 +533,56 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
                   ],
                   context),
 
+              _buildSection(
+                'Audio Focus',
+                [
+                  _buildInfoTile(
+                    'Navigation App Behavior',
+                    'Controls what happens when GPS navigation (Waze, Maps) speaks.',
+                    context,
+                  ),
+                  _buildDropdownTile(
+                    'When Navigation Speaks',
+                    Settings.audioDuckBehavior,
+                    ['duck', 'pause', 'ignore'],
+                    (String value) async {
+                      await Settings.setAudioDuckBehavior(value);
+                      setState(() {});
+                    },
+                    context,
+                  ),
+                  if (Settings.audioDuckBehavior == 'duck')
+                    _buildSliderTile(
+                      'Duck Volume (${(Settings.duckVolume * 100).round()}%)',
+                      Settings.duckVolume,
+                      (double value) async {
+                        await Settings.setDuckVolume(value);
+                        setState(() {});
+                      },
+                      context,
+                    ),
+                  _buildSwitchTile(
+                    'Pause When Headphones Unplugged',
+                    Settings.pauseOnUnplug,
+                    (bool value) async {
+                      await Settings.setPauseOnUnplug(value);
+                      setState(() {});
+                    },
+                    context,
+                  ),
+                  _buildSwitchTile(
+                    'Auto-resume After Interruption',
+                    Settings.autoResumeAfterInterruption,
+                    (bool value) async {
+                      await Settings.setAutoResumeAfterInterruption(value);
+                      setState(() {});
+                    },
+                    context,
+                  ),
+                ],
+                context,
+              ),
+
               _buildPublicSharingSection(context, player),
               _buildSection(
                 'Appearance',

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:blossom/sheets/playlist_sheet.dart';
 import 'package:blossom/song_list/song_list_tile_wrapper.dart';
+import 'package:blossom/tools/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
@@ -30,16 +31,29 @@ class SongListBuilderState extends State<SongListBuilder> {
   int? lastSelectedIndex;
   ScrollController _scrollController = ScrollController();
   Timer? _scrollDebounce;
+  Timer? _saveDebounce;
   double _scrollVelocity = 0.0;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController(
+      initialScrollOffset: Settings.libraryScrollPosition,
+    );
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 400), () {
+      Settings.setLibraryScrollPosition(_scrollController.offset);
+    });
   }
 
   @override
   void dispose() {
     _scrollDebounce?.cancel();
+    _saveDebounce?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
