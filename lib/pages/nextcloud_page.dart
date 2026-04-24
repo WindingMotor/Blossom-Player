@@ -223,7 +223,7 @@ class _NextcloudPageState extends State<NextcloudPage> {
                     'Path inside Nextcloud where your music lives.\n'
                     'Files sync to/from your primary Blossom music directory.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.onSurface.withOpacity(0.5),
+                      color: colors.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                 ],
@@ -312,14 +312,14 @@ class _StatusCard extends StatelessWidget {
       SyncStatus.checking => (Icons.search,          colors.primary),
       SyncStatus.success  => (Icons.check_circle,    Colors.green),
       SyncStatus.error    => (Icons.error_outline,   colors.error),
-      SyncStatus.idle     => (Icons.cloud_outlined,  colors.onSurface.withOpacity(0.4)),
+      SyncStatus.idle     => (Icons.cloud_outlined,  colors.onSurface.withValues(alpha: 0.4)),
     };
 
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colors.outline.withOpacity(0.2)),
+        side: BorderSide(color: colors.outline.withValues(alpha: 0.2)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -351,7 +351,7 @@ if (nc.progress != null) ...[
   // Byte-level progress bar (more accurate than file count)
   LinearProgressIndicator(
     value:           nc.progress!.bytesFraction,
-    backgroundColor: colors.outline.withOpacity(0.15),
+    backgroundColor: colors.outline.withValues(alpha: 0.15),
     valueColor:      AlwaysStoppedAnimation(colors.secondary),
     borderRadius:    BorderRadius.circular(4),
   ),
@@ -372,7 +372,7 @@ if (nc.progress != null) ...[
       Text(
         '${nc.progress!.completed}/${nc.progress!.total}',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: colors.onSurface.withOpacity(0.5),
+          color: colors.onSurface.withValues(alpha: 0.5),
         ),
       ),
     ],
@@ -385,12 +385,12 @@ if (nc.progress != null) ...[
       Row(
         children: [
           Icon(Icons.speed, size: 12,
-              color: colors.onSurface.withOpacity(0.4)),
+              color: colors.onSurface.withValues(alpha: 0.4)),
           const SizedBox(width: 4),
           Text(
             nc.progress!.speedLabel,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colors.onSurface.withOpacity(0.5),
+              color: colors.onSurface.withValues(alpha: 0.5),
               fontFeatures: [const FontFeature.tabularFigures()],
             ),
           ),
@@ -400,12 +400,12 @@ if (nc.progress != null) ...[
       Row(
         children: [
           Icon(Icons.timer_outlined, size: 12,
-              color: colors.onSurface.withOpacity(0.4)),
+              color: colors.onSurface.withValues(alpha: 0.4)),
           const SizedBox(width: 4),
           Text(
             nc.progress!.etaLabel,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colors.onSurface.withOpacity(0.5),
+              color: colors.onSurface.withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -418,7 +418,7 @@ if (nc.progress != null) ...[
               Text(
                 'Last synced: ${_formatTime(nc.lastSyncTime!)}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.onSurface.withOpacity(0.5),
+                  color: colors.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             ],
@@ -459,7 +459,7 @@ class _ManualSyncButton extends StatelessWidget {
         onPressed: busy ? null : onSync,
         style: OutlinedButton.styleFrom(
           foregroundColor: colors.secondary,
-          side:  BorderSide(color: colors.secondary.withOpacity(0.5)),
+          side:  BorderSide(color: colors.secondary.withValues(alpha: 0.5)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(vertical: 12),
         ),
@@ -522,7 +522,7 @@ class _InfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     elevation: 0,
-    color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+    color: Theme.of(context).colorScheme.surfaceVariant.withValues(alpha: 0.4),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     child: Padding(
       padding: const EdgeInsets.all(14),

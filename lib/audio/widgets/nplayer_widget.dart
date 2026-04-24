@@ -91,7 +91,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
           borderRadius: BorderRadius.circular(radius),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: size * 0.16,
               offset: Offset(0, size * 0.08),
             ),
@@ -120,7 +120,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                 color: Colors.grey[800],
                 child: Icon(
                   Icons.music_note,
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                   size: size * 0.4,
                 ),
               );
@@ -172,7 +172,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
         Text(
           song.artist,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.75),
+            color: Colors.white.withValues(alpha: 0.75),
             fontSize: 13,
             shadows: const [
               Shadow(
@@ -205,10 +205,10 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(size / 2),
             color: isPrimary 
-                ? Colors.white.withOpacity(0.2) 
+                ? Colors.white.withValues(alpha: 0.2) 
                 : Colors.transparent,
             border: isPrimary 
-                ? Border.all(color: Colors.white.withOpacity(0.3), width: 1)
+                ? Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1)
                 : null,
           ),
           child: Icon(
@@ -323,6 +323,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
+      useSafeArea: true,
                   backgroundColor: Colors.transparent,
                   builder: (context) => const PlayingSongsSheet(),
                 );
@@ -348,12 +349,12 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             activeTrackColor: Colors.white,
-            inactiveTrackColor: Colors.white.withOpacity(0.3),
+            inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
             thumbColor: Colors.white,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
             trackHeight: 3,
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-            overlayColor: Colors.white.withOpacity(0.1),
+            overlayColor: Colors.white.withValues(alpha: 0.1),
           ),
           child: Slider(
             value: value,
@@ -376,7 +377,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
               Text(
                 Utils.formatDuration(player.currentPosition.inSeconds),
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -384,7 +385,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
               Text(
                 Utils.formatDuration(player.duration.inSeconds),
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -407,7 +408,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
             blurColor: Colors.black,
             colorOpacity: 0.5,
             overlay: Container(
-              color: Theme.of(context).colorScheme.surface.withOpacity(0.3),
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.3),
             ),
             child: Image(
               image: _getImageProvider(player),
@@ -530,6 +531,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
+      useSafeArea: true,
         backgroundColor: Colors.transparent,
         builder: (context) => PlaylistSheet(
           selectedSongs: {player.getCurrentSong()!},
@@ -546,6 +548,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
+      useSafeArea: true,
         backgroundColor: Colors.transparent,
         builder: (context) => const SleepTimerSheet(),
       );
@@ -554,6 +557,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
+      useSafeArea: true,
         backgroundColor: Colors.transparent,
         builder: (context) => MetadataSheet(
           song: player.getCurrentSong()!,
@@ -600,6 +604,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
+      useSafeArea: true,
                       backgroundColor: Colors.transparent,
                       builder: (context) => const PlayingSongsSheet(),
                     );
@@ -656,7 +661,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                         borderRadius: BorderRadius.circular(16.0),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
+                            color: Colors.black.withValues(alpha: 0.2),
                             blurRadius: 10,
                             offset: const Offset(0, 5),
                           ),
@@ -711,7 +716,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                                         padding: const EdgeInsets.all(16.0),
                                         child: Column(
                                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisSize: MainAxisSize.max,
                                           children: [
                                             // Album art with original styling
                                             Flexible(

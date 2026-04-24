@@ -282,33 +282,38 @@ extension NPlayerPublic on NPlayer {
   /// Toggle public sharing on/off
   Future<void> togglePublicSharing(bool enabled) async {
     print('[NPlayerPublic] togglePublicSharing called: $enabled');
-    
+
     await Settings.setPublicSharingEnabled(enabled);
     print('[NPlayerPublic] Setting saved: ${Settings.isPublicSharingEnabled}');
-    
-    if (enabled && _isPlaying) {
-      print('[NPlayerPublic] Sharing enabled and playing, updating status...');
-      await updatePublicStatus();
+
+    if (enabled) {
+      _startHeartbeatTimer();
+      if (_isPlaying) {
+        print('[NPlayerPublic] Sharing enabled and playing, updating status...');
+        await updatePublicStatus();
+      }
+    } else {
+      _heartbeatTimer?.cancel();
+      _heartbeatTimer = null;
     }
-    
+
     print('[NPlayerPublic] Public sharing ${enabled ? 'ENABLED' : 'DISABLED'}');
-    notifyListeners();
+    _internalNotifyListeners();
   }
-  
+
   /// Set public username
   Future<void> setPublicUsername(String username) async {
     print('[NPlayerPublic] setPublicUsername called: $username');
-    
+
     await Settings.setPublicUsername(username);
     print('[NPlayerPublic] Username saved: ${Settings.publicUsername}');
-    
-    // Update server if currently sharing
+
     if (Settings.isPublicSharingEnabled && _isPlaying) {
       print('[NPlayerPublic] Updating server with new username...');
       await updatePublicStatus();
     }
-    
-    notifyListeners();
+
+    _internalNotifyListeners();
   }
   
   /// Get shareable UUID for friends

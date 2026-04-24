@@ -80,7 +80,7 @@ class _HomePageState extends State<HomePage>
           ),
           // Overlay to make content more readable
           Container(
-            color: Colors.black.withOpacity(0.6),
+            color: Colors.black.withValues(alpha: 0.6),
           ),
           // Main content
           Center(

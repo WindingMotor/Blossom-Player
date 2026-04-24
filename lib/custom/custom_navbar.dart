@@ -35,7 +35,7 @@ class FloatingBottomNavigationBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(isDesktop ? 35 : 30),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
@@ -56,7 +56,7 @@ class FloatingBottomNavigationBar extends StatelessWidget {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                     child: Container(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withValues(alpha: 0.5),
                     ),
                   ),
                 ),

@@ -31,6 +31,8 @@ Future<void> checkNextcloudOnStartup(
   await showModalBottomSheet(
     context:       context,
     isDismissible: true,
+    isScrollControlled: true,
+    useSafeArea: true,
     builder:       (ctx) => _SyncPromptSheet(diff: diff),
   );
 }
@@ -98,7 +100,7 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                     Text(
                       '${diff.totalChanges} file(s) out of sync',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.onSurface.withOpacity(0.55),
+                        color: colors.onSurface.withValues(alpha: 0.55),
                       ),
                     ),
                   ],
@@ -139,7 +141,7 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                       // Byte-level progress bar
                       LinearProgressIndicator(
                         value: progress?.bytesFraction,
-                        backgroundColor: colors.outline.withOpacity(0.15),
+                        backgroundColor: colors.outline.withValues(alpha: 0.15),
                         valueColor: AlwaysStoppedAnimation(colors.secondary),
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -162,7 +164,7 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                                   .textTheme
                                   .bodySmall
                                   ?.copyWith(
-                                    color: colors.onSurface.withOpacity(0.5),
+                                    color: colors.onSurface.withValues(alpha: 0.5),
                                   ),
                             ),
                         ],
@@ -177,7 +179,7 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                               children: [
                                 Icon(Icons.speed,
                                     size:  12,
-                                    color: colors.onSurface.withOpacity(0.4)),
+                                    color: colors.onSurface.withValues(alpha: 0.4)),
                                 const SizedBox(width: 4),
                                 Text(
                                   progress.speedLabel,
@@ -185,7 +187,7 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                                       .textTheme
                                       .bodySmall
                                       ?.copyWith(
-                                        color: colors.onSurface.withOpacity(0.5),
+                                        color: colors.onSurface.withValues(alpha: 0.5),
                                       ),
                                 ),
                               ],
@@ -194,7 +196,7 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                               children: [
                                 Icon(Icons.timer_outlined,
                                     size:  12,
-                                    color: colors.onSurface.withOpacity(0.4)),
+                                    color: colors.onSurface.withValues(alpha: 0.4)),
                                 const SizedBox(width: 4),
                                 Text(
                                   progress.etaLabel,
@@ -202,7 +204,7 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                                       .textTheme
                                       .bodySmall
                                       ?.copyWith(
-                                        color: colors.onSurface.withOpacity(0.5),
+                                        color: colors.onSurface.withValues(alpha: 0.5),
                                       ),
                                 ),
                               ],

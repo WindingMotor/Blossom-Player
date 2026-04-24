@@ -78,7 +78,7 @@ class _StandbyPageState extends State<StandbyPage>
           value: value,
           activeColor: Theme.of(context).colorScheme.secondary,
           inactiveColor:
-              Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+              Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
           min: 0,
           max: max,
           onChanged: (value) {
@@ -132,7 +132,7 @@ class _StandbyPageState extends State<StandbyPage>
                       color: Theme.of(context)
                           .colorScheme
                           .surface
-                          .withOpacity(0.3),
+                          .withValues(alpha: 0.3),
                     ),
                     child: Image.memory(
                       currentSong!.picture!,
@@ -261,7 +261,7 @@ class _StandbyPageState extends State<StandbyPage>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -313,7 +313,7 @@ class _StandbyPageState extends State<StandbyPage>
                 currentSong.artist,
                 style: TextStyle(
                   fontSize: isLandscape ? 24 : 18,
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -390,14 +390,14 @@ class _StandbyPageState extends State<StandbyPage>
           Icon(
             Icons.music_note_rounded,
             size: 64,
-            color: Theme.of(context).colorScheme.secondary.withOpacity(0.5),
+            color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
             'No song playing',
             style: TextStyle(
               fontSize: 24,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 8),
@@ -405,7 +405,7 @@ class _StandbyPageState extends State<StandbyPage>
             'Play a song to see it here',
             style: TextStyle(
               fontSize: 16,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -421,7 +421,7 @@ class _StandbyPageState extends State<StandbyPage>
           end: Alignment.bottomCenter,
           colors: [
             Theme.of(context).scaffoldBackgroundColor,
-            Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
+            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
           ],
         ),
         borderRadius: const BorderRadius.only(
@@ -430,7 +430,7 @@ class _StandbyPageState extends State<StandbyPage>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 10,
             spreadRadius: 5,
           ),

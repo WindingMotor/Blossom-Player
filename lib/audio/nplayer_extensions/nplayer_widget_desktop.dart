@@ -69,7 +69,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
     super.didChangeDependencies();
     
     _shuffleColorAnimation = ColorTween(
-      begin: Theme.of(context).colorScheme.secondary.withOpacity(0.7),
+      begin: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.7),
       end: Theme.of(context).colorScheme.secondary,
     ).chain(CurveTween(curve: Curves.easeOut)).animate(_shuffleController);
 
@@ -122,7 +122,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                 min: 0.0,
                 max: 1.0,
                 activeColor: Theme.of(context).colorScheme.secondary,
-                inactiveColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                inactiveColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
                 onChanged: (newVolume) {
                   if (newVolume > 0) {
                     _lastVolume = newVolume;
@@ -204,6 +204,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
           showModalBottomSheet(
             context: context,
             isScrollControlled: true,
+      useSafeArea: true,
             backgroundColor: Colors.transparent,
             builder: (context) => const PlayingSongsSheet(),
           );
@@ -223,7 +224,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -241,7 +242,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                   Text(
                     currentSong.artist,
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                       fontSize: 12,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -266,7 +267,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
         Text(
           Utils.formatDuration(player.currentPosition.inSeconds),
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
             fontSize: 12,
           ),
         ),
@@ -280,7 +281,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
             child: Slider(
               value: value,
               activeColor: Theme.of(context).colorScheme.secondary,
-              inactiveColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+              inactiveColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
               min: 0,
               max: max,
               onChanged: (value) {
@@ -295,7 +296,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
         Text(
           Utils.formatDuration(player.duration.inSeconds),
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
             fontSize: 12,
           ),
         ),
@@ -336,14 +337,14 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                 gradient: LinearGradient(
                   colors: [
                     Theme.of(context).colorScheme.secondary,
-                    Theme.of(context).colorScheme.secondary.withOpacity(0.8),
+                    Theme.of(context).colorScheme.secondary.withValues(alpha: 0.8),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).colorScheme.secondary.withOpacity(0.3),
+                    color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3),
                     blurRadius: 8,
                     spreadRadius: 2,
                   ),
@@ -420,8 +421,8 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Theme.of(context).scaffoldBackgroundColor.withOpacity(isDark ? 0.9 : 0.85),
-                  Theme.of(context).scaffoldBackgroundColor.withOpacity(isDark ? 0.7 : 0.6),
+                  Theme.of(context).scaffoldBackgroundColor.withValues(alpha: isDark ? 0.9 : 0.85),
+                  Theme.of(context).scaffoldBackgroundColor.withValues(alpha: isDark ? 0.7 : 0.6),
                 ],
               ),
             ),
@@ -452,7 +453,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
             color: Theme.of(context).scaffoldBackgroundColor,
             boxShadow: [
               BoxShadow(
-                color: (isDark ? Colors.black : Colors.grey[400]!).withOpacity(0.1),
+                color: (isDark ? Colors.black : Colors.grey[400]!).withValues(alpha: 0.1),
                 blurRadius: 8,
                 offset: const Offset(0, -2),
               ),
@@ -491,6 +492,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                               showModalBottomSheet(
                                 context: context,
                                 isScrollControlled: true,
+      useSafeArea: true,
                                 backgroundColor: Colors.transparent,
                                 builder: (context) => const PlayingSongsSheet(),
                               );

@@ -248,7 +248,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
             color: colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: colorScheme.outlineVariant.withOpacity(0.3),
+              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -259,7 +259,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: isSharing 
-                      ? colorScheme.primary.withOpacity(0.15)
+                      ? colorScheme.primary.withValues(alpha: 0.15)
                       : colorScheme.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -357,7 +357,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
         color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: colorScheme.outlineVariant.withOpacity(0.2),
+          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -489,7 +489,7 @@ leading: Stack(
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.1),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,

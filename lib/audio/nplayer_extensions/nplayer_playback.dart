@@ -26,16 +26,17 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
 
   // Ensure media item is updated BEFORE starting playback
   await _audioHandler!.updateMediaItemFromSong(songToPlay);
-  
-  // Add explicit state update before playing
-  await _audioHandler!.stop(); // Clear any previous state
 
   try {
     await _audioPlayer.play(ap.DeviceFileSource(songToPlay.path));
     // A short delay and resume check can help on some platforms.
     Future.delayed(Duration(milliseconds: 100), () async {
-      if (_audioPlayer.state != ap.PlayerState.playing) {
-        await _audioPlayer.resume();
+      try {
+        if (_audioPlayer.state != ap.PlayerState.playing) {
+          await _audioPlayer.resume();
+        }
+      } catch (e) {
+        _log("Error in delayed resume check: $e");
       }
     });
     _isPlaying = true;

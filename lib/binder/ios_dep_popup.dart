@@ -60,7 +60,7 @@ class iOSDepPopup {
                   color: theme.cardColor,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: theme.colorScheme.primary.withOpacity(0.2),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.2),
                   ),
                 ),
                 child: SelectableText(

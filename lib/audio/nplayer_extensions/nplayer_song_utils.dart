@@ -70,13 +70,19 @@ Future<void> updateSongMetadata(Music song, Map<String, String> metadata) async 
 Future<void> deleteSong(Music song) async {
   _log("Deleting song: ${song.title}");
   try {
-    // 1. Remove from all songs list
+    // 1. Delete the actual file first — if this fails we abort before touching state
+    final file = File(song.path);
+    if (await file.exists()) {
+      await file.delete();
+    }
+
+    // 2. Remove from all songs list
     _allSongs.removeWhere((s) => s.path == song.path);
 
-    // 2. Remove from sorted songs list (if present)
+    // 3. Remove from sorted songs list (if present)
     _sortedSongs.removeWhere((s) => s.path == song.path);
 
-    // 3. Remove from playing songs list and update index if necessary
+    // 4. Remove from playing songs list and update index if necessary
     int playingIndex = _playingSongs.indexWhere((s) => s.path == song.path);
     if (playingIndex != -1) {
       _playingSongs.removeAt(playingIndex);
@@ -84,9 +90,7 @@ Future<void> deleteSong(Music song) async {
         if (playingIndex < _currentSongIndex!) {
           _currentSongIndex = _currentSongIndex! - 1;
         } else if (playingIndex == _currentSongIndex!) {
-          // If the deleted song was the current one, stop playback or play next
           if (_playingSongs.isNotEmpty) {
-            // Play the song that is now at the current index, or the previous one if it was the last
             _currentSongIndex = playingIndex.clamp(0, _playingSongs.length - 1);
             await _startPlayback(_playingSongs, _currentSongIndex!);
           } else {
@@ -97,15 +101,9 @@ Future<void> deleteSong(Music song) async {
       }
     }
 
-    // 4. Remove from all playlists
-    for (var playlistName in List.from(song.playlists)) { // Iterate over a copy
+    // 5. Remove from all playlists
+    for (var playlistName in List.from(song.playlists)) {
       await PlaylistManager.removeSongFromPlaylist(playlistName, song.title);
-    }
-
-    // 5. Delete the actual file
-    final file = File(song.path);
-    if (await file.exists()) {
-      await file.delete();
     }
 
     // 6. Remove from favorites and other song data

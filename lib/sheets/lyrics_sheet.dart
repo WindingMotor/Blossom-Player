@@ -285,8 +285,8 @@ Try tapping the refresh button to retry''';
         text: source.substring(match.start, match.end),
         style: TextStyle(
           backgroundColor: isCurrentMatch 
-              ? Theme.of(context).colorScheme.primary.withOpacity(0.7)
-              : Theme.of(context).colorScheme.primary.withOpacity(0.25),
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.7)
+              : Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
           color: isCurrentMatch ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.primary,
           fontWeight: isCurrentMatch ? FontWeight.bold : FontWeight.w600,
         ),
@@ -342,7 +342,7 @@ Try tapping the refresh button to retry''';
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
             BoxShadow(
-              color: colorScheme.shadow.withOpacity(0.3),
+              color: colorScheme.shadow.withValues(alpha: 0.3),
               blurRadius: 30,
               spreadRadius: 0,
               offset: const Offset(0, -10),
@@ -379,7 +379,7 @@ Try tapping the refresh button to retry''';
       height: 5,
       margin: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4),
+        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(3),
       ),
     );

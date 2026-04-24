@@ -50,6 +50,7 @@ class _DownloaderState extends State<Downloader> {
   Future<void> _checkFFmpegInstallation() async {
     try {
       final result = await Process.run('ffmpeg', ['-version']);
+      if (!mounted) return;
       if (result.exitCode == 0) {
         setState(() {
           _ffmpegInstalled = true;
@@ -62,6 +63,7 @@ class _DownloaderState extends State<Downloader> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _ffmpegInstalled = false;
         _output += 'Error checking FFmpeg installation: $e\n';
@@ -223,7 +225,7 @@ class _DownloaderState extends State<Downloader> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -310,7 +312,7 @@ class _DownloaderState extends State<Downloader> {
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
                   ),
                 ),
                 child: Stack(
@@ -335,7 +337,7 @@ class _DownloaderState extends State<Downloader> {
                         child: Text(
                           'Console output will appear here',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                           ),
                         ),
                       ),
@@ -362,8 +364,8 @@ class _DownloaderState extends State<Downloader> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: isInstalled
-                ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                : Theme.of(context).colorScheme.error.withOpacity(0.1),
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+                : Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(

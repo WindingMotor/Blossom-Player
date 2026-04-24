@@ -215,17 +215,17 @@ extension NPlayerSorting on NPlayer {
         case 'folder': 
           comparison = a.folderName.toLowerCase().compareTo(b.folderName.toLowerCase()); 
           break;
-        case 'modified': 
-          comparison = b.lastModified.compareTo(a.lastModified); 
+        case 'modified':
+          comparison = a.lastModified.compareTo(b.lastModified);
           break;
-        case 'year': 
-          comparison = (int.tryParse(b.year) ?? 0).compareTo(int.tryParse(a.year) ?? 0); 
+        case 'year':
+          comparison = (int.tryParse(a.year) ?? 0).compareTo(int.tryParse(b.year) ?? 0);
           break;
-        case 'plays': 
-          comparison = SongData.getPlayCount(b.path).compareTo(SongData.getPlayCount(a.path)); 
+        case 'plays':
+          comparison = SongData.getPlayCount(a.path).compareTo(SongData.getPlayCount(b.path));
           break;
-        case 'favorite': 
-          comparison = (b.isFavorite ? 1 : 0).compareTo(a.isFavorite ? 1 : 0);
+        case 'favorite':
+          comparison = (a.isFavorite ? 1 : 0).compareTo(b.isFavorite ? 1 : 0);
           if (comparison == 0) {
             comparison = a.title.toLowerCase().compareTo(b.title.toLowerCase());
           }

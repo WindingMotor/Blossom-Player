@@ -1,4 +1,3 @@
-import 'package:blossom/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
@@ -140,13 +139,6 @@ class _LoadingPageState extends State<LoadingPage>
       }
       
       lastSongCount = currentSongCount;
-      
-      // Safety Timeout: 10 seconds (down from 15 mins)
-      if (elapsed > 10) {
-        _log("Safety timeout reached (10s) - forcing entry");
-        _isInitialized = true;
-        break;
-      }
     }
     
     // Complete and Transition
@@ -202,7 +194,7 @@ class _LoadingPageState extends State<LoadingPage>
         size: 20 + random.nextDouble() * 30,
         delay: random.nextDouble() * 3,
         colorFilter: ColorFilter.mode(
-          widget.theme.colorScheme.secondary.withOpacity(0.4 + random.nextDouble() * 0.3),
+          widget.theme.colorScheme.secondary.withValues(alpha: 0.4 + random.nextDouble() * 0.3),
           BlendMode.srcIn,
         ),
       ));
@@ -292,7 +284,7 @@ class _LoadingPageState extends State<LoadingPage>
                                         style: TextStyle(
                                           fontSize: 13,
                                           color: widget.theme.colorScheme.onSurface
-                                              .withOpacity(0.65),
+                                              .withValues(alpha: 0.65),
                                           height: 1.4,
                                         ),
                                       ),

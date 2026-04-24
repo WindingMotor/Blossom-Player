@@ -152,7 +152,7 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
                   height: 5,
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.grey[400],
+                    color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(2.5),
                   ),
                 ),
@@ -339,7 +339,6 @@ ReorderableListView.builder(
           song.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white),
         ),
         subtitle: Text(
           song.artist,

@@ -66,7 +66,7 @@ class _SleepTimerSheetState extends State<SleepTimerSheet> {
                     width: 32,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).dividerColor.withOpacity(0.5),
+                      color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -110,7 +110,7 @@ class _SleepTimerSheetState extends State<SleepTimerSheet> {
                                   fontWeight: FontWeight.bold,
                                   color: isSelected 
                                     ? Theme.of(context).colorScheme.primary
-                                    : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.5),
+                                    : Theme.of(context).textTheme.bodyLarge?.color?.withValues(alpha: 0.5),
                                 ),
                                 child: Text('$minutes'),
                               ),
@@ -120,7 +120,7 @@ class _SleepTimerSheetState extends State<SleepTimerSheet> {
                                   fontSize: isSelected ? 16 : 14,
                                   color: isSelected 
                                     ? Theme.of(context).colorScheme.primary
-                                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                                    : Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
                                 ),
                                 child: const Text('min'),
                               ),

@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'package:blossom/custom/search_bar.dart';
+import 'package:blossom/song_list/song_list_tile.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:blossom/tools/ui_helpers.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +21,6 @@ class _SongAlbumsState extends State<SongAlbums> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   List<AlbumInfo> _albumList = [];
   final ScrollController _scrollController = ScrollController();
-  Timer? _scrollDebounce;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   final GlobalKey _sortButtonKey = GlobalKey();
@@ -50,7 +49,6 @@ class _SongAlbumsState extends State<SongAlbums> with TickerProviderStateMixin {
   @override
   void dispose() {
     _searchController.dispose();
-    _scrollDebounce?.cancel();
     _scrollController.dispose();
     _animationController.dispose();
     super.dispose();
@@ -85,22 +83,6 @@ class _SongAlbumsState extends State<SongAlbums> with TickerProviderStateMixin {
     if (mounted) {
       setState(() {});
     }
-  }
-
-  void _debouncedScroll(void Function() callback) {
-    if (_scrollDebounce?.isActive ?? false) _scrollDebounce!.cancel();
-    _scrollDebounce = Timer(const Duration(milliseconds: 180), callback);
-  }
-
-  bool _handleScrollNotification(ScrollNotification notification) {
-    if (notification is ScrollUpdateNotification) {
-      if (mounted) {
-        _debouncedScroll(() {
-          setState(() {});
-        });
-      }
-    }
-    return false;
   }
 
   void _showSortMenu() {
@@ -187,7 +169,7 @@ class _SongAlbumsState extends State<SongAlbums> with TickerProviderStateMixin {
     final smallAlbums = filteredList.where((album) => album.songs.length < 5).toList();
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.1),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -210,12 +192,12 @@ class _SongAlbumsState extends State<SongAlbums> with TickerProviderStateMixin {
               ),
               
               Expanded(
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: _handleScrollNotification,
-                  child: Scrollbar(
-                    controller: _scrollController,
-                    thumbVisibility: true,
-                    child: CustomScrollView(
+                child: Scrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
+                  interactive: true,
+                  radius: const Radius.circular(10),
+                  child: CustomScrollView(
                       controller: _scrollController,
                       slivers: [
                         if (largeAlbums.isNotEmpty) ...[
@@ -289,7 +271,6 @@ class _SongAlbumsState extends State<SongAlbums> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -314,6 +295,7 @@ class _SongAlbumsState extends State<SongAlbums> with TickerProviderStateMixin {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => MusicBottomSheet(
         title: album.name,
@@ -404,7 +386,7 @@ class _AlbumCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -421,13 +403,16 @@ class _AlbumCard extends StatelessWidget {
                   width: double.infinity,
                   height: double.infinity,
                   child: album.firstSong.picture != null
-                      ? Image.memory(album.firstSong.picture!, fit: BoxFit.cover)
+                      ? Image(
+                          image: AlbumArtCache.of(album.firstSong.path, album.firstSong.picture!),
+                          fit: BoxFit.cover,
+                        )
                       : Container(
                           color: Theme.of(context).colorScheme.surfaceContainerHighest,
                           child: Icon(
                             Icons.album,
                             size: 64,
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
                           ),
                         ),
                 ),
@@ -529,7 +514,10 @@ class _AlbumListTile extends StatelessWidget {
             width: isDesktopPlatform ? 36 : 48,
             height: isDesktopPlatform ? 36 : 48,
             child: album.firstSong.picture != null
-                ? Image.memory(album.firstSong.picture!, fit: BoxFit.cover)
+                ? Image(
+                    image: AlbumArtCache.of(album.firstSong.path, album.firstSong.picture!),
+                    fit: BoxFit.cover,
+                  )
                 : Container(
                     color: Colors.grey[800],
                     child: Icon(Icons.album, color: Colors.grey[600]),
@@ -538,7 +526,6 @@ class _AlbumListTile extends StatelessWidget {
         ),
         title: Text(
           album.name,
-          style: const TextStyle(color: Colors.white),
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(

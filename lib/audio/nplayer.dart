@@ -175,16 +175,14 @@ class NPlayer extends ChangeNotifier {
   Duration? get remainingTime => _remainingTime;
 
   bool _isInitialized = false;
+  bool _isDisposed = false;
   Completer<void>? _initializationCompleter;
   late AudioSession _audioSession;
-  
-  // Track audio focus state for internal use
-  bool _hasAudioFocus = false;
+  final List<StreamSubscription> _audioPlayerSubscriptions = [];
 
   Duration get duration {
-    return getCurrentSong()?.duration != null
-        ? Duration(milliseconds: getCurrentSong()!.duration)
-        : Duration.zero;
+    final song = getCurrentSong();
+    return song != null ? Duration(milliseconds: song.duration) : Duration.zero;
   }
   
   Music? getCurrentSong() {
@@ -290,7 +288,6 @@ Future<void> _initialize() async {
         try {
           final focusGranted = await _audioSession.setActive(true);
           if (focusGranted) {
-            _hasAudioFocus = true;
             _log("Audio session activated successfully");
           }
         } catch (e) {
@@ -355,36 +352,40 @@ Future<void> _initialize() async {
   }
 
   void _setupAudioPlayerListeners() {
-    _audioPlayer.onPlayerStateChanged.listen((state) {
-      final isNowPlaying = state == ap.PlayerState.playing;
-      if (_isPlaying != isNowPlaying) {
-        _isPlaying = isNowPlaying;
-        notifyListeners();
-      }
-    });
+    _audioPlayerSubscriptions.add(
+      _audioPlayer.onPlayerStateChanged.listen((state) {
+        final isNowPlaying = state == ap.PlayerState.playing;
+        if (_isPlaying != isNowPlaying) {
+          _isPlaying = isNowPlaying;
+          if (!_isDisposed) notifyListeners();
+        }
+      }),
+    );
 
-    _audioPlayer.onPositionChanged.listen((position) {
-      _currentPosition = position;
-      
-      // Sync position with AudioHandler if it exists
-      if (_audioHandler != null) {
-        _audioHandler!.playbackState.add(_audioHandler!.playbackState.value.copyWith(
-          updatePosition: position,
-        ));
-      }
-      
-      notifyListeners();
-    });
+    _audioPlayerSubscriptions.add(
+      _audioPlayer.onPositionChanged.listen((position) {
+        _currentPosition = position;
+        if (_audioHandler != null) {
+          _audioHandler!.playbackState.add(_audioHandler!.playbackState.value.copyWith(
+            updatePosition: position,
+          ));
+        }
+        if (!_isDisposed) notifyListeners();
+      }),
+    );
 
-    _audioPlayer.onPlayerComplete.listen((_) {
-      _log("Song completed");
-      _handleSongCompletion();
-    });
+    _audioPlayerSubscriptions.add(
+      _audioPlayer.onPlayerComplete.listen((_) {
+        _log("Song completed");
+        _handleSongCompletion();
+      }),
+    );
   }
 
   void _initHeadsetDetection() {
     if (!Platform.isLinux && !Platform.isWindows) {
       _headsetPlugin.getCurrentState.then((val) {
+        if (_isDisposed) return;
         _isHeadphonesConnected = val == HeadsetState.CONNECT;
         notifyListeners();
       });
@@ -414,6 +415,11 @@ Future<void> _initialize() async {
 
   @override
   void dispose() {
+    _isDisposed = true;
+    for (final sub in _audioPlayerSubscriptions) {
+      sub.cancel();
+    }
+    _audioPlayerSubscriptions.clear();
     _audioPlayer.dispose();
     _debounceTimer?.cancel();
     _sleepTimer?.cancel();

@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'package:blossom/custom/search_bar.dart';
+import 'package:blossom/song_list/song_list_tile.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:blossom/tools/ui_helpers.dart';
 import 'package:flutter/material.dart';
@@ -20,7 +20,6 @@ class _ArtistsPageState extends State<ArtistsPage> with TickerProviderStateMixin
   final TextEditingController _searchController = TextEditingController();
   List<ArtistInfo> _artistList = [];
   final ScrollController _scrollController = ScrollController();
-  Timer? _scrollDebounce;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   final GlobalKey _sortButtonKey = GlobalKey();
@@ -49,7 +48,6 @@ class _ArtistsPageState extends State<ArtistsPage> with TickerProviderStateMixin
   @override
   void dispose() {
     _searchController.dispose();
-    _scrollDebounce?.cancel();
     _scrollController.dispose();
     _animationController.dispose();
     super.dispose();
@@ -80,20 +78,6 @@ class _ArtistsPageState extends State<ArtistsPage> with TickerProviderStateMixin
 
     _sortArtists();
     setState(() {});
-  }
-
-  void _debouncedScroll(void Function() callback) {
-    if (_scrollDebounce?.isActive ?? false) _scrollDebounce!.cancel();
-    _scrollDebounce = Timer(const Duration(milliseconds: 180), callback);
-  }
-
-  bool _handleScrollNotification(ScrollNotification notification) {
-    if (notification is ScrollUpdateNotification) {
-      _debouncedScroll(() {
-        setState(() {});
-      });
-    }
-    return false;
   }
 
   void _showSortMenu() {
@@ -147,7 +131,7 @@ class _ArtistsPageState extends State<ArtistsPage> with TickerProviderStateMixin
     final filteredList = _filterArtists();
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.1),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -170,26 +154,25 @@ class _ArtistsPageState extends State<ArtistsPage> with TickerProviderStateMixin
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: _handleScrollNotification,
-                    child: Scrollbar(
+                  child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    radius: const Radius.circular(10),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(top: 0),
                       controller: _scrollController,
-                      thumbVisibility: true,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.only(top: 0),
-                        controller: _scrollController,
-                        itemCount: filteredList.length,
-                        itemExtent: UIHelpers.isDesktopPlatform(context) ? 60.0 : 80.0,
-                        cacheExtent: 1000,
-                        itemBuilder: (context, index) {
-                          final artist = filteredList[index];
-                          return _ArtistListTile(
-                            key: ValueKey(artist.name),
-                            artist: artist,
-                            onTap: () => _showArtistSongs(context, artist),
-                          );
-                        },
-                      ),
+                      itemCount: filteredList.length,
+                      itemExtent: UIHelpers.isDesktopPlatform(context) ? 60.0 : 80.0,
+                      cacheExtent: 1000,
+                      itemBuilder: (context, index) {
+                        final artist = filteredList[index];
+                        return _ArtistListTile(
+                          key: ValueKey(artist.name),
+                          artist: artist,
+                          onTap: () => _showArtistSongs(context, artist),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -217,6 +200,7 @@ class _ArtistsPageState extends State<ArtistsPage> with TickerProviderStateMixin
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => MusicBottomSheet(
         title: artist.name,
@@ -225,7 +209,7 @@ class _ArtistsPageState extends State<ArtistsPage> with TickerProviderStateMixin
         songs: artist.songs,
         onPlayPressed: (song) => player.playArtist(artist.songs, song),
         image: artist.firstSong.picture != null
-            ? Image.memory(artist.firstSong.picture!, fit: BoxFit.cover)
+            ? Image(image: AlbumArtCache.of(artist.firstSong.path, artist.firstSong.picture!), fit: BoxFit.cover)
             : null,
       ),
     );
@@ -311,7 +295,10 @@ class _ArtistListTile extends StatelessWidget {
             width: isDesktopPlatform ? 36 : 48,
             height: isDesktopPlatform ? 36 : 48,
             child: artist.firstSong.picture != null
-                ? Image.memory(artist.firstSong.picture!, fit: BoxFit.cover)
+                ? Image(
+                    image: AlbumArtCache.of(artist.firstSong.path, artist.firstSong.picture!),
+                    fit: BoxFit.cover,
+                  )
                 : Container(
                     color: Colors.grey[800],
                     child: Icon(Icons.album, color: Colors.grey[600]),
@@ -320,7 +307,6 @@ class _ArtistListTile extends StatelessWidget {
         ),
         title: Text(
           artist.name,
-          style: const TextStyle(color: Colors.white),
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(

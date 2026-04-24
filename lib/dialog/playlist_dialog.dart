@@ -233,7 +233,7 @@ class _PlaylistDialogState extends State<PlaylistDialog>
 
     return Card(
       color: someSongsInPlaylist
-          ? Theme.of(context).colorScheme.secondary.withOpacity(0.2)
+          ? Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2)
           : Theme.of(context).cardColor,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -256,7 +256,6 @@ class _PlaylistDialogState extends State<PlaylistDialog>
         ),
         title: Text(
           playlist,
-          style: TextStyle(color: Colors.white),
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Icon(

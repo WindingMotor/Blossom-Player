@@ -27,18 +27,10 @@ extension NPlayerPlaylistManagement on NPlayer {
   }
 
   List<Music> getPlaylistSongs(String playlistName) {
-    List<String> songTitles = PlaylistManager.getPlaylistSongs(playlistName);
-    
-    // Create a map for quick lookup
-    Map<String, Music> songMap = {
-      for (var song in _allSongs) song.title: song
-    };
-    
-    // Return songs in the exact order they appear in the playlist
+    final songTitles = PlaylistManager.getPlaylistSongs(playlistName);
+    // Use expand so songs with duplicate titles are all included
     return songTitles
-        .map((title) => songMap[title])
-        .where((song) => song != null)
-        .cast<Music>()
+        .expand((title) => _allSongs.where((s) => s.title == title))
         .toList();
   }
 

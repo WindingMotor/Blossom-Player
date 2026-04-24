@@ -24,9 +24,9 @@ class SongListTileWrapper extends StatelessWidget {
     Color backgroundColor = Colors.transparent;
     
     if (isCurrentSong) {
-      backgroundColor = theme.colorScheme.primary.withOpacity(0.15);
+      backgroundColor = theme.colorScheme.primary.withValues(alpha: 0.15);
     } else if (isSelected) {
-      backgroundColor = theme.colorScheme.secondary.withOpacity(0.1);
+      backgroundColor = theme.colorScheme.secondary.withValues(alpha: 0.1);
     }
 
     return Container(

@@ -174,7 +174,7 @@ class _SongLibraryState extends State<SongLibrary>
           backgroundColor: Theme.of(context)
               .colorScheme
               .surfaceContainerHighest
-              .withOpacity(0.1),
+              .withValues(alpha: 0.1),
           body: SafeArea(
             child: FadeTransition(
               opacity: _fadeAnimation,
@@ -237,13 +237,18 @@ class _CloudSyncBadge extends StatefulWidget {
 
 class _CloudSyncBadgeState extends State<_CloudSyncBadge>
     with SingleTickerProviderStateMixin {
-  // Single animation controller: rotates the icon while syncing.
-  late final AnimationController _spinController = AnimationController(
-    vsync:    this,
-    duration: const Duration(seconds: 2),
-  );
+  late final AnimationController _spinController;
 
   SyncStatus _lastStatus = SyncStatus.idle;
+
+  @override
+  void initState() {
+    super.initState();
+    _spinController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+  }
 
   @override
   void dispose() {
@@ -287,9 +292,9 @@ class _CloudSyncBadgeState extends State<_CloudSyncBadge>
       case SyncStatus.error:
         return cs.error;
       case SyncStatus.success:
-        return cs.onSurface.withOpacity(0.7);
+        return cs.onSurface.withValues(alpha: 0.7);
       default:
-        return cs.onSurface.withOpacity(0.45);
+        return cs.onSurface.withValues(alpha: 0.45);
     }
   }
 
@@ -297,6 +302,7 @@ class _CloudSyncBadgeState extends State<_CloudSyncBadge>
     showModalBottomSheet(
       context:           context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor:   Colors.transparent,
       // Keep the sheet alive even while syncing is in progress.
       isDismissible:     true,
@@ -363,7 +369,7 @@ class _CloudSyncBadgeState extends State<_CloudSyncBadge>
                         boxShadow: dotColor != Colors.transparent
                             ? [
                                 BoxShadow(
-                                  color:        dotColor.withOpacity(0.5),
+                                  color:        dotColor.withValues(alpha: 0.5),
                                   blurRadius:   4,
                                   spreadRadius: 1,
                                 ),
@@ -430,7 +436,7 @@ class _SyncSheetContent extends StatelessWidget {
               width:  40,
               height: 4,
               decoration: BoxDecoration(
-                color:        cs.onSurfaceVariant.withOpacity(0.3),
+                color:        cs.onSurfaceVariant.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -455,7 +461,7 @@ class _SyncSheetContent extends StatelessWidget {
                     Text(
                       nc.statusMessage,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurface.withOpacity(0.55),
+                        color: cs.onSurface.withValues(alpha: 0.55),
                       ),
                     ),
                   ],
@@ -493,12 +499,12 @@ class _SyncSheetContent extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.history_rounded,
-                    size: 14, color: cs.onSurface.withOpacity(0.4)),
+                    size: 14, color: cs.onSurface.withValues(alpha: 0.4)),
                 const SizedBox(width: 6),
                 Text(
                   'Last synced: ${_formatTime(nc.lastSyncTime!)}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurface.withOpacity(0.5),
+                    color: cs.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -581,7 +587,7 @@ class _StatusIconState extends State<_StatusIcon>
         width:  40,
         height: 40,
         decoration: BoxDecoration(
-          color:  color.withOpacity(0.12),
+          color:  color.withValues(alpha: 0.12),
           shape:  BoxShape.circle,
         ),
         child: Icon(icon, color: color, size: 22),
@@ -595,7 +601,7 @@ class _StatusIconState extends State<_StatusIcon>
         SyncStatus.syncing  => (Icons.sync_rounded,         cs.primary),
         SyncStatus.success  => (Icons.cloud_done_outlined,  Colors.green),
         SyncStatus.error    => (Icons.cloud_off_outlined,   cs.error),
-        SyncStatus.idle     => (Icons.cloud_outlined,       cs.onSurface.withOpacity(0.5)),
+        SyncStatus.idle     => (Icons.cloud_outlined,       cs.onSurface.withValues(alpha: 0.5)),
       };
 }
 
@@ -622,7 +628,7 @@ class _ProgressSection extends StatelessWidget {
           child: LinearProgressIndicator(
             value:            progress.bytesFraction,
             minHeight:        6,
-            backgroundColor:  cs.outline.withOpacity(0.15),
+            backgroundColor:  cs.outline.withValues(alpha: 0.15),
             valueColor:       AlwaysStoppedAnimation(cs.primary),
           ),
         ),
@@ -643,7 +649,7 @@ class _ProgressSection extends StatelessWidget {
             Text(
               '${progress.completed}/${progress.total}',
               style: theme.textTheme.bodySmall?.copyWith(
-                color:       cs.onSurface.withOpacity(0.5),
+                color:       cs.onSurface.withValues(alpha: 0.5),
                 fontWeight:  FontWeight.w600,
               ),
             ),
@@ -673,7 +679,7 @@ class _ProgressSection extends StatelessWidget {
               '${_fmtBytes(progress.transferredBytes)} / '
               '${_fmtBytes(progress.totalBytes)}',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: cs.onSurface.withOpacity(0.45),
+                color: cs.onSurface.withValues(alpha: 0.45),
               ),
             ),
           ],
@@ -708,12 +714,12 @@ class _Chip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12, color: cs.onSurface.withOpacity(0.4)),
+        Icon(icon, size: 12, color: cs.onSurface.withValues(alpha: 0.4)),
         const SizedBox(width: 4),
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: cs.onSurface.withOpacity(0.65),
+            color: cs.onSurface.withValues(alpha: 0.65),
           ),
         ),
       ],

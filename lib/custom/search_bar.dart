@@ -89,12 +89,12 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
             color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.shadow.withOpacity(0.05),
+                color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -120,7 +120,7 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                         decoration: InputDecoration(
                           hintText: widget.hintText,
                           hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                           ),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.zero,
@@ -140,7 +140,7 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                           child: Icon(
                             Icons.clear_rounded,
                             size: 16,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                           ),
                         ),
                       )
@@ -167,7 +167,7 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                             child: Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Tooltip(

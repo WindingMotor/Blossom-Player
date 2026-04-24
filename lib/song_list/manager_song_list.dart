@@ -57,6 +57,7 @@ class ManagerSongListState extends State<ManagerSongList> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Padding(
         padding: EdgeInsets.only(
@@ -121,7 +122,7 @@ class ManagerSongListState extends State<ManagerSongList> {
                 Text(
                   Utils.formatMilliseconds(song.duration),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
                 const SizedBox(width: 8),

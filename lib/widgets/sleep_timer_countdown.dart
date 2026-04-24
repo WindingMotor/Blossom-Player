@@ -140,6 +140,7 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
+      useSafeArea: true,
           backgroundColor: Colors.transparent,
           builder: (context) => const SleepTimerSheet(),
         );
@@ -148,14 +149,14 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: colorScheme.surface.withOpacity(0.85),
+          color: colorScheme.surface.withValues(alpha: 0.85),
           border: Border.all(
-            color: colorScheme.primary.withOpacity(0.2),
+            color: colorScheme.primary.withValues(alpha: 0.2),
             width: 0.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -168,7 +169,7 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
               Icon(
                 Icons.drag_indicator,
                 size: 18,
-                color: colorScheme.primary.withOpacity(0.7),
+                color: colorScheme.primary.withValues(alpha: 0.7),
               ),
               const SizedBox(width: 4),
               if (_isRinging)
@@ -206,7 +207,7 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
                 child: Icon(
                   Icons.close,
                   size: 18,
-                  color: colorScheme.onSurface.withOpacity(0.7),
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
             ],

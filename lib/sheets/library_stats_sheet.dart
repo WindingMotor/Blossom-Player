@@ -14,6 +14,7 @@ void showLibraryStatsSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+      useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (_) => const _LibraryStatsSheet(),
   );
@@ -98,7 +99,7 @@ class _LibraryStatsSheetState extends State<_LibraryStatsSheet>
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -148,7 +149,7 @@ class _LibraryStatsSheetState extends State<_LibraryStatsSheet>
                 child: Text(
                   'Generated ${_formatTimestamp(_stats!.generatedAt)}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
                 ),
               ),
@@ -162,7 +163,7 @@ class _LibraryStatsSheetState extends State<_LibraryStatsSheet>
             dividerColor: Colors.transparent,
             labelColor: theme.colorScheme.primary,
             unselectedLabelColor:
-                theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             indicatorColor: theme.colorScheme.primary,
             indicatorSize: TabBarIndicatorSize.label,
             tabs: _tabs.map((t) => Tab(text: t)).toList(),
@@ -222,9 +223,9 @@ class _ExportButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -271,9 +272,9 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: c.withOpacity(0.08),
+        color: c.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: c.withOpacity(0.18)),
+        border: Border.all(color: c.withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,7 +294,7 @@ class _StatCard extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -359,7 +360,7 @@ class _RankedTile extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: badgeColor.withOpacity(isTop3 ? 1.0 : 0.3),
+              color: badgeColor.withValues(alpha: isTop3 ? 1.0 : 0.3),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -391,7 +392,7 @@ class _RankedTile extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -414,7 +415,7 @@ class _RankedTile extends StatelessWidget {
                 Text(
                   trailingSubtitle!,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.55),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
                   ),
                 ),
             ],
@@ -469,7 +470,7 @@ class _BarRow extends StatelessWidget {
               Text(
                 trailingLabel ?? '$value',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -481,7 +482,7 @@ class _BarRow extends StatelessWidget {
             child: LinearProgressIndicator(
               value: ratio.toDouble(),
               minHeight: 6,
-              backgroundColor: color.withOpacity(0.12),
+              backgroundColor: color.withValues(alpha: 0.12),
               valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),
@@ -534,10 +535,10 @@ class _OverviewTab extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [p.withOpacity(0.15), t.withOpacity(0.1)],
+              colors: [p.withValues(alpha: 0.15), t.withValues(alpha: 0.1)],
             ),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: p.withOpacity(0.2)),
+            border: Border.all(color: p.withValues(alpha: 0.2)),
           ),
           child: Row(
             children: [
@@ -555,7 +556,7 @@ class _OverviewTab extends StatelessWidget {
                   Text(
                     'Total listening time',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -665,9 +666,9 @@ class _ExtremeTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.07),
+        color: color.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -689,7 +690,7 @@ class _ExtremeTile extends StatelessWidget {
                   Text(subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant
-                              .withOpacity(0.6)),
+                              .withValues(alpha: 0.6)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
               ],
@@ -699,7 +700,7 @@ class _ExtremeTile extends StatelessWidget {
             padding:
                 const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
@@ -903,14 +904,14 @@ class _EmptyState extends StatelessWidget {
               color: Theme.of(context)
                   .colorScheme
                   .onSurfaceVariant
-                  .withOpacity(0.4)),
+                  .withValues(alpha: 0.4)),
           const SizedBox(height: 12),
           Text(message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context)
                         .colorScheme
                         .onSurfaceVariant
-                        .withOpacity(0.5),
+                        .withValues(alpha: 0.5),
                   )),
         ],
       ),

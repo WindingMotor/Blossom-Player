@@ -251,7 +251,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         elevation: 0,
         color: isHighlighted 
-            ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+            ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
             : Theme.of(context).cardColor,
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -367,7 +367,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 10,
                     spreadRadius: 0,
                   ),
@@ -382,7 +382,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),

@@ -711,7 +711,7 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
           padding: const EdgeInsets.symmetric(horizontal: 12.0),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.5)),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
           ),
           child: DropdownButton<String>(
             value: currentValue,

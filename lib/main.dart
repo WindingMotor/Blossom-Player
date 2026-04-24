@@ -5,7 +5,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:audio_service/audio_service.dart';
 import 'package:blossom/audio/nplayer_extensions/nplayer_widget_desktop.dart';
 import 'package:blossom/custom/custom_appbar.dart';
 import 'package:blossom/dialog/nextcloud_startup_check.dart';
@@ -146,9 +145,7 @@ void main() {
           // ProviderNotFoundException (library_page, nextcloud_page, etc.).
           ChangeNotifierProvider.value(value: NextcloudSync()),
         ],
-        child: AudioServiceWidget(
-          child: const MyApp(),
-        ),
+        child: const MyApp(),
       ),
     );
   }, (error, stack) {
@@ -408,13 +405,13 @@ class _MainStructureState extends State<MainStructure>
                 color: Theme.of(context)
                     .colorScheme
                     .surface
-                    .withOpacity(0.9),
+                    .withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(isDesktop ? 16 : 20),
                 border: Border.all(
                   color: Theme.of(context)
                       .colorScheme
                       .outline
-                      .withOpacity(0.1),
+                      .withValues(alpha: 0.1),
                   width: 1,
                 ),
                 boxShadow: [
@@ -422,7 +419,7 @@ class _MainStructureState extends State<MainStructure>
                     color: Theme.of(context)
                         .colorScheme
                         .shadow
-                        .withOpacity(0.1),
+                        .withValues(alpha: 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, -2),
                   ),
@@ -615,9 +612,9 @@ class _ModernNavButtonState extends State<_ModernNavButton>
           onTap: widget.onTap,
           borderRadius: BorderRadius.circular(12),
           splashColor:
-              Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
           highlightColor:
-              Theme.of(context).colorScheme.primary.withOpacity(0.05),
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
           child: AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {
@@ -634,7 +631,7 @@ class _ModernNavButtonState extends State<_ModernNavButton>
                             ? Theme.of(context)
                                 .colorScheme
                                 .primary
-                                .withOpacity(0.15)
+                                .withValues(alpha: 0.15)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -648,7 +645,7 @@ class _ModernNavButtonState extends State<_ModernNavButton>
                             : Theme.of(context)
                                 .colorScheme
                                 .onSurfaceVariant
-                                .withOpacity(0.6),
+                                .withValues(alpha: 0.6),
                       ),
                     ),
                   ),

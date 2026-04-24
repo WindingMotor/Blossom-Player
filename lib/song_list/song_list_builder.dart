@@ -151,6 +151,7 @@ class SongListBuilderState extends State<SongListBuilder> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       enableDrag: true,
       isDismissible: true,
       backgroundColor: Colors.transparent,

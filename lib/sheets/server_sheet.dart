@@ -191,7 +191,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
       height: 4,
       margin: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.5),
+        color: Colors.grey.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(2),
       ),
     );
@@ -216,7 +216,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
   Widget _buildServerStatus(NPlayer nplayer) {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -253,7 +253,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
   Widget _buildManualConnection() {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -300,7 +300,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
   Widget _buildScanSection() {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -347,7 +347,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
               Icon(
                 Icons.devices_other,
                 size: 48,
-                color: Colors.grey.withOpacity(0.5),
+                color: Colors.grey.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 16),
               Text(
@@ -356,7 +356,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
                     : 'No servers found\nTry scanning the network',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.grey.withOpacity(0.8),
+                  color: Colors.grey.withValues(alpha: 0.8),
                   fontSize: 16,
                 ),
               ),

@@ -71,7 +71,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
     }
 
     // Show 3 previous + current + remaining songs up to limit
-    final startIndex = (currentIndex - 3).clamp(0, allSongs.length);
+    final startIndex = (currentIndex - 3).clamp(0, allSongs.length - 1);
     final endIndex = (startIndex + _maxDisplaySongs).clamp(0, allSongs.length);
     
     return allSongs.sublist(startIndex, endIndex);
@@ -129,7 +129,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.1),
+            color: Colors.black.withValues(alpha: .1),
             blurRadius: 16,
             offset: const Offset(0, -2),
           ),
@@ -137,7 +137,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
       ),
       child: Column(
         children: [
-          _dragHandle(),
+          _dragHandle(ctx),
           _Header(now: now),
           const SizedBox(height: 6),
           _Stats(
@@ -173,10 +173,10 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: theme.colorScheme.outline.withOpacity(0.15),
+            color: theme.colorScheme.outline.withValues(alpha: 0.15),
             width: 1,
           ),
         ),
@@ -186,13 +186,13 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
             Icon(
               Icons.info_outline_rounded,
               size: 14,
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
             ),
             const SizedBox(width: 6),
             Text(
               'Showing next $_maxDisplaySongs of $totalSongs songs',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
@@ -240,13 +240,13 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
 
   // ----------  Structural  ---------- //
 
-  Widget _dragHandle() => Center(
+  Widget _dragHandle(BuildContext context) => Center(
         child: Container(
           width: 36,
           height: 4,
-          margin: const EdgeInsets.only(top: 8, bottom: 4), // Reduced margins
+          margin: const EdgeInsets.only(top: 8, bottom: 4),
           decoration: BoxDecoration(
-            color: Colors.grey[350],
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -258,7 +258,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
     Widget button(IconData icon, String label, VoidCallback tap) {
       return Expanded(
         child: Material(
-          color: theme.colorScheme.surface.withOpacity(.6),
+          color: theme.colorScheme.surface.withValues(alpha: .6),
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             onTap: tap,
@@ -282,7 +282,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: theme.colorScheme.onSurface.withOpacity(0.8),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                     ),
                   ),
                 ],
@@ -314,6 +314,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
               showModalBottomSheet(
                 context: ctx,
                 isScrollControlled: true,
+      useSafeArea: true,
                 backgroundColor: Colors.transparent,
                 builder: (_) => LyricsSheet(
                   artist: now.artist,
@@ -337,7 +338,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
         ),
         child: Column(
           children: [
-            _dragHandle(),
+            _dragHandle(ctx),
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -506,10 +507,10 @@ class _Stats extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Better padding
         decoration: BoxDecoration(
-          color: Theme.of(ctx).colorScheme.surface.withOpacity(.6),
+          color: Theme.of(ctx).colorScheme.surface.withValues(alpha: .6),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Theme.of(ctx).colorScheme.outline.withOpacity(0.1),
+            color: Theme.of(ctx).colorScheme.outline.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -519,14 +520,14 @@ class _Stats extends StatelessWidget {
             Container(
               height: 24,
               width: 1,
-              color: Theme.of(ctx).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(ctx).colorScheme.outline.withValues(alpha: 0.2),
               margin: const EdgeInsets.symmetric(horizontal: 6),
             ),
             item(Icons.album_rounded, '$albums', 'Albums'),
             Container(
               height: 24,
               width: 1,
-              color: Theme.of(ctx).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(ctx).colorScheme.outline.withValues(alpha: 0.2),
               margin: const EdgeInsets.symmetric(horizontal: 6),
             ),
             item(Icons.access_time_rounded, fmt(total), 'Duration'),

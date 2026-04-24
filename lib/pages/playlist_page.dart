@@ -76,7 +76,7 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
             .toList();
 
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.1),
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
           body: SafeArea(
             child: FadeTransition(
               opacity: _fadeAnimation,
@@ -169,6 +169,7 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return MusicBottomSheet(
@@ -193,6 +194,7 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       enableDrag: true,
       isDismissible: true,
       backgroundColor: Colors.transparent,
@@ -213,6 +215,8 @@ class _PlaylistPageState extends State<PlaylistPage> with TickerProviderStateMix
       context: context,
       enableDrag: true,
       isDismissible: true,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
@@ -302,7 +306,7 @@ class _PlaylistCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
           width: 1,
         ),
       ),

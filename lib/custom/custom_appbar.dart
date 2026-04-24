@@ -175,7 +175,7 @@ class _ResizeAreaState extends State<_ResizeArea> {
           }
         },
         child: Container(
-          color: isHovering ? Theme.of(context).colorScheme.secondary.withOpacity(0.2) : Colors.transparent,
+          color: isHovering ? Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2) : Colors.transparent,
         ),
       ),
     );
@@ -207,7 +207,7 @@ class _WindowButton extends StatelessWidget {
         style: IconButton.styleFrom(
           padding: EdgeInsets.zero,
           shape: const RoundedRectangleBorder(),
-          hoverColor: isClose ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+          hoverColor: isClose ? Colors.red.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
         ),
       ),
     );
@@ -282,7 +282,7 @@ class CustomSearchBar extends StatelessWidget implements PreferredSizeWidget {
             ),
             prefixIcon: Icon(Icons.search, color: Colors.white70),
           ),
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           onChanged: onChanged,
           textInputAction: TextInputAction.search,
         ),

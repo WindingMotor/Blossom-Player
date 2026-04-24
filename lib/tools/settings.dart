@@ -522,7 +522,10 @@ static Future<String> getSongDir() async {
   
   /// Generate and save a unique UUID for this user
   static Future<void> generateAndSaveUuid() async {
-    uuid = 'user-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
+    final rng = Random.secure();
+    final part1 = rng.nextInt(0xFFFFFFFF).toRadixString(16).padLeft(8, '0');
+    final part2 = rng.nextInt(0xFFFFFFFF).toRadixString(16).padLeft(8, '0');
+    uuid = 'user-${DateTime.now().millisecondsSinceEpoch}-$part1-$part2';
     await _prefs.setString('uuid', uuid);
     _log('Generated new UUID: $uuid');
   }

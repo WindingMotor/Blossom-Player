@@ -83,7 +83,7 @@ class _AlbumArt extends StatelessWidget {
         height: 48,
         child: picture != null
             ? Image(
-                image: _AlbumArtCache.of(songPath, picture!),
+                image: AlbumArtCache.of(songPath, picture!),
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   color: theme.colorScheme.surface,
@@ -99,8 +99,7 @@ class _AlbumArt extends StatelessWidget {
   }
 }
 
-// The cache (add once)
-class _AlbumArtCache {
+class AlbumArtCache {
   static final Map<String, MemoryImage> _memCache = {};
   static MemoryImage of(String path, Uint8List picture) =>
       _memCache.putIfAbsent(path, () => MemoryImage(picture));

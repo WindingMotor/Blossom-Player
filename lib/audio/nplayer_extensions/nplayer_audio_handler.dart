@@ -17,6 +17,7 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
   bool _completionHandled = false;
   Timer? _backupCompletionTimer;
   Timer? _stateDebounceTimer;
+  final List<StreamSubscription> _subscriptions = [];
 
   CustomAudioHandler(this._player, this._nPlayer) {
     _initialize();
@@ -30,7 +31,7 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
       _audioSession = await AudioSession.instance;
       
       // Enhanced completion detection with multiple fallbacks
-      _player.onPlayerComplete.listen((_) async {
+      _subscriptions.add(_player.onPlayerComplete.listen((_) async {
         if (_completionHandled) return;
         _completionHandled = true;
         
@@ -50,12 +51,12 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
           // Reset completion flag after successful handling
           await Future.delayed(const Duration(milliseconds: 500));
           _completionHandled = false;
-          
+
         } catch (e) {
           print('AudioHandler: Error handling song completion: $e');
           _completionHandled = false;
         }
-      });
+      }));
       
       if (Platform.isAndroid) {
         await _audioSession.configure(AudioSessionConfiguration.music().copyWith(
@@ -82,8 +83,7 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
         await _audioSession.configure(AudioSessionConfiguration.music());
       }
 
-// Update the interruption listener in _initialize()
-_audioSession.interruptionEventStream.listen((event) async {
+      _subscriptions.add(_audioSession.interruptionEventStream.listen((event) async {
   try {
     print('AudioHandler: Audio interruption - begin: ${event.begin}, type: ${event.type}');
     
@@ -116,14 +116,14 @@ _audioSession.interruptionEventStream.listen((event) async {
   } catch (e) {
     print('AudioHandler: Error handling interruption: $e');
   }
-});
+      }));
 
-      _audioSession.becomingNoisyEventStream.listen((_) {
+      _subscriptions.add(_audioSession.becomingNoisyEventStream.listen((_) {
         _nPlayer.pauseSong();
-      });
+      }));
 
       // Enhanced state monitoring with position tracking
-   _player.onPlayerStateChanged.listen((state) {
+      _subscriptions.add(_player.onPlayerStateChanged.listen((state) {
   try {
     final isPlaying = state == PlayerState.playing;
 
@@ -164,9 +164,9 @@ _audioSession.interruptionEventStream.listen((event) async {
   } catch (e) {
     print('AudioHandler: Error in onPlayerStateChanged: $e');
   }
-});
+      }));
 
-      _player.onDurationChanged.listen((duration) {
+      _subscriptions.add(_player.onDurationChanged.listen((duration) {
         try {
           if (mediaItem.value != null) {
             mediaItem.add(mediaItem.value!.copyWith(duration: duration));
@@ -174,10 +174,10 @@ _audioSession.interruptionEventStream.listen((event) async {
         } catch (e) {
           print('AudioHandler: Error in onDurationChanged: $e');
         }
-      });
+      }));
 
       // Position updates for seek bar
-      _player.onPositionChanged.listen((position) async {
+      _subscriptions.add(_player.onPositionChanged.listen((position) async {
         try {
           playbackState.add(playbackState.value.copyWith(
             updatePosition: position,
@@ -208,7 +208,7 @@ _audioSession.interruptionEventStream.listen((event) async {
         } catch (e) {
           print('AudioHandler: Error in onPositionChanged: $e');
         }
-      });
+      }));
 
     } catch (e) {
       print('AudioHandler: Error during initialization: $e');
@@ -468,6 +468,10 @@ Future<void> seek(Duration position) async {
   Future<void> dispose() async {
     try {
       _stopPositionTimer();
+      for (final sub in _subscriptions) {
+        sub.cancel();
+      }
+      _subscriptions.clear();
       _backupCompletionTimer?.cancel();
       _backupCompletionTimer = null;
       _stateDebounceTimer?.cancel();

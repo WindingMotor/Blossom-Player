@@ -215,11 +215,16 @@ extension NPlayerSongLoading on NPlayer {
       // Skip files already loaded (deduplicate by path, not title)
       if (loadedPaths.contains(filePath)) return true;
 
-      // **KEY OPTIMIZATION: Check cache FIRST before calling stat()**
+      // Always stat the file: cheap (kernel-cached inode) and needed to
+      // detect changes (e.g. Nextcloud re-downloads update mtime/size).
+      final fileStat = await file.stat();
+
       final cachedEntry = cacheMap[filePath];
 
-      if (cachedEntry != null) {
-        // File is cached - load picture data separately (lazy)
+      if (cachedEntry != null &&
+          fileStat.modified.millisecondsSinceEpoch == cachedEntry.lastModified &&
+          fileStat.size == cachedEntry.fileSize) {
+        // Cache is valid — file unchanged since last scan.
         Uint8List? picture;
         try {
           picture = await _songCache.getPicture(filePath);
@@ -228,16 +233,15 @@ extension NPlayerSongLoading on NPlayer {
           picture = null;
         }
 
-        // Create music entry with separately-loaded picture
         final music = Music(
           path: cachedEntry.path,
           folderName: cachedEntry.folderName,
-          lastModified: DateTime.fromMillisecondsSinceEpoch(cachedEntry.lastModified),
+          lastModified: fileStat.modified,
           title: cachedEntry.title,
           album: cachedEntry.album,
           artist: cachedEntry.artist,
           duration: cachedEntry.duration,
-          picture: picture, // Loaded separately
+          picture: picture,
           year: cachedEntry.year,
           genre: cachedEntry.genre,
           size: cachedEntry.fileSize,
@@ -249,8 +253,7 @@ extension NPlayerSongLoading on NPlayer {
         return true; // Cache hit
       }
 
-      // Only call stat() if NOT in cache
-      final fileStat = await file.stat();
+      // Cache miss or stale entry — re-read metadata.
 
       // Skip empty files
       if (fileStat.size <= 0) return false;
@@ -304,33 +307,7 @@ extension NPlayerSongLoading on NPlayer {
   // ============================================================================
   // MARK: - Helper Methods
   // ============================================================================
-  
-  /// Tests direct file access for Android custom directories
-  Future<bool> _testDirectAccess() async {
-    final String? customDir = Settings.customMusicDirectory;
-    if (customDir == null || customDir.isEmpty) return false;
-    
-    try {
-      final String testFilePath = path.join(customDir, 'Song.m4a');
-      final File testFile = File(testFilePath);
-      
-      if (await testFile.exists()) {
-        final Set<String> testValidPaths = {};
-        final Set<String> testLoadedPaths = {};
-        final Map<String, CachedSongEntry> emptyCache = {};
-        await _processAudioFileFast(testFile, testValidPaths, testLoadedPaths, emptyCache);
-        _log("Direct access test successful");
-        return true;
-      }
-      
-      _log("Test file not found: $testFilePath");
-      return false;
-    } catch (e) {
-      _log("Error in direct file access test: $e");
-      return false;
-    }
-  }
-  
+
   /// Restores playlist associations for all loaded songs
   void _restorePlaylistAssociations() {
     for (var song in _allSongs) {

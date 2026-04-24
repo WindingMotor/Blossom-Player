@@ -98,7 +98,7 @@ class _WelcomePageState extends State<WelcomePage> {
               shape: BoxShape.circle,
               color: _currentPage == index
                   ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                  : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
             ),
           );
         }),
