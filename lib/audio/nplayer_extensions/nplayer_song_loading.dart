@@ -14,12 +14,13 @@ extension NPlayerSongLoading on NPlayer {
   /// Clears all existing songs and rescans directories.
   /// Cache is still used for unchanged files.
   Future<void> reloadSongs() async {
-    _log("Reloading songs");
+    Log.i(LogTag.songLoading, 'Reloading songs from disk');
     _allSongs.clear();
     _playingSongs.clear();
     _currentSongIndex = null;
     await _loadSongs();
-    sortSongs(); // Re-apply current sort
+    buildAlbumMaps();
+    sortSongs();
     _internalNotifyListeners();
   }
   
@@ -28,7 +29,7 @@ extension NPlayerSongLoading on NPlayer {
   /// Clears the cache and re-processes all metadata.
   /// Use this after bulk file operations or if cache seems corrupted.
   Future<void> refreshCache() async {
-    _log("Forcing cache refresh");
+    Log.i(LogTag.songLoading, 'Forcing cache refresh');
     await _songCache.clear();
     await reloadSongs();
   }
@@ -39,12 +40,16 @@ extension NPlayerSongLoading on NPlayer {
   /// Always returns true on desktop platforms.
   Future<bool> requestStoragePermission() async {
     if (Platform.isAndroid || Platform.isIOS) {
-      _log("Requesting storage permission");
+      Log.d(LogTag.songLoading, 'Requesting storage permission');
       var status = await Permission.storage.status;
       if (!status.isGranted) {
         status = await Permission.storage.request();
       }
-      _log("Storage permission ${status.isGranted ? 'granted' : 'denied'}");
+      if (status.isGranted) {
+        Log.d(LogTag.songLoading, 'Storage permission granted');
+      } else {
+        Log.w(LogTag.songLoading, 'Storage permission denied');
+      }
       return status.isGranted;
     }
     return true; // Always return true for desktop platforms
@@ -57,16 +62,16 @@ extension NPlayerSongLoading on NPlayer {
   Future<List<FileSystemEntity>> listFiles() async {
     try {
       final directoryPath = await Settings.getSongDir();
-      _log("Listing files from: $directoryPath");
+      Log.d(LogTag.songLoading, 'Listing files from: $directoryPath');
       final directory = Directory(directoryPath);
 
       if (!await directory.exists()) {
-        _log('Directory does not exist: $directoryPath');
+        Log.w(LogTag.songLoading, 'Directory does not exist: $directoryPath');
         return [];
       }
 
       if (!await requestStoragePermission()) {
-        _log('Storage permission denied');
+        Log.w(LogTag.songLoading, 'Storage permission denied');
         return [];
       }
 
@@ -81,10 +86,10 @@ extension NPlayerSongLoading on NPlayer {
         return _isSupportedAudioFormat(extension);
       }).toList();
 
-      _log("Found ${files.length} audio files (${_getSupportedExtensionsList()})");
+      Log.d(LogTag.songLoading, 'Found ${files.length} audio files');
       return files;
     } catch (e) {
-      _log("Error while listing files: $e");
+      Log.e(LogTag.songLoading, 'Error while listing files: $e');
       return [];
     }
   }
@@ -95,28 +100,28 @@ extension NPlayerSongLoading on NPlayer {
 
   Future<void> _loadSongs() async {
     try {
-      _log("Starting to load songs...");
+      Log.i(LogTag.songLoading, 'Starting song load...');
       final loadStartTime = DateTime.now();
-      
+
       // 1. Initialize Cache Safely
       try {
         await _songCache.initialize();
       } catch (e) {
-        _log("Cache init failed (continuing): $e");
+        Log.w(LogTag.songLoading, 'Cache init failed (continuing): $e');
       }
-      
+
       final cacheMap = await _songCache.loadAll();
-      _log("Cache loaded with ${cacheMap.length} entries.");
+      Log.d(LogTag.songLoading, 'Cache: ${cacheMap.length} entries loaded');
 
       // 2. Get Directories
       final List<Directory> directories = await Settings.getAllSongDirs();
       if (directories.isEmpty) {
-        _log('No valid directories found - stopping load.');
-        _internalNotifyListeners(); // Unstick the UI!
+        Log.w(LogTag.songLoading, 'No valid directories found — stopping load');
+        _internalNotifyListeners();
         return;
       }
-      
-      _log("Scanning ${directories.length} directories");
+
+      Log.d(LogTag.songLoading, 'Scanning ${directories.length} directories');
 
       // 3. Process Directories with TIMEOUT safety
       final Set<String> validPaths = {};
@@ -129,7 +134,7 @@ extension NPlayerSongLoading on NPlayer {
 
       for (var dir in directories) {
         if (DateTime.now().isAfter(scanTimeout)) {
-          _log("⚠️ Scan timed out - aborting directory scan");
+          Log.w(LogTag.songLoading, 'Scan timed out — aborting directory scan');
           break;
         }
 
@@ -138,8 +143,8 @@ extension NPlayerSongLoading on NPlayer {
         cacheMisses += result['misses'] as int;
       }
 
-      _log("Cache performance: $cacheHits hits, $cacheMisses misses");
-      
+      Log.d(LogTag.songLoading, 'Cache: $cacheHits hits, $cacheMisses misses');
+
       // 4. Clean Cache
       if (validPaths.isNotEmpty) {
         await _songCache.cleanInvalidEntries(validPaths);
@@ -147,19 +152,18 @@ extension NPlayerSongLoading on NPlayer {
       }
 
       final totalTime = DateTime.now().difference(loadStartTime).inMilliseconds;
-      _log("Finished loading ${_allSongs.length} songs in ${totalTime}ms");
+      Log.i(LogTag.songLoading, 'Loaded ${_allSongs.length} songs in ${totalTime}ms');
 
       // 5. Restore & Notify
       _restorePlaylistAssociations();
       await _loadFavorites();
       _filterAndSortSongs();
+      buildAlbumMaps(); 
       
       _internalNotifyListeners(); // CRITICAL: Updates the UI to remove loading spinner!
 
     } catch (e, stack) {
-      _log("CRITICAL Error loading songs: $e");
-      print(stack);
-      // Even on error, notify UI so it stops loading
+      Log.e(LogTag.songLoading, 'Critical error loading songs: $e', stack);
       _internalNotifyListeners();
     }
   }
@@ -194,7 +198,7 @@ extension NPlayerSongLoading on NPlayer {
         }
       }
     } catch (e) {
-      _log("Error processing directory ${directory.path}: $e");
+      Log.w(LogTag.songLoading, 'Error processing directory ${directory.path}: $e');
     }
 
     return {'hits': hits, 'misses': misses};
@@ -229,7 +233,7 @@ extension NPlayerSongLoading on NPlayer {
         try {
           picture = await _songCache.getPicture(filePath);
         } catch (e) {
-          _log("Error loading picture for $filePath: $e");
+          Log.w(LogTag.songLoading, 'Error loading picture for $filePath: $e');
           picture = null;
         }
 
@@ -268,7 +272,7 @@ extension NPlayerSongLoading on NPlayer {
 
       return false; // Cache miss
     } catch (e) {
-      _log('Error parsing file ${file.path}: $e');
+      Log.w(LogTag.songLoading, 'Error parsing ${file.path}: $e');
       return false;
     }
   }
@@ -299,7 +303,7 @@ extension NPlayerSongLoading on NPlayer {
       
       return music;
     } catch (e) {
-      _log("Error processing metadata: $e");
+      Log.w(LogTag.songLoading, 'Error processing metadata: $e');
       return null;
     }
   }
@@ -318,7 +322,7 @@ extension NPlayerSongLoading on NPlayer {
         }
       }
     }
-    _log("Restored playlist associations for ${_allSongs.length} songs");
+    Log.d(LogTag.songLoading, 'Restored playlist associations for ${_allSongs.length} songs');
   }
   
   bool _isSupportedAudioFormat(String extension) {

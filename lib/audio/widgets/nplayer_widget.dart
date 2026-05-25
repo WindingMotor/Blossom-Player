@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'package:blossom/sheets/playing_sheet.dart';
 import 'package:blossom/sheets/playlist_sheet.dart';
 import 'package:blossom/tools/utils.dart';
@@ -10,15 +11,24 @@ import 'package:ticker_text/ticker_text.dart';
 import '../../sheets/sleep_timer_sheet.dart';
 import '../../sheets/metadata_sheet.dart';
 
-// Performance-only image cache (no visual changes)
+// LRU image cache — bounded to avoid OOM on large libraries.
 class _ImageCache {
-  static final Map<String, ImageProvider> _cache = {};
-  
+  static const _maxSize = 50;
+  static final _cache = LinkedHashMap<String, ImageProvider>();
+
   static ImageProvider getProvider(String? path, Uint8List? picture) {
     if (picture == null || path == null) {
       return const AssetImage('assets/placeholder.png');
     }
-    return _cache.putIfAbsent(path, () => MemoryImage(picture));
+    final existing = _cache.remove(path);
+    if (existing != null) {
+      _cache[path] = existing;
+      return existing;
+    }
+    final provider = MemoryImage(picture);
+    _cache[path] = provider;
+    if (_cache.length > _maxSize) _cache.remove(_cache.keys.first);
+    return provider;
   }
 }
 
@@ -335,65 +345,70 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
     );
   }
 
-  // Keep exact original progress bar styling
+  // Progress bar subscribes directly to positionNotifier so only this small
+  // widget rebuilds at ~5 Hz instead of the entire NPlayerWidget.
   Widget _buildProgressBar(NPlayer player) {
-    final double max = player.duration.inSeconds.toDouble() > 0
-        ? player.duration.inSeconds.toDouble()
-        : 1.0;
-    final double value =
-        player.currentPosition.inSeconds.toDouble().clamp(0.0, max);
+    return ValueListenableBuilder<Duration>(
+      valueListenable: player.positionNotifier,
+      builder: (context, position, _) {
+        final double max = player.duration.inSeconds.toDouble() > 0
+            ? player.duration.inSeconds.toDouble()
+            : 1.0;
+        final double value = position.inSeconds.toDouble().clamp(0.0, max);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: Colors.white,
-            inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
-            thumbColor: Colors.white,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-            trackHeight: 3,
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-            overlayColor: Colors.white.withValues(alpha: 0.1),
-          ),
-          child: Slider(
-            value: value,
-            min: 0,
-            max: max,
-            onChanged: (value) {
-              if (player.duration.inSeconds > 0) {
-                HapticFeedback.selectionClick();
-                final position = Duration(seconds: value.round());
-                player.seek(position);
-              }
-            },
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                Utils.formatDuration(player.currentPosition.inSeconds),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: Colors.white,
+                inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
+                thumbColor: Colors.white,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                trackHeight: 3,
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                overlayColor: Colors.white.withValues(alpha: 0.1),
               ),
-              Text(
-                Utils.formatDuration(player.duration.inSeconds),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Slider(
+                value: value,
+                min: 0,
+                max: max,
+                onChanged: (value) {
+                  if (player.duration.inSeconds > 0) {
+                    HapticFeedback.selectionClick();
+                    final pos = Duration(seconds: value.round());
+                    player.seek(pos);
+                  }
+                },
               ),
-            ],
-          ),
-        ),
-      ],
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    Utils.formatDuration(position.inSeconds),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    Utils.formatDuration(player.duration.inSeconds),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -654,7 +669,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                     child: Container(
                       height: Tween<double>(
                         begin: 70,
-                        end: MediaQuery.of(context).size.height * 0.55,
+                        end: MediaQuery.of(context).size.height * 0.72,
                       ).animate(_expandAnimation).value,
                       margin: const EdgeInsets.symmetric(horizontal: 16.0),
                       decoration: BoxDecoration(
@@ -702,85 +717,82 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                                 ),
                               ),
                             
-                            // Keep exact original expanded player layout
-                            if (_isPlayerExpanded && _expandAnimation.value > 0.3)
+                            // Expanded player — fades in after 50% open
+                            if (_isPlayerExpanded && _expandAnimation.value > 0.5)
                               Positioned.fill(
                                 child: AnimatedBuilder(
                                   animation: _expandAnimation,
                                   builder: (context, child) {
-                                    final opacity = ((_expandAnimation.value - 0.3) / 0.7).clamp(0.0, 1.0);
+                                    final opacity = ((_expandAnimation.value - 0.5) / 0.5).clamp(0.0, 1.0);
                                     return Opacity(
                                       opacity: opacity,
                                       child: Padding(
                                         key: const ValueKey('expanded'),
-                                        padding: const EdgeInsets.all(16.0),
+                                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                                         child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                          mainAxisAlignment: MainAxisAlignment.start,
                                           mainAxisSize: MainAxisSize.max,
                                           children: [
-                                            // Album art with original styling
-                                            Flexible(
-                                              flex: 3,
+                                            // Album art fills remaining space
+                                            Expanded(
                                               child: Center(
                                                 child: Hero(
                                                   tag: 'album_art',
-                                                  child: ConstrainedBox(
-                                                    constraints: const BoxConstraints(
-                                                      maxWidth: 200,
-                                                      maxHeight: 200,
-                                                      minWidth: 150,
-                                                      minHeight: 150,
-                                                    ),
-                                                    child: _buildAlbumArt(player, size: 200, radius: 12),
+                                                  child: LayoutBuilder(
+                                                    builder: (context, constraints) {
+                                                      final artSize = constraints.maxHeight.clamp(120.0, 280.0);
+                                                      return _buildAlbumArt(player, size: artSize, radius: 16);
+                                                    },
                                                   ),
                                                 ),
                                               ),
                                             ),
-                                            
-                                            // Song info with original styling
-                                            Flexible(
-                                              flex: 1,
-                                              child: Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Text(
-                                                    currentSong.title,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 20,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                    textAlign: TextAlign.center,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    maxLines: 2,
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Text(
-                                                    currentSong.album,
-                                                    style: const TextStyle(
-                                                      color: Colors.grey,
-                                                      fontSize: 16,
-                                                    ),
-                                                    textAlign: TextAlign.center,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    maxLines: 1,
-                                                  ),
-                                                ],
+                                            const SizedBox(height: 16),
+
+                                            // Song title
+                                            Text(
+                                              currentSong.title,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.w700,
                                               ),
+                                              textAlign: TextAlign.center,
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
                                             ),
-                                            
-                                            // Progress bar with original sizing
-                                            SizedBox(
-                                              height: 60,
-                                              child: _buildProgressBar(player),
+                                            const SizedBox(height: 4),
+                                            // Artist
+                                            Text(
+                                              currentSong.artist,
+                                              style: TextStyle(
+                                                color: Colors.white.withValues(alpha: 0.7),
+                                                fontSize: 15,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
                                             ),
-                                            
-                                            // Controls with original sizing
-                                            SizedBox(
-                                              height: 60,
-                                              child: _buildExpandedControls(),
+                                            const SizedBox(height: 2),
+                                            // Album
+                                            Text(
+                                              currentSong.album,
+                                              style: TextStyle(
+                                                color: Colors.white.withValues(alpha: 0.45),
+                                                fontSize: 13,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
                                             ),
+                                            const SizedBox(height: 12),
+
+                                            // Progress bar
+                                            _buildProgressBar(player),
+                                            const SizedBox(height: 4),
+
+                                            // Controls
+                                            _buildExpandedControls(),
                                           ],
                                         ),
                                       ),

@@ -19,7 +19,7 @@ Future<void> _loadFavorites() async {
 
 /// Updates a song's metadata
 Future<void> updateSongMetadata(Music song, Map<String, String> metadata) async {
-  _log("Updating metadata for ${song.title}");
+  Log.d(LogTag.playback, 'Updating metadata for ${song.title}');
   try {
     final songFile = File(song.path);
     if (!await songFile.exists()) {
@@ -62,13 +62,13 @@ Future<void> updateSongMetadata(Music song, Map<String, String> metadata) async 
     }
     _internalNotifyListeners();
   } catch (e) {
-    _log("Error updating metadata: $e");
+    Log.w(LogTag.playback, 'Error updating metadata: $e');
   }
 }
 
 /// Deletes a song from the library
 Future<void> deleteSong(Music song) async {
-  _log("Deleting song: ${song.title}");
+  Log.d(LogTag.playback, 'Deleting song: ${song.title}');
   try {
     // 1. Delete the actual file first — if this fails we abort before touching state
     final file = File(song.path);
@@ -111,12 +111,12 @@ Future<void> deleteSong(Music song) async {
 
     _internalNotifyListeners();
   } catch (e) {
-    _log("Error deleting song: $e");
+    Log.e(LogTag.playback, 'Error deleting song: $e');
   }
 }
 
 Future<void> shareSong(Music song) async {
-  _log("Sharing song: ${song.title}");
+  Log.d(LogTag.playback, 'Sharing song: ${song.title}');
   try {
     final List<XFile> filesToShare = [XFile(song.path)];
     await Share.shareXFiles(
@@ -125,7 +125,7 @@ Future<void> shareSong(Music song) async {
       subject: 'Song Share: ${song.title}',
     );
   } catch (e) {
-    _log("Error sharing song: $e");
+    Log.w(LogTag.playback, 'Error sharing song: $e');
   }
 }
 

@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'package:blossom/tools/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -89,7 +90,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
           });
         }
       } catch (e) {
-        print('Error fetching status for $uuid: $e');
+        Log.w(LogTag.social, 'Error fetching status for $uuid: $e');
       }
     }
     

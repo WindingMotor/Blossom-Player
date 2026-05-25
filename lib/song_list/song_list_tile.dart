@@ -1,5 +1,6 @@
 
 
+import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:blossom/audio/nplayer.dart';
@@ -99,10 +100,22 @@ class _AlbumArt extends StatelessWidget {
   }
 }
 
+// LRU cache — keeps the most-recently-used 100 entries to avoid OOM on large libraries.
 class AlbumArtCache {
-  static final Map<String, MemoryImage> _memCache = {};
-  static MemoryImage of(String path, Uint8List picture) =>
-      _memCache.putIfAbsent(path, () => MemoryImage(picture));
+  static const _maxSize = 100;
+  static final _memCache = LinkedHashMap<String, MemoryImage>();
+
+  static MemoryImage of(String path, Uint8List picture) {
+    final existing = _memCache.remove(path);
+    if (existing != null) {
+      _memCache[path] = existing;
+      return existing;
+    }
+    final image = MemoryImage(picture);
+    _memCache[path] = image;
+    if (_memCache.length > _maxSize) _memCache.remove(_memCache.keys.first);
+    return image;
+  }
 }
 
 

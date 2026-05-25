@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:blossom/custom/search_bar.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:blossom/tools/ui_helpers.dart';
@@ -19,7 +20,10 @@ class PlaylistPage extends StatefulWidget {
 }
 
 class _PlaylistPageState extends State<PlaylistPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   bool _isMounted = false;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -86,9 +90,16 @@ class _PlaylistPageState extends State<PlaylistPage>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<NPlayer>(
-      builder: (context, player, child) {
-        List<String> filteredPlaylists = player.playlists
+    super.build(context);
+    // Selector rebuilds only when the playlist list actually changes (add/delete),
+    // not on every position update from NPlayer.
+    return Selector<NPlayer, List<String>>(
+      selector: (_, player) => player.playlists,
+      shouldRebuild: (prev, next) =>
+          prev.length != next.length || !listEquals(prev, next),
+      builder: (context, playlists, child) {
+        final player = context.read<NPlayer>();
+        List<String> filteredPlaylists = playlists
             .where((playlist) =>
                 playlist.toLowerCase().contains(_searchController.text.toLowerCase()))
             .toList();

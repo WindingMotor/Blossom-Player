@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:blossom/audio/song_data.dart';
+import 'package:blossom/tools/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -74,8 +75,9 @@ class Settings {
     _prefs = await SharedPreferences.getInstance();
     await SongData.init();
     
-    // Set debug mode
+    // Set debug mode and propagate to logger
     _debugMode = _prefs.getBool(SettingsKeys.debugMode) ?? true;
+    Log.setEnabled(_debugMode);
     
     uuid = _prefs.getString('uuid') ?? '';
   if (uuid.isEmpty) {
@@ -96,20 +98,14 @@ class Settings {
     // Request permissions right away
     if (Platform.isAndroid) {
       _hasAndroidPermissions = await _requestAndroidPermissions();
-      _log("Android permissions granted: $_hasAndroidPermissions");
+      Log.i(LogTag.settings, 'Android permissions granted: $_hasAndroidPermissions');
     }
   }
-  
-  /// Helper function for logging
-  static void _log(String message) {
-    if (_debugMode) {
-      print("[Settings] $message");
-    }
-  }
-  
-  /// Enable or disable debug mode
+
+  /// Enable or disable debug logging.
   static Future<void> setDebugMode(bool enabled) async {
     _debugMode = enabled;
+    Log.setEnabled(enabled);
     await _prefs.setBool(SettingsKeys.debugMode, enabled);
   }
   
@@ -121,34 +117,29 @@ class Settings {
       final AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
       final int sdkVersion = androidInfo.version.sdkInt;
       
-      _log("Android SDK version: $sdkVersion");
-      
-      if (sdkVersion >= 33) { // Android 13+
-        // Request granular media permissions for Android 13+
+      Log.d(LogTag.settings, 'Android SDK: $sdkVersion');
+
+      if (sdkVersion >= 33) {
         final status = await Permission.audio.request();
-        _log("Audio permission status: ${status.toString()}");
+        Log.d(LogTag.settings, 'Audio permission: $status');
         return status.isGranted;
-      } else if (sdkVersion >= 30) { // Android 11-12
-        // For Android 11-12, need both storage and media audio
+      } else if (sdkVersion >= 30) {
         final storageStatus = await Permission.storage.request();
         final audioStatus = await Permission.audio.request();
-        _log("Storage permission: ${storageStatus.toString()}");
-        _log("Audio permission: ${audioStatus.toString()}");
-        
+        Log.d(LogTag.settings, 'Storage: $storageStatus  Audio: $audioStatus');
         return storageStatus.isGranted || audioStatus.isGranted;
-      } else { // Android 10 and below
+      } else {
         final status = await Permission.storage.request();
-        _log("Storage permission: ${status.toString()}");
+        Log.d(LogTag.settings, 'Storage permission: $status');
         return status.isGranted;
       }
     } catch (e) {
-      _log("Error requesting Android permissions: $e");
-      // Try fallback with storage permission
+      Log.w(LogTag.settings, 'Error requesting Android permissions: $e');
       try {
         final status = await Permission.storage.request();
         return status.isGranted;
       } catch (fallbackError) {
-        _log("Fallback permission request also failed: $fallbackError");
+        Log.e(LogTag.settings, 'Fallback permission request failed: $fallbackError');
         return false;
       }
     }
@@ -166,7 +157,7 @@ static Future<void> loadFriendsList() async {
     try {
       _friendsList = (jsonDecode(friendsJson) as List<dynamic>).cast<String>();
     } catch (e) {
-      print('Error loading friends list: $e');
+      Log.w(LogTag.settings, 'Error loading friends list: $e');
       _friendsList = [];
     }
   }
@@ -284,7 +275,7 @@ static Future<void> initializeUsername() async {
   
   /// Set last playing song
   static Future<void> setLastPlayingSong(String? song) {
-    _log('Last playing song: $song');
+    Log.v(LogTag.settings, 'Last playing song: $song');
     return _prefs.setString(SettingsKeys.lastPlayingSong, song ?? '');
   }
   
@@ -429,31 +420,28 @@ static Future<void> initializeUsername() async {
   static Future<bool> testDirectFileAccess(String testPath) async {
     try {
       final String fullPath = path.join(testPath, 'Song.m4a');
-      _log("Testing direct file access to: $fullPath");
-      
-      // Check if the file exists
+      Log.d(LogTag.settings, 'Testing direct file access: $fullPath');
+
       final File testFile = File(fullPath);
       final bool exists = await testFile.exists();
-      _log("File exists: $exists");
-      
+      Log.v(LogTag.settings, 'File exists: $exists');
+
       if (exists) {
-        // Try to read file length
         final int length = await testFile.length();
-        _log("File length: $length bytes");
-        
-        // Try to read a small chunk of the file
+        Log.v(LogTag.settings, 'File length: $length bytes');
+
         final RandomAccessFile reader = await testFile.open(mode: FileMode.read);
         final Uint8List bytes = await reader.read(1024);
         await reader.close();
-        
-        _log("Successfully read ${bytes.length} bytes from file");
+
+        Log.v(LogTag.settings, 'Read ${bytes.length} bytes successfully');
         return true;
       } else {
-        _log("Test file not found at specified path");
+        Log.w(LogTag.settings, 'Test file not found at $fullPath');
         return false;
       }
     } catch (e) {
-      _log("Error accessing test file: $e");
+      Log.w(LogTag.settings, 'Error accessing test file: $e');
       return false;
     }
   }
@@ -461,38 +449,30 @@ static Future<void> initializeUsername() async {
   /// Validates if the directory exists and is accessible
   static Future<bool> isDirectoryAccessible(Directory directory) async {
     try {
-      _log("Testing directory access: ${directory.path}");
+      Log.d(LogTag.settings, 'Checking directory: ${directory.path}');
       final bool exists = await directory.exists();
-      _log("Directory exists: $exists");
-      
+
       if (exists) {
-        // Try to list directory contents
         try {
           final List<FileSystemEntity> entities = await directory.list().take(5).toList();
-          _log("Successfully listed ${entities.length} items in directory");
-          
-          // Log first few items
-          for (var entity in entities) {
-            _log(" - ${entity.path} (${entity is File ? 'File' : 'Directory'})");
-          }
+          Log.v(LogTag.settings, 'Directory accessible (${entities.length} items sampled)');
           return true;
         } catch (listError) {
-          _log("Error listing directory contents: $listError");
+          Log.w(LogTag.settings, 'Error listing directory contents: $listError');
           return false;
         }
       } else {
-        // Try to create the directory
         try {
           await directory.create(recursive: true);
-          _log("Created directory successfully");
+          Log.d(LogTag.settings, 'Created directory: ${directory.path}');
           return true;
         } catch (createError) {
-          _log("Failed to create directory: $createError");
+          Log.w(LogTag.settings, 'Failed to create directory: $createError');
           return false;
         }
       }
     } catch (e) {
-      _log("General error checking directory: $e");
+      Log.e(LogTag.settings, 'Error checking directory: $e');
       return false;
     }
   }
@@ -506,53 +486,44 @@ static Future<List<Directory>> getAllSongDirs() async {
   final String? customDir = customMusicDirectory;
   
   if (customDir != null && customDir.isNotEmpty) {
-    _log("Using user-selected music directory: $customDir");
+    Log.d(LogTag.settings, 'Using custom music dir: $customDir');
     final dir = Directory(customDir);
     if (await isDirectoryAccessible(dir)) {
       directories.add(dir);
-      return directories; // RETURN IMMEDIATELY - use ONLY this directory
+      return directories;
     } else {
-      _log("WARNING: User-selected directory not accessible: $customDir");
+      Log.w(LogTag.settings, 'Custom directory not accessible: $customDir');
     }
   }
-  
-  // If no custom directory set or it's not accessible, use platform default
-  _log("No custom directory set, using platform default");
-  
+
+  Log.d(LogTag.settings, 'No custom directory — using platform default');
+
   if (Platform.isAndroid) {
-    // Android: Use /storage/emulated/0/Music as default
     final defaultDir = Directory('/storage/emulated/0/Music');
     if (await isDirectoryAccessible(defaultDir)) {
       directories.add(defaultDir);
-      _log("Using Android default: ${defaultDir.path}");
+      Log.d(LogTag.settings, 'Android default: ${defaultDir.path}');
     } else {
-      _log("WARNING: Default Music directory not accessible, using app documents");
+      Log.w(LogTag.settings, 'Default Music dir inaccessible — falling back to app docs');
       final appDir = await getApplicationDocumentsDirectory();
       directories.add(Directory(appDir.path));
     }
-    
   } else if (Platform.isIOS) {
-    // iOS: Use application documents directory
     final directory = await getApplicationDocumentsDirectory();
     directories.add(Directory(directory.path));
-    _log("Using iOS documents directory: ${directory.path}");
-    
+    Log.d(LogTag.settings, 'iOS docs: ${directory.path}');
   } else {
-    // Desktop: Use BlossomMedia folder in documents
     final directory = await getApplicationDocumentsDirectory();
     final blossomMediaDir = Directory('${directory.path}/BlossomMedia');
     if (!await blossomMediaDir.exists()) {
       await blossomMediaDir.create(recursive: true);
     }
     directories.add(blossomMediaDir);
-    _log("Desktop using BlossomMedia directory: ${blossomMediaDir.path}");
+    Log.d(LogTag.settings, 'Desktop: ${blossomMediaDir.path}');
   }
-  
-  _log("Final directories list (${directories.length} directories):");
-  for (var dir in directories) {
-    _log(" - ${dir.path}");
-  }
-  
+
+  Log.d(LogTag.settings, 'Directories (${directories.length}): ${directories.map((d) => d.path).join(', ')}');
+
   return directories;
 }
 
@@ -585,7 +556,7 @@ static Future<String> getSongDir() async {
     final part2 = rng.nextInt(0xFFFFFFFF).toRadixString(16).padLeft(8, '0');
     uuid = 'user-${DateTime.now().millisecondsSinceEpoch}-$part1-$part2';
     await _prefs.setString('uuid', uuid);
-    _log('Generated new UUID: $uuid');
+    Log.d(LogTag.settings, 'Generated new UUID: $uuid');
   }
   
   /// Set public username

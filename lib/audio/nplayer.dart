@@ -5,8 +5,7 @@ import 'dart:io';
 import 'package:blossom/audio/nplayer_extensions/song_cache.dart';
 import 'package:blossom/tools/supported_formats.dart';
 import 'package:flutter/foundation.dart';
-import 'package:audioplayers/audioplayers.dart' as ap; 
-import 'package:audio_session/audio_session.dart';
+import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:blossom/audio/nplaylist.dart';
 import 'package:blossom/audio/nserver.dart';
 import 'package:blossom/tools/settings.dart';
@@ -18,6 +17,7 @@ import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:blossom/audio/song_data.dart';
 import 'package:blossom/audio/nplayer_extensions/nplayer_audio_handler.dart';
+import 'package:blossom/tools/logger.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:blossom/audio/nplayer.dart';
@@ -31,6 +31,7 @@ part 'nplayer_extensions/nplayer_song_loading.dart';
 part 'nplayer_extensions/nplayer_server.dart';
 part 'nplayer_extensions/nplayer_song_utils.dart';
 part 'nplayer_extensions/nplayer_public.dart';
+part 'nplayer_extensions/nplayer_albums.dart';
 
 /// Represents a music file with its metadata and associated playlists.
 class Music {
@@ -125,6 +126,7 @@ class NPlayer extends ChangeNotifier {
   int? _currentSongIndex;
   bool _isPlaying = false;
   Duration _currentPosition = Duration.zero;
+  final ValueNotifier<Duration> positionNotifier = ValueNotifier(Duration.zero);
   String _repeatMode = Settings.repeatMode;
   String _sortBy = 'title';
   bool _sortAscending = true;
@@ -156,6 +158,9 @@ class NPlayer extends ChangeNotifier {
   static const fadeStartSeconds = 10;
   static const fadeUpdateInterval = 50;
 
+  Map<String, List<Music>> _albumMap  = {};
+  Map<String, List<Music>> _folderMap = {};
+
   // MARK: Getters
   List<Music> get allSongs => _allSongs;
   List<Music> get playingSongs => _playingSongs;
@@ -173,11 +178,12 @@ class NPlayer extends ChangeNotifier {
   bool get isHeadphonesConnected => _isHeadphonesConnected;
   int? get sleepTimerMinutes => _sleepTimerMinutes;
   Duration? get remainingTime => _remainingTime;
+  Map<String, List<Music>> get albumMap  => _albumMap;
+  Map<String, List<Music>> get folderMap => _folderMap;
 
   bool _isInitialized = false;
   bool _isDisposed = false;
   Completer<void>? _initializationCompleter;
-  late AudioSession _audioSession;
   final List<StreamSubscription> _audioPlayerSubscriptions = [];
 
   Duration get duration {
@@ -201,7 +207,7 @@ class NPlayer extends ChangeNotifier {
   }
 
   NPlayer() {
-    _log("Initializing NPlayer...");
+    Log.i(LogTag.playback, 'Initializing NPlayer...');
     _initialize();
   }
 
@@ -221,20 +227,21 @@ Future<void> _initializeAudioHandler() async {
         androidNotificationChannelName: 'Blossom Music Player',
         androidNotificationClickStartsActivity: true,
         androidNotificationOngoing: false,
-        androidStopForegroundOnPause: true,
-        // Optional: Add custom notification icon
-        androidNotificationIcon: 'mipmap/ic_launcher',
-        // Optional: Show controls in f notification
+        androidStopForegroundOnPause: false,
+        androidNotificationIcon: 'drawable/ic_notification',
         androidShowNotificationBadge: false,
         preloadArtwork: false,
+        // Downscale album art bitmaps so the MediaSession parcel stays small
+        // enough for Android Auto to receive without dropping it.
+        artDownscaleWidth: 512,
+        artDownscaleHeight: 512,
       ),
     );
-    
-    _log("AudioHandler initialized successfully");
+    Log.i(LogTag.audioHandler, 'AudioHandler initialized successfully');
   } catch (e) {
-    _log("Error initializing AudioHandler: $e");
+    Log.e(LogTag.audioHandler, 'Error initializing AudioHandler: $e');
     _audioHandler = CustomAudioHandler(_audioPlayer, this);
-    _log("Fallback: Created AudioHandler directly");
+    Log.w(LogTag.audioHandler, 'Fallback: created AudioHandler directly');
   }
 }
 
@@ -243,8 +250,7 @@ Future<void> _initialize() async {
   _initializationCompleter = Completer<void>();
 
   try {
-    // Configure AudioPlayer to NOT handle audio focus automatically
-    // This prevents conflicts with our AudioHandler
+    // Configure AudioPlayer to delegate all audio focus to our AudioHandler
     try {
       await _audioPlayer.setAudioContext(ap.AudioContext(
         android: ap.AudioContextAndroid(
@@ -252,63 +258,19 @@ Future<void> _initialize() async {
           stayAwake: true,
           contentType: ap.AndroidContentType.music,
           usageType: ap.AndroidUsageType.media,
-          audioFocus: ap.AndroidAudioFocus.none, // Disable audioplayers focus management
+          audioFocus: ap.AndroidAudioFocus.none,
         ),
         iOS: ap.AudioContextIOS(
           category: ap.AVAudioSessionCategory.playback,
-          options: {}, // Use empty set to avoid potential option conflicts
+          options: {},
         ),
       ));
-      _log("AudioContext configured successfully");
+      Log.d(LogTag.playback, 'AudioContext configured');
     } catch (e) {
-      _log("Error configuring AudioContext (continuing anyway): $e");
-      // Continue without audio context configuration - this is not critical
+      Log.w(LogTag.playback, 'AudioContext config failed (continuing): $e');
     }
 
-    // Initialize AudioSession (this will be managed by AudioHandler only)
-    _audioSession = await AudioSession.instance;
-      
-    // OneUI 7 specific configuration
-    if (Platform.isAndroid) {
-      try {
-        await _audioSession.configure(AudioSessionConfiguration.music().copyWith(
-          androidAudioAttributes: const AndroidAudioAttributes(
-            contentType: AndroidAudioContentType.music,
-            usage: AndroidAudioUsage.media,
-            flags: AndroidAudioFlags.none,
-          ),
-          // Use GAIN_TRANSIENT instead of GAIN to be less aggressive
-          androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransient,
-          androidWillPauseWhenDucked: true, // Changed to true for OneUI 7
-        ));
-        
-        // Delayed activation to prevent lock screen trigger
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        try {
-          final focusGranted = await _audioSession.setActive(true);
-          if (focusGranted) {
-            _log("Audio session activated successfully");
-          }
-        } catch (e) {
-          _log("Error activating audio session: $e");
-          // Don't throw error, continue without focus initially
-        }
-      } catch (e) {
-        _log("Error configuring audio session: $e");
-        // Continue without audio session configuration
-      }
-    } else {
-      try {
-        await _audioSession.configure(AudioSessionConfiguration.music());
-        _log("iOS audio session configured");
-      } catch (e) {
-        _log("Error configuring iOS audio session: $e");
-        // Continue without iOS audio session configuration
-      }
-    }
-
-    // Initialize AudioHandler
+    // Initialize AudioHandler (owns all session config + focus requests)
     await _initializeAudioHandler();
       
       // Initialize synchronous components
@@ -334,21 +296,20 @@ Future<void> _initialize() async {
 
       _isInitialized = true;
       _initializationCompleter!.complete();
-      _log("NPlayer initialization complete.");
-      notifyListeners(); // Notify UI that everything is ready
+      Log.i(LogTag.playback, 'NPlayer initialization complete');
+      notifyListeners();
     } catch (e) {
-      _log('Error during initialization: $e');
+      Log.e(LogTag.playback, 'Error during initialization: $e');
       _initializationCompleter!.completeError(e);
       rethrow;
     }
   }
 
   Future<void> _initializeFromSettings() async {
-    _log("Initializing from settings");
     await setVolume(Settings.volume);
     _repeatMode = Settings.repeatMode;
     await _loadFavorites();
-    _log("Initialized from settings: volume=${Settings.volume}, repeatMode=$_repeatMode");
+    Log.d(LogTag.playback, 'Settings loaded: volume=${Settings.volume}, repeat=$_repeatMode');
   }
 
   void _setupAudioPlayerListeners() {
@@ -365,52 +326,60 @@ Future<void> _initialize() async {
     _audioPlayerSubscriptions.add(
       _audioPlayer.onPositionChanged.listen((position) {
         _currentPosition = position;
-        if (_audioHandler != null) {
-          _audioHandler!.playbackState.add(_audioHandler!.playbackState.value.copyWith(
-            updatePosition: position,
-          ));
-        }
-        if (!_isDisposed) notifyListeners();
+        positionNotifier.value = position;
+        // Do NOT call notifyListeners() here — it rebuilds the entire widget
+        // tree at ~5 Hz and kills 120 Hz rendering.  The progress bar uses
+        // ValueListenableBuilder on positionNotifier directly.
+        // AudioHandler owns the throttled (1 Hz) MediaSession broadcast.
       }),
     );
-
-    _audioPlayerSubscriptions.add(
-      _audioPlayer.onPlayerComplete.listen((_) {
-        _log("Song completed");
-        _handleSongCompletion();
-      }),
-    );
+    // onPlayerComplete is intentionally NOT subscribed here.
+    // CustomAudioHandler owns all completion logic (guarded by _completionHandled
+    // + backup timer).  A second listener here was the cause of double-skips.
   }
+
+  Timer? _headsetDebounce;
 
   void _initHeadsetDetection() {
     if (!Platform.isLinux && !Platform.isWindows) {
-      _headsetPlugin.getCurrentState.then((val) {
-        if (_isDisposed) return;
-        _isHeadphonesConnected = val == HeadsetState.CONNECT;
-        notifyListeners();
-      });
+      try {
+        _headsetPlugin.getCurrentState.then((val) {
+          if (_isDisposed) return;
+          _isHeadphonesConnected = val == HeadsetState.CONNECT;
+          notifyListeners();
+        }).catchError((e) {
+          // BLUETOOTH_CONNECT permission may be missing on older OS builds;
+          // swallow so the app doesn't crash.
+          Log.w(LogTag.playback, 'Error getting initial headset state: $e');
+        });
 
-      _headsetPlugin.setListener((val) {
-        bool wasConnected = _isHeadphonesConnected;
-        _isHeadphonesConnected = val == HeadsetState.CONNECT;
+        _headsetPlugin.setListener((val) {
+          if (_isDisposed) return;
+          // Debounce rapid BT connect/disconnect events to avoid
+          // hammering the audio session during device pairing.
+          _headsetDebounce?.cancel();
+          _headsetDebounce = Timer(const Duration(milliseconds: 400), () {
+            try {
+              final wasConnected = _isHeadphonesConnected;
+              _isHeadphonesConnected = val == HeadsetState.CONNECT;
 
-        if (wasConnected && !_isHeadphonesConnected && _isPlaying) {
-          pauseSong();
-        }
-        notifyListeners();
-      });
+              if (wasConnected && !_isHeadphonesConnected && _isPlaying) {
+                Future.microtask(pauseSong);
+              }
+              if (!_isDisposed) notifyListeners();
+            } catch (e) {
+              Log.w(LogTag.playback, 'Error in headset listener: $e');
+            }
+          });
+        });
+      } catch (e) {
+        Log.w(LogTag.playback, 'Error initializing headset detection: $e');
+      }
     }
   }
 
   Future<Map<String, dynamic>> getCacheStats() async {
     return await _songCache.getStats();
-  }
-
-  // MARK: Utility Methods
-  void _log(String message) {
-    if (kDebugMode) {
-      print("[NPlayer] $message");
-    }
   }
 
   @override
@@ -421,7 +390,9 @@ Future<void> _initialize() async {
     }
     _audioPlayerSubscriptions.clear();
     _audioPlayer.dispose();
+    positionNotifier.dispose();
     _debounceTimer?.cancel();
+    _headsetDebounce?.cancel();
     _sleepTimer?.cancel();
     _fadeTimer?.cancel();
     _heartbeatTimer?.cancel();

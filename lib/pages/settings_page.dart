@@ -1,4 +1,5 @@
 import 'package:blossom/main.dart';
+import 'package:blossom/tools/logger.dart';
 import 'package:blossom/pages/nextcloud_page.dart';
 import 'package:blossom/sheets/library_stats_sheet.dart';
 import 'package:blossom/tools/nextcloud_sync.dart';
@@ -64,7 +65,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _isLoadingCache = false;
       });
     } catch (e) {
-      print('Error loading cache stats: $e');
+      Log.w(LogTag.settings, 'Error loading cache stats: $e');
       if (!mounted) return;
       setState(() => _isLoadingCache = false);
     }
@@ -163,10 +164,10 @@ Future<void> _clearCache(BuildContext context) async {
               content: Text('Files copied to Blossom folder successfully')),
         );
       } else {
-        print('No files selected');
+        Log.d(LogTag.settings, 'No files selected');
       }
     } catch (e) {
-      print('Error copying files: ${e.toString()}');
+      Log.w(LogTag.settings, 'Error copying files: ${e.toString()}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error copying files: ${e.toString()}')),
       );
@@ -220,7 +221,7 @@ Future<void> _clearCache(BuildContext context) async {
         );
       }
     } catch (e) {
-      print('Error selecting directory: $e');
+      Log.w(LogTag.settings, 'Error selecting directory: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error selecting directory: $e')),
       );
@@ -605,7 +606,7 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
                   ], (String value) async {
                     if (value != '-') {
                       await Settings.setAppTheme(value);
-                      print('New theme set: $value');
+                      Log.d(LogTag.settings, 'New theme set: $value');
                       widget.onThemeChanged();
                       setState(() {});
                       Navigator.of(context).pushAndRemoveUntil(

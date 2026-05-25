@@ -4,7 +4,7 @@ extension NPlayerServer on NPlayer {
   // MARK: Server-related methods
 
   Future<void> startServer({int port = 8080}) async {
-    _log("Starting server on port $port");
+    Log.d(LogTag.server, 'Starting server on port $port');
     _server = NServer(this);
     await _server!.start(port: port);
     _isServerOn = true;
@@ -12,7 +12,7 @@ extension NPlayerServer on NPlayer {
   }
 
   Future<void> stopServer() async {
-    _log("Stopping server");
+    Log.d(LogTag.server, 'Stopping server');
     if (_server != null) {
       await _server!.stop();
       _server = null;

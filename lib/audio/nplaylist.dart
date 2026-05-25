@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:blossom/tools/logger.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -37,11 +38,9 @@ class PlaylistManager {
       await Directory(_playlistArtDir).create(recursive: true);
       
       _isInitialized = true;
-      print('[PlaylistManager] Initialized successfully');
-      print('[PlaylistManager] Playlist directory: $_playlistDir');
-      print('[PlaylistManager] Playlist art directory: $_playlistArtDir');
+      Log.i(LogTag.playlist, 'Initialized. dir=$_playlistDir');
     } catch (e) {
-      print('[PlaylistManager] Error during initialization: $e');
+      Log.e(LogTag.playlist, 'Error during initialization: $e');
       _isInitialized = false;
       rethrow;
     }
@@ -63,7 +62,7 @@ class PlaylistManager {
       if (await file.exists()) {
         final content = await file.readAsString();
         if (content.trim().isEmpty) {
-          print('[PlaylistManager] Playlist file is empty, initializing with empty playlists');
+          Log.d(LogTag.playlist, 'Playlist file is empty — starting fresh');
           _playlists = {};
           return;
         }
@@ -90,17 +89,17 @@ class PlaylistManager {
             
             return MapEntry(key, value);
           });
-          print('[PlaylistManager] Loaded ${_playlists.length} playlists');
+          Log.i(LogTag.playlist, 'Loaded ${_playlists.length} playlists');
         } else {
-          print('[PlaylistManager] Invalid playlist file format, resetting');
+          Log.w(LogTag.playlist, 'Invalid playlist file format — resetting');
           _playlists = {};
         }
       } else {
-        print('[PlaylistManager] No playlist file found, starting fresh');
+        Log.d(LogTag.playlist, 'No playlist file found — starting fresh');
         _playlists = {};
       }
     } catch (e) {
-      print('[PlaylistManager] Error loading playlists: $e');
+      Log.e(LogTag.playlist, 'Error loading playlists: $e');
       _playlists = {};
       // Try to save an empty playlist file to ensure the system works
       await _forceSave();
@@ -116,9 +115,9 @@ class PlaylistManager {
       await file.parent.create(recursive: true);
       
       await file.writeAsString(jsonEncode(_playlists));
-      print('[PlaylistManager] Force saved playlists');
+      Log.d(LogTag.playlist, 'Force-saved playlists');
     } catch (e) {
-      print('[PlaylistManager] Error in force save: $e');
+      Log.e(LogTag.playlist, 'Error in force save: $e');
     }
   }
 
@@ -165,15 +164,15 @@ class PlaylistManager {
       if (await file.exists()) {
         final savedContent = await file.readAsString();
         if (savedContent == jsonString) {
-          print('[PlaylistManager] Successfully saved ${_playlists.length} playlists');
+          Log.d(LogTag.playlist, 'Saved ${_playlists.length} playlists');
         } else {
-          print('[PlaylistManager] Warning: Saved content differs from expected');
+          Log.w(LogTag.playlist, 'Saved content differs from expected');
         }
       } else {
-        print('[PlaylistManager] Warning: File does not exist after save attempt');
+        Log.w(LogTag.playlist, 'File does not exist after save attempt');
       }
     } catch (e) {
-      print('[PlaylistManager] Error saving playlists: $e');
+      Log.e(LogTag.playlist, 'Error saving playlists: $e');
       rethrow;
     }
   }
@@ -213,7 +212,7 @@ class PlaylistManager {
           }
         }
       } catch (e) {
-        print('[PlaylistManager] Error searching for playlist image: $e');
+        Log.w(LogTag.playlist, 'Error searching for playlist image: $e');
       }
     }
     return null;
@@ -233,9 +232,9 @@ class PlaylistManager {
         'created': DateTime.now().toIso8601String(),
       };
       await save();
-      print('[PlaylistManager] Created playlist: $name');
+      Log.d(LogTag.playlist, 'Created playlist: $name');
     } else {
-      print('[PlaylistManager] Playlist already exists: $name');
+      Log.d(LogTag.playlist, 'Playlist already exists: $name');
     }
   }
 
@@ -243,31 +242,31 @@ class PlaylistManager {
     await _ensureInitialized();
     
     if (!_playlists.containsKey(name)) {
-      print('[PlaylistManager] Playlist does not exist: $name');
+      Log.w(LogTag.playlist, 'deletePlaylist: not found: $name');
       return;
     }
-    
+
     try {
       String? imagePath = _playlists[name]?['imagePath'];
       if (imagePath != null && File(imagePath).existsSync()) {
         await File(imagePath).delete();
-        print('[PlaylistManager] Deleted playlist image: $imagePath');
+        Log.d(LogTag.playlist, 'Deleted playlist image: $imagePath');
       }
     } catch (e) {
-      print('[PlaylistManager] Error deleting playlist image: $e');
+      Log.w(LogTag.playlist, 'Error deleting playlist image: $e');
       // Continue with playlist deletion even if image deletion fails
     }
     
     _playlists.remove(name);
     await save();
-    print('[PlaylistManager] Deleted playlist: $name');
+    Log.d(LogTag.playlist, 'Deleted playlist: $name');
   }
 
   static Future<void> addSongToPlaylist(String playlistName, String songName) async {
     await _ensureInitialized();
     
     if (songName.trim().isEmpty) {
-      print('[PlaylistManager] Cannot add empty song name to playlist');
+      Log.w(LogTag.playlist, 'Cannot add empty song name to playlist');
       return;
     }
     
@@ -281,9 +280,9 @@ class PlaylistManager {
       _playlists[playlistName]!['songs'] = songs;
       _playlists[playlistName]!['modified'] = DateTime.now().toIso8601String();
       await save();
-      print('[PlaylistManager] Added "$songName" to playlist "$playlistName"');
+      Log.d(LogTag.playlist, 'Added "$songName" to "$playlistName"');
     } else {
-      print('[PlaylistManager] Song "$songName" already exists in playlist "$playlistName"');
+      Log.v(LogTag.playlist, '"$songName" already in "$playlistName"');
     }
   }
 
@@ -291,26 +290,26 @@ class PlaylistManager {
     await _ensureInitialized();
     
     if (!_playlists.containsKey(playlistName)) {
-      print('[PlaylistManager] Playlist does not exist: $playlistName');
+      Log.w(LogTag.playlist, 'removeSong: playlist not found: $playlistName');
       return;
     }
-    
+
     final songs = List<String>.from(_playlists[playlistName]!['songs']);
     if (songs.remove(songName)) {
       _playlists[playlistName]!['songs'] = songs;
       _playlists[playlistName]!['modified'] = DateTime.now().toIso8601String();
       await save();
-      print('[PlaylistManager] Removed "$songName" from playlist "$playlistName"');
+      Log.d(LogTag.playlist, 'Removed "$songName" from "$playlistName"');
     } else {
-      print('[PlaylistManager] Song "$songName" was not in playlist "$playlistName"');
+      Log.v(LogTag.playlist, '"$songName" was not in "$playlistName"');
     }
   }
 
   static Future<void> reorderSongs(String playlistName, List<String> orderedSongTitles) async {
     await _ensureInitialized();
-    
+
     if (!_playlists.containsKey(playlistName)) {
-      print('[PlaylistManager] Playlist does not exist: $playlistName');
+      Log.w(LogTag.playlist, 'reorderSongs: playlist not found: $playlistName');
       return;
     }
     
@@ -319,17 +318,17 @@ class PlaylistManager {
     _playlists[playlistName]!['modified'] = DateTime.now().toIso8601String();
     
     await save();
-    print('[PlaylistManager] Reordered $playlistName with ${orderedSongTitles.length} songs');
+    Log.d(LogTag.playlist, 'Reordered "$playlistName" (${orderedSongTitles.length} songs)');
   }
 
   static Future<void> setPlaylistImage(String playlistName, File imageFile) async {
     await _ensureInitialized();
     
     if (!_playlists.containsKey(playlistName)) {
-      print('[PlaylistManager] Playlist does not exist: $playlistName');
+      Log.w(LogTag.playlist, 'setPlaylistImage: playlist not found: $playlistName');
       return;
     }
-    
+
     if (!await imageFile.exists()) {
       throw ArgumentError('Image file does not exist: ${imageFile.path}');
     }
@@ -348,9 +347,9 @@ class PlaylistManager {
       _playlists[playlistName]!['imagePath'] = newImagePath;
       _playlists[playlistName]!['modified'] = DateTime.now().toIso8601String();
       await save();
-      print('[PlaylistManager] Set image for playlist "$playlistName": $newImagePath');
+      Log.d(LogTag.playlist, 'Set image for "$playlistName": $newImagePath');
     } catch (e) {
-      print('[PlaylistManager] Error setting playlist image: $e');
+      Log.e(LogTag.playlist, 'Error setting playlist image: $e');
       rethrow;
     }
   }

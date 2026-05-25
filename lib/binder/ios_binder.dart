@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:blossom/tools/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:process_run/shell.dart';
 
@@ -39,7 +40,7 @@ class iOS_Binder {
     final scriptDir = Directory('${appDocDir.path}/blossom_venv/scripts');
     
     if (!await scriptDir.exists()) {
-      print('Creating scripts directory: ${scriptDir.path}');
+      Log.d(LogTag.ui, 'Creating scripts directory: ${scriptDir.path}');
       await scriptDir.create(recursive: true);
     }
     
@@ -58,44 +59,39 @@ class iOS_Binder {
   }
 
     Future<bool> checkForIDevice({required String platform}) async {
-    print('Checking for iOS device on $platform');
+    Log.i(LogTag.ui, 'Checking for iOS device on $platform');
     try {
       final scriptPath = await _getScriptPath();
-      print('Using mount script: $scriptPath');
+      Log.d(LogTag.ui, 'Using mount script: $scriptPath');
 
       if (!File(scriptPath).existsSync()) {
-        print('Error: Mount script not found at $scriptPath');
+        Log.w(LogTag.ui, 'Mount script not found at $scriptPath');
         return false;
       }
 
-      // Make script executable on Unix systems
       if (!Platform.isWindows) {
         await Process.run('chmod', ['+x', scriptPath]);
-        print('Made script executable');
       }
 
-      // Run the appropriate script
       final shell = Shell(throwOnError: false);
       final results = await shell.run(scriptPath);
-      
-      print('Script output: ${results.first.stdout}');
-      print('Script errors: ${results.first.stderr}');
+      Log.d(LogTag.ui, 'Mount script stdout: ${results.first.stdout}');
+      if (results.first.stderr.toString().isNotEmpty) {
+        Log.d(LogTag.ui, 'Mount script stderr: ${results.first.stderr}');
+      }
 
-      // Check if mount was successful
       final mountDir = _mountDir.replaceFirst('~', Platform.environment['HOME']!);
       final mounted = await Directory(mountDir).exists();
-      
-      print(mounted ? 'Device mounted successfully' : 'Device mount failed');
+      Log.i(LogTag.ui, mounted ? 'Device mounted successfully' : 'Device mount failed');
       return mounted;
 
     } catch (e) {
-      print('Error during device mount: $e');
+      Log.e(LogTag.ui, 'Error during device mount: $e');
       return false;
     }
   }
 
   Future<Map<String, int>> getSpaceInfo() async {
-    print('Getting space information');
     final mountDir = _mountDir.replaceFirst('~', Platform.environment['HOME']!);
     try {
       final result = await Process.run('df', ['-k', mountDir]);
@@ -107,12 +103,12 @@ class iOS_Binder {
             'total': int.parse(values[1]) ~/ (1024 * 1024),
             'available': int.parse(values[3]) ~/ (1024 * 1024),
           };
-          print('Space info: $space');
+          Log.d(LogTag.ui, 'Space info: $space');
           return space;
         }
       }
     } catch (e) {
-      print('Error getting space info: $e');
+      Log.w(LogTag.ui, 'Error getting space info: $e');
     }
     return {'total': 0, 'available': 0};
   }
@@ -122,10 +118,10 @@ class iOS_Binder {
     try {
       final directory = Directory(mountDir);
       final exists = await directory.exists();
-      print('Mount status: ${exists ? "mounted" : "not mounted"}');
+      Log.d(LogTag.ui, 'Mount status: ${exists ? "mounted" : "not mounted"}');
       return exists;
     } catch (e) {
-      print('Error checking mount status: $e');
+      Log.w(LogTag.ui, 'Error checking mount status: $e');
       return false;
     }
   }

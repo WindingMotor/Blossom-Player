@@ -14,6 +14,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  List<Music>? _cachedAlbumArt;
 
   @override
   void initState() {
@@ -30,11 +31,21 @@ class _HomePageState extends State<HomePage>
     super.dispose();
   }
 
+  List<Music> _getAlbumArt(NPlayer player) {
+    if (_cachedAlbumArt != null && _cachedAlbumArt!.isNotEmpty) {
+      return _cachedAlbumArt!;
+    }
+    final withArt = player.allSongs.where((s) => s.picture != null).toList();
+    if (withArt.isEmpty) return [];
+    withArt.shuffle();
+    _cachedAlbumArt = withArt.take(60).toList();
+    return _cachedAlbumArt!;
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = Provider.of<NPlayer>(context);
-    final albumArt =
-        player.allSongs.where((song) => song.picture != null).toList();
+    final albumArt = _getAlbumArt(player);
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -60,20 +71,30 @@ class _HomePageState extends State<HomePage>
                   SizedBox(
                     width: MediaQuery.of(context).size.width,
                     height: MediaQuery.of(context).size.height,
-                    child: GridView.builder(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        childAspectRatio: 1,
-                      ),
-                      itemCount: albumArt.length,
-                      itemBuilder: (context, index) {
-                        return Image.memory(
-                          albumArt[index].picture!,
-                          fit: BoxFit.cover,
-                        );
-                      },
-                    ),
+                    child: albumArt.isEmpty
+                        ? const SizedBox.shrink()
+                        : GridView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              childAspectRatio: 1,
+                            ),
+                            itemCount: albumArt.length,
+                            itemBuilder: (context, index) {
+                              return RepaintBoundary(
+                                child: Image.memory(
+                                  albumArt[index].picture!,
+                                  fit: BoxFit.cover,
+                                  gaplessPlayback: true,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      ColoredBox(
+                                    color: Colors.grey.shade900,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                   ),
               ],
             ),

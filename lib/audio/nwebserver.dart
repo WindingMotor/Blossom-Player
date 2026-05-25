@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:blossom/audio/nplayer.dart';
+import 'package:blossom/tools/logger.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 
 class NWebServer {
@@ -30,18 +31,18 @@ Future<void> start({int port = 8080}) async {
     final wifiIP = await info.getWifiIP();
     _serverUrl = 'http://${wifiIP ?? _server!.address.address}:${_server!.port}';
 
-    print('Web server running at $_serverUrl');
+    Log.i(LogTag.server, 'Web server running at $_serverUrl');
 
     // Process incoming requests.
     await for (HttpRequest request in _server!) {
       _handleRequest(request);
     }
   } on SocketException catch (e) {
-    print('SocketException: Failed to bind server: $e');
+    Log.e(LogTag.server, 'SocketException: Failed to bind server: $e');
     stop(); // Ensure cleanup on failure.
     rethrow;
   } catch (e) {
-    print('Failed to start web server: $e');
+    Log.e(LogTag.server, 'Failed to start web server: $e');
     stop(); // Ensure cleanup on other errors.
     rethrow;
   }

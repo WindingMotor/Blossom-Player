@@ -1,3 +1,4 @@
+import 'package:blossom/tools/logger.dart';
 import 'package:blossom/tools/ui_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -113,8 +114,8 @@ class _LyricsSheetState extends State<LyricsSheet> with TickerProviderStateMixin
     final String apiUrl = 'https://lrclib.net/api/get?artist_name=$encodedArtist&track_name=$encodedTitle';
     
     try {
-      print('🎵 Fetching from LRCLIB: $apiUrl');
-      
+      Log.d(LogTag.ui, 'Fetching lyrics from LRCLIB: $apiUrl');
+
       final response = await http.get(
         Uri.parse(apiUrl),
         headers: _getBrowserHeaders(),
@@ -124,18 +125,18 @@ class _LyricsSheetState extends State<LyricsSheet> with TickerProviderStateMixin
           throw TimeoutException('Request timed out after 10 seconds');
         },
       );
-      
-      print('📡 LRCLIB Response status: ${response.statusCode}');
-      
+
+      Log.d(LogTag.ui, 'LRCLIB response: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         String lyrics = data['plainLyrics'] ?? data['syncedLyrics'] ?? '';
-        
+
         if (lyrics.isNotEmpty && lyrics.length >= 10) {
           _lyricsNotifier.value = lyrics.trim();
           _currentApiNotifier.value = '✓ LRCLIB';
-          print('✅ LRCLIB: Lyrics loaded successfully (${lyrics.length} characters)');
-          
+          Log.i(LogTag.ui, 'LRCLIB: lyrics loaded (${lyrics.length} chars)');
+
           Future.delayed(const Duration(seconds: 3), () {
             if (mounted) {
               _currentApiNotifier.value = '';
@@ -145,23 +146,23 @@ class _LyricsSheetState extends State<LyricsSheet> with TickerProviderStateMixin
           _showErrorMessage('LRCLIB returned empty lyrics for this song.');
         }
       } else if (response.statusCode == 404) {
-        print('❌ LRCLIB - 404: Lyrics not found');
+        Log.d(LogTag.ui, 'LRCLIB: 404 not found for ${widget.title}');
         _showErrorMessage('Lyrics not found in LRCLIB database.');
       } else {
-        print('❌ LRCLIB - Error ${response.statusCode}');
+        Log.w(LogTag.ui, 'LRCLIB error: ${response.statusCode}');
         _showErrorMessage('LRCLIB server error (${response.statusCode})');
       }
     } on SocketException catch (e) {
-      print('🔌 LRCLIB SocketException: ${e.message}');
+      Log.w(LogTag.ui, 'LRCLIB socket error: ${e.message}');
       _showErrorMessage('Network connection failed. Check your internet connection.');
     } on TimeoutException catch (e) {
-      print('⏰ LRCLIB TimeoutException: ${e.message}');
+      Log.w(LogTag.ui, 'LRCLIB timeout: ${e.message}');
       _showErrorMessage('Request timed out. Please try again.');
     } on FormatException catch (e) {
-      print('📝 LRCLIB FormatException: ${e.message}');
+      Log.w(LogTag.ui, 'LRCLIB format error: ${e.message}');
       _showErrorMessage('Invalid response format from LRCLIB.');
     } catch (e) {
-      print('❗ LRCLIB Unexpected error: $e');
+      Log.e(LogTag.ui, 'LRCLIB unexpected error: $e');
       _showErrorMessage('Unexpected error occurred: $e');
     }
     

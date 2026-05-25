@@ -61,7 +61,7 @@ Future<void> reorderPlaylistSongs(String playlistName, List<Music> reorderedSong
   final songTitles = reorderedSongs.map((song) => song.title).toList();
   await PlaylistManager.reorderSongs(playlistName, songTitles);
   _internalNotifyListeners();
-  print('[NPlayer] Reordered playlist "$playlistName" with ${reorderedSongs.length} songs');
+  Log.d(LogTag.playlist, 'Reordered "$playlistName" (${reorderedSongs.length} songs)');
 }
 
 }

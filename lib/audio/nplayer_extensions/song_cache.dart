@@ -1,6 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:blossom/audio/nplayer.dart';
-import 'package:flutter/foundation.dart';
+import 'package:blossom/tools/logger.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -54,9 +55,9 @@ class SongCache {
       
       _isInitialized = true;
       final count = await _getEntryCount();
-      _log("Cache initialized with $count entries");
+      Log.i(LogTag.songCache, 'Initialized with $count entries');
     } catch (e) {
-      _log("Error initializing cache: $e");
+      Log.e(LogTag.songCache, 'Error initializing cache: $e');
       // Leave _isInitialized = false so a retry is possible on next call
     }
   }
@@ -83,12 +84,12 @@ class SongCache {
     await db.execute('CREATE INDEX idx_path ON songs(path)');
     await db.execute('CREATE INDEX idx_lastModified ON songs(lastModified)');
     
-    _log("Database tables created");
+    Log.d(LogTag.songCache, 'Database tables created');
   }
   
   /// Upgrade database schema
   Future<void> _upgradeDatabase(Database db, int oldVersion, int newVersion) async {
-    _log("Upgrading database from v$oldVersion to v$newVersion");
+    Log.i(LogTag.songCache, 'Upgrading database v$oldVersion → v$newVersion');
     // Future migrations go here
   }
 
@@ -111,7 +112,7 @@ class SongCache {
       if (result.isEmpty) return null;
       return CachedSongEntry.fromMap(result.first);
     } catch (e) {
-      _log("Error getting cache entry: $e");
+      Log.w(LogTag.songCache, 'Error getting cache entry: $e');
       return null;
     }
   }
@@ -134,7 +135,7 @@ class SongCache {
       return result.first['lastModified'] == lastModified.millisecondsSinceEpoch &&
              result.first['fileSize'] == fileSize;
     } catch (e) {
-      _log("Error checking validity: $e");
+      Log.w(LogTag.songCache, 'Error checking validity: $e');
       return false;
     }
   }
@@ -185,9 +186,9 @@ Future<void> _flushPendingWrites() async {
     }
     
     await batch.commit(noResult: true);
-    _log("Flushed ${toWrite.length} unique entries to cache");
+    Log.d(LogTag.songCache, 'Flushed ${toWrite.length} entries to DB');
   } catch (e) {
-    _log("Error flushing writes: $e");
+    Log.e(LogTag.songCache, 'Error flushing writes: $e');
     // Re-add failed writes to queue
     _pendingWrites.addAll(toWrite.map((e) => e));
   } finally {
@@ -217,9 +218,9 @@ Future<void> _flushPendingWrites() async {
       }
       
       await batch.commit(noResult: true);
-      _log("Removed ${invalidPaths.length} invalid cache entries");
+      Log.d(LogTag.songCache, 'Removed ${invalidPaths.length} stale entries');
     } catch (e) {
-      _log("Error cleaning invalid entries: $e");
+      Log.w(LogTag.songCache, 'Error cleaning invalid entries: $e');
     }
   }
   
@@ -230,9 +231,9 @@ Future<void> _flushPendingWrites() async {
     try {
       await _database!.delete('songs');
       _pendingWrites.clear();
-      _log("Cache cleared");
+      Log.d(LogTag.songCache, 'Cache cleared');
     } catch (e) {
-      _log("Error clearing cache: $e");
+      Log.w(LogTag.songCache, 'Error clearing cache: $e');
     }
   }
   
@@ -285,11 +286,11 @@ Future<Map<String, CachedSongEntry>> loadAll() async {
     }
     
     final elapsed = DateTime.now().difference(startTime).inMilliseconds;
-    _log("Loaded ${cache.length} cache entries (without pictures) in ${elapsed}ms");
-    
+    Log.d(LogTag.songCache, 'Loaded ${cache.length} entries in ${elapsed}ms');
+
     return cache;
   } catch (e) {
-    _log("Error loading all cache entries: $e");
+    Log.e(LogTag.songCache, 'Error loading all cache entries: $e');
     return {};
   }
 }
@@ -312,7 +313,7 @@ Future<Uint8List?> getPicture(String filePath) async {
     if (result.isEmpty) return null;
     return result.first['pictureData'] as Uint8List?;
   } catch (e) {
-    _log("Error getting picture: $e");
+    Log.w(LogTag.songCache, 'Error getting picture: $e');
     return null;
   }
 }
@@ -355,7 +356,7 @@ Future<Map<String, bool>> validateBulk(Map<String, FileStat> files) async {
     
     return results;
   } catch (e) {
-    _log("Error bulk validating: $e");
+    Log.w(LogTag.songCache, 'Error bulk validating: $e');
     return {};
   }
 }
@@ -372,7 +373,7 @@ Future<Map<String, bool>> validateBulk(Map<String, FileStat> files) async {
       final result = await _database!.rawQuery('SELECT COUNT(*) as count FROM songs');
       return Sqflite.firstIntValue(result) ?? 0;
     } catch (e) {
-      _log("Error getting entry count: $e");
+      Log.w(LogTag.songCache, 'Error getting entry count: $e');
       return 0;
     }
   }
@@ -391,12 +392,6 @@ Future<Map<String, bool>> validateBulk(Map<String, FileStat> files) async {
   // ============================================================================
   // MARK: - Utilities
   // ============================================================================
-  
-  void _log(String message) {
-    if (kDebugMode) {
-      print("[SongCache] $message");
-    }
-  }
   
   /// Close database connection
   Future<void> close() async {

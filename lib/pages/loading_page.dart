@@ -1,3 +1,4 @@
+import 'package:blossom/tools/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
@@ -114,7 +115,7 @@ class _LoadingPageState extends State<LoadingPage>
       // Case 1: Empty Library (0 songs)
       // If 0 songs found after 3 seconds, we assume the device is empty and proceed.
       if (currentSongCount == 0 && elapsed >= 3) {
-        _log("Empty library detected (3s elapsed) - proceeding");
+        Log.w(LogTag.ui, 'Empty library detected (3s elapsed) — proceeding');
         _isInitialized = true;
         break;
       }
@@ -127,7 +128,7 @@ class _LoadingPageState extends State<LoadingPage>
         final requiredStable = currentSongCount > 1000 ? 5 : 3;
         
         if (stableCount >= requiredStable) {
-           _log("Library stable at $currentSongCount songs - proceeding");
+           Log.i(LogTag.ui, 'Library stable at $currentSongCount songs — proceeding');
           _isInitialized = true;
           break;
         }
@@ -164,10 +165,6 @@ class _LoadingPageState extends State<LoadingPage>
     }
 
     }
-  }
-
-  void _log(String message) {
-    debugPrint("[LoadingPage] $message");
   }
 
   @override
@@ -225,7 +222,7 @@ class _LoadingPageState extends State<LoadingPage>
                             children: [
                               // Logo
                               SvgPicture.asset(
-                                'assets/BlossomLogo.svg',
+                                'assets/BlossomLogo_clean.svg',
                                 width: 150,
                                 height: 150,
                                 colorFilter: ColorFilter.mode(
@@ -416,7 +413,7 @@ class _FallingBlossomState extends State<FallingBlossom>
             child: Transform.rotate(
               angle: rotation,
               child: SvgPicture.asset(
-                'assets/BlossomLogo.svg',
+                'assets/BlossomLogo_clean.svg',
                 width: widget.size,
                 height: widget.size,
                 colorFilter: widget.colorFilter,

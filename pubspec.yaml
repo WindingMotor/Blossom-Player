@@ -107,6 +107,7 @@ flutter:
     - assets/BlossomIcon.ico
     - assets/BlossomIcon.png
     - assets/BlossomLogo.svg
+    - assets/BlossomLogo_clean.svg
 
   fonts:
     - family: Magic Retro

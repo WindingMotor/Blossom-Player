@@ -1,3 +1,4 @@
+import 'package:blossom/tools/logger.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
@@ -24,7 +25,7 @@ class GoogleAuthService {
       }
       return false;
     } catch (error) {
-      print('Error signing in: $error');
+      Log.e(LogTag.ui, 'Error signing in: $error');
       return false;
     }
   }
@@ -55,7 +56,7 @@ class GoogleAuthService {
 
       return fileList.files ?? [];
     } catch (e) {
-      print('Error listing audio files: $e');
+      Log.e(LogTag.ui, 'Error listing audio files: $e');
       return [];
     }
   }
@@ -87,7 +88,7 @@ class GoogleAuthService {
       await saveFile.writeAsBytes(dataStore);
       return true;
     } catch (e) {
-      print('Error downloading file: $e');
+      Log.e(LogTag.ui, 'Error downloading file: $e');
       return false;
     }
   }

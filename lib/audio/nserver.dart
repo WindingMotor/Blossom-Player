@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:blossom/audio/nplayer.dart';
+import 'package:blossom/tools/logger.dart';
 import 'package:path_provider/path_provider.dart';
 
 class NServer {
@@ -17,14 +18,14 @@ class NServer {
     try {
       _server = await ServerSocket.bind(InternetAddress.anyIPv4, port);
       _isRunning = true;
-      print('Server listening on ${_server!.address.address}:${_server!.port}');
+      Log.i(LogTag.server, 'Server listening on ${_server!.address.address}:${_server!.port}');
 
       _server!.listen((Socket client) {
-        print('Client connected: ${client.remoteAddress.address}:${client.remotePort}');
+        Log.d(LogTag.server, 'Client connected: ${client.remoteAddress.address}:${client.remotePort}');
         _handleClient(client);
       });
     } catch (e) {
-      print('Error starting server: $e');
+      Log.e(LogTag.server, 'Error starting server: $e');
     }
   }
 
@@ -53,7 +54,7 @@ class NServer {
       // Send the file content
       await songFile.openRead().pipe(client);
     } catch (e) {
-      print('Error handling client: $e');
+      Log.e(LogTag.server, 'Error handling client: $e');
     } finally {
       client.close();
     }
@@ -65,7 +66,7 @@ class NServer {
       await socket.close();
       return true;
     } catch (e) {
-      print('Error checking server: $e');
+      Log.d(LogTag.server, 'Error checking server: $e');
       return false;
     }
   }
@@ -74,7 +75,7 @@ class NServer {
    Future<void> stop () async {
     _server?.close();
     _isRunning = false;
-    print('Server stopped');
+    Log.i(LogTag.server, 'Server stopped');
   }
 
   bool get isRunning => _isRunning;
@@ -87,7 +88,7 @@ class NClient {
   Future<void> connectAndPlay(String host, int port) async {
     try {
       final socket = await Socket.connect(host, port);
-      print('Connected to server');
+      Log.i(LogTag.server, 'Connected to server');
 
       final tempDir = await getTemporaryDirectory();
       final tempFile = File('${tempDir.path}/temp_song.mp3');
@@ -108,7 +109,7 @@ class NClient {
       await sink.close();
       await socket.close();
 
-      print('Song received and saved to ${tempFile.path}');
+      Log.d(LogTag.server, 'Song received and saved to ${tempFile.path}');
 
       // Create a Music object for the received song
       final receivedSong = Music(
@@ -127,7 +128,7 @@ class NClient {
       // Tell NPlayer to play the received song
       await _player.playSpecificSong(receivedSong);
     } catch (e) {
-      print('Error connecting to server: $e');
+      Log.e(LogTag.server, 'Error connecting to server: $e');
     }
   }
 

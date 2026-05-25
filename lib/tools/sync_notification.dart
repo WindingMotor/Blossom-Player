@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:blossom/tools/logger.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:blossom/tools/nextcloud_sync.dart';
 
@@ -89,7 +89,7 @@ await _plugin.initialize(
     await _createChannel();
 
     _initialized = true;
-    _log('Initialized (flutter_local_notifications ^21)');
+    Log.i(LogTag.syncNotification, 'Initialized (flutter_local_notifications ^21)');
   }
 
   /// Requests the POST_NOTIFICATIONS permission on Android 13+.
@@ -109,7 +109,7 @@ await _plugin.initialize(
     // just granted, false if denied. Returns null on pre-API-33 devices
     // (permission not required there), so we treat null as granted.
     final granted = await androidImpl.requestNotificationsPermission();
-    _log('POST_NOTIFICATIONS permission: ${granted ?? true}');
+    Log.d(LogTag.syncNotification, 'POST_NOTIFICATIONS permission: ${granted ?? true}');
     return granted ?? true;
   }
 
@@ -120,7 +120,7 @@ await _plugin.initialize(
     _sync?.removeListener(_onSyncChanged);
     _sync = sync;
     sync.addListener(_onSyncChanged);
-    _log('Attached to NextcloudSync');
+    Log.d(LogTag.syncNotification, 'Attached to NextcloudSync');
   }
 
   /// Detaches listener and releases the reference.
@@ -305,13 +305,6 @@ await _plugin.initialize(
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
-    _log('Notification channel ready: $_channelId');
-  }
-
-
-  // ── Logging ────────────────────────────────────────────────────────────────
-
-  void _log(String msg) {
-    if (kDebugMode) print('[SyncNotification] $msg');
+    Log.d(LogTag.syncNotification, 'Notification channel ready: $_channelId');
   }
 }

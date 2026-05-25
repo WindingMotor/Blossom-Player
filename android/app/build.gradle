@@ -13,7 +13,9 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.wmstudios.blossom"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Pin NDK r27 (highest installed); r28+ gives automatic 16KB ELF alignment
+    // for code compiled from source, upgrade when r28 is installed.
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

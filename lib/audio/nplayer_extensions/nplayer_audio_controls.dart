@@ -14,10 +14,11 @@ Future<void> seek(Duration position) async {
   try {
     await _audioPlayer.seek(position);
     _currentPosition = position;
-    _internalNotifyListeners(); // Update UI immediately
-    _log("Seeked to position: ${position.inMilliseconds}ms");
+    positionNotifier.value = position;
+    _internalNotifyListeners();
+    Log.v(LogTag.playback, 'Seeked to ${position.inMilliseconds}ms');
   } catch (e) {
-    _log("Error seeking: $e");
+    Log.w(LogTag.playback, 'Error seeking: $e');
   }
 }
 

@@ -10,12 +10,12 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
   await _ensureInitialized();
   
   if (_audioHandler == null) {
-    _log("AudioHandler not initialized, cannot start playback");
+    Log.e(LogTag.playback, 'AudioHandler not initialized, cannot start playback');
     return;
   }
 
   if (startIndex < 0 || startIndex >= queue.length) {
-    _log("Invalid start index for playback: $startIndex. Stopping playback.");
+    Log.w(LogTag.playback, 'Invalid start index: $startIndex — stopping playback');
     await stopSong();
     return;
   }
@@ -36,7 +36,7 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
           await _audioPlayer.resume();
         }
       } catch (e) {
-        _log("Error in delayed resume check: $e");
+        Log.w(LogTag.playback, 'Error in delayed resume check: $e');
       }
     });
     _isPlaying = true;
@@ -48,7 +48,7 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
     }
     
   } catch (e) {
-    _log("Error starting playback: $e");
+    Log.e(LogTag.playback, 'Error starting playback: $e');
     _isPlaying = false;
   } finally {
     _internalNotifyListeners();
@@ -60,7 +60,7 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
   /// Plays a song from the main sorted list, creating a new queue.
   Future<void> playSong(int sortedIndex) async {
     if (sortedIndex < 0 || sortedIndex >= _sortedSongs.length) {
-      _log("Invalid sortedIndex: $sortedIndex");
+      Log.w(LogTag.playback, 'Invalid sortedIndex: $sortedIndex');
       return;
     }
     final newQueue = [
@@ -76,21 +76,21 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
     if (index != -1) {
       await _startPlayback(_playingSongs, index);
     } else {
-      _log("Song not found in the current playing queue.");
+      Log.d(LogTag.playback, 'Song not found in current queue');
     }
   }
 
   Future<void> pauseSong({bool isInterruption = false}) async {
     if (_isPausing || !_isPlaying) return;
     _isPausing = true;
-    _log("Pausing song");
+    Log.d(LogTag.playback, 'Pausing song');
     try {
       await _audioPlayer.pause();
       _isPlaying = false;
       _isPausedByInterruption = isInterruption;
       _internalNotifyListeners();
     } catch (e) {
-      _log("Error pausing song: $e");
+      Log.w(LogTag.playback, 'Error pausing song: $e');
     } finally {
       _isPausing = false;
     }
@@ -99,14 +99,14 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
   Future<void> resumeSong() async {
     if (_isResuming || _isPlaying) return;
     _isResuming = true;
-    _log("Resuming song");
+    Log.d(LogTag.playback, 'Resuming song');
     try {
       await _audioPlayer.resume();
       _isPlaying = true;
       _isPausedByInterruption = false;
       _internalNotifyListeners();
     } catch (e) {
-      _log("Error resuming song: $e");
+      Log.w(LogTag.playback, 'Error resuming song: $e');
     } finally {
       _isResuming = false;
     }
@@ -115,14 +115,14 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
   Future<void> stopSong() async {
     if (_isStoppingInProgress) return;
     _isStoppingInProgress = true;
-    _log("Stopping song");
+    Log.d(LogTag.playback, 'Stopping song');
     try {
       await _audioPlayer.stop();
       _isPlaying = false;
       _currentPosition = Duration.zero;
       _internalNotifyListeners();
     } catch (e) {
-      _log("Error stopping song: $e");
+      Log.w(LogTag.playback, 'Error stopping song: $e');
     } finally {
       _isStoppingInProgress = false;
     }
@@ -196,19 +196,19 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
   // MARK: Group Playback
   
   Future<void> playAlbum(List<Music> albumSongs, Music selectedSong) async {
-    _log("Playing album: ${selectedSong.album}");
+    Log.i(LogTag.playback, 'Playing album: ${selectedSong.album}');
     int startIndex = albumSongs.indexOf(selectedSong);
     await _startPlayback(albumSongs, max(0, startIndex));
   }
 
   Future<void> playArtist(List<Music> artistSongs, Music selectedSong) async {
-    _log("Playing artist: ${selectedSong.artist}");
+    Log.i(LogTag.playback, 'Playing artist: ${selectedSong.artist}');
     int startIndex = artistSongs.indexOf(selectedSong);
     await _startPlayback(artistSongs, max(0, startIndex));
   }
 
   Future<void> playPlaylistFromIndex(List<Music> playlistSongs, int index) async {
-    _log("Playing playlist from index: $index");
+    Log.i(LogTag.playback, 'Playing playlist from index: $index');
     await _startPlayback(playlistSongs, index);
   }
   
@@ -216,7 +216,7 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
   
   Future<void> shuffle() async {
     if (_playingSongs.isEmpty) return;
-    _log("Shuffling playlist");
+    Log.d(LogTag.playback, 'Shuffling queue');
     
     Music? currentSong = getCurrentSong();
     bool wasPlaying = _isPlaying;
@@ -249,7 +249,7 @@ Future<void> _startPlayback(List<Music> queue, int startIndex) async {
   }
 
   void reorderPlayingSongs(List<Music> newOrder) {
-    _log("Reordering playing songs");
+    Log.d(LogTag.playback, 'Reordering queue');
     final currentSong = getCurrentSong();
     _playingSongs = newOrder;
 

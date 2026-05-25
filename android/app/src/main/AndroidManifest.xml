@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
@@ -20,13 +22,19 @@
         android:label="blossom"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="true"
+        android:extractNativeLibs="true">
 
         <meta-data
             android:name="android.app.use_aoa"
             android:value="false"/>
 
-        <!-- Background audio playback -->
+        <!-- Android Auto support -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc"/>
+
+        <!-- Background audio playback + Android Auto media browsing -->
         <service
             android:name="com.ryanheise.audioservice.AudioService"
             android:foregroundServiceType="mediaPlayback"
@@ -81,6 +89,17 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2"/>
+
+        <!-- Serves cached album art to Android Auto via content:// URIs -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.wmstudios.blossom.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"/>
+        </provider>
 
     </application>
 

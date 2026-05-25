@@ -20,6 +20,7 @@ import 'package:blossom/pages/albums_page.dart';
 import 'package:blossom/pages/artists_page.dart';
 import 'package:blossom/pages/playlist_page.dart';
 import 'package:blossom/tools/sync_notification.dart';
+import 'package:blossom/tools/logger.dart';
 import 'package:blossom/tools/themes.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -53,14 +54,14 @@ Future<void> requestPermissions() async {
         }
       }
     } catch (e) {
-      print('Error requesting Android permissions: $e');
+      Log.w(LogTag.settings, 'Error requesting Android permissions: $e');
     }
   } else if (Platform.isIOS) {
     try {
       await Permission.photos.request();
       await Permission.mediaLibrary.request();
     } catch (e) {
-      print('Error requesting iOS permissions: $e');
+      Log.w(LogTag.settings, 'Error requesting iOS permissions: $e');
     }
   }
 }
@@ -73,7 +74,7 @@ void main() {
     try {
       await SyncNotificationManager.instance.initialize();
     } catch (e) {
-      debugPrint('[SyncNotification] init failed — notifications disabled: $e');
+      Log.w(LogTag.syncNotification, 'Init failed — notifications disabled: $e');
     }
 
 
@@ -87,7 +88,7 @@ void main() {
       try {
         MetadataGod.initialize();
       } catch (e) {
-        print("MetadataGod init error (safe to ignore): $e");
+        Log.d(LogTag.ui, 'MetadataGod init error (safe to ignore): $e');
       }
 
       await Settings.init();
@@ -103,7 +104,7 @@ void main() {
       try {
         await PlaylistManager.load();
       } catch (e) {
-        print("Playlist load error: $e");
+        Log.w(LogTag.playlist, 'Playlist load error: $e');
       }
 
       if (!kIsWeb &&
@@ -124,7 +125,7 @@ void main() {
           await windowManager.show();
           await windowManager.focus();
         } catch (e) {
-          print('Error initializing window manager: $e');
+          Log.w(LogTag.ui, 'Error initializing window manager: $e');
         }
       }
 
@@ -132,8 +133,7 @@ void main() {
         requestPermissions();
       });
     } catch (e, stack) {
-      print("CRITICAL INITIALIZATION ERROR: $e");
-      print(stack);
+      Log.e(LogTag.ui, 'CRITICAL INITIALIZATION ERROR: $e', stack);
     }
 
     runApp(
@@ -149,8 +149,7 @@ void main() {
       ),
     );
   }, (error, stack) {
-    print("GLOBAL UNCAUGHT ERROR: $error");
-    print(stack);
+    Log.e(LogTag.ui, 'GLOBAL UNCAUGHT ERROR: $error', stack);
   });
 }
 
@@ -205,7 +204,7 @@ class _MainStructureState extends State<MainStructure>
         FlutterDisplayMode.setHighRefreshRate();
       }
     } catch (e) {
-      print("Display mode error: $e");
+      Log.w(LogTag.ui, 'Display mode error: $e');
     }
 
     _pageController = PageController(initialPage: _currentIndex);
@@ -259,7 +258,7 @@ class _MainStructureState extends State<MainStructure>
     try {
       Settings.setHasSeenWelcomePage(true);
     } catch (e) {
-      print("Error saving welcome page state: $e");
+      Log.w(LogTag.ui, 'Error saving welcome page state: $e');
     }
   }
 

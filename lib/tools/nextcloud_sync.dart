@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
+import 'package:blossom/tools/logger.dart';
+import 'package:flutter/foundation.dart';
 import 'package:blossom/tools/sync_notification.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webdav_client/webdav_client.dart' as webdav;
@@ -212,7 +214,7 @@ class NextcloudSync extends ChangeNotifier {
     _pendingDiff  = null;
     _progress     = null;
     _setStatus(SyncStatus.idle, 'Sync cancelled');
-    _log('Sync cancelled by user');
+    Log.i(LogTag.nextcloud, 'Sync cancelled by user');
   }
 
 
@@ -273,11 +275,11 @@ class NextcloudSync extends ChangeNotifier {
       validateStatus: (status) => status != null && status < 500,
     ));
 
-    if (kDebugMode) {
+    if (Log.enabled) {
       dio.interceptors.add(LogInterceptor(
         requestBody:  false,
         responseBody: false,
-        logPrint:     (obj) => _log(obj.toString()),
+        logPrint:     (obj) => Log.v(LogTag.nextcloud, obj.toString()),
       ));
     }
 
@@ -314,7 +316,7 @@ class NextcloudSync extends ChangeNotifier {
     _statusMessage = isConfigured ? 'Ready' : 'Not configured';
     _initComplete  = true;
     notifyListeners();
-    _log('Initialized. enabled=$_enabled configured=$isConfigured');
+    Log.i(LogTag.nextcloud, 'Initialized. enabled=$_enabled configured=$isConfigured');
   }
 
 
@@ -353,7 +355,7 @@ class NextcloudSync extends ChangeNotifier {
     _statusMessage = isConfigured ? 'Ready' : 'Not configured';
     _pendingDiff   = null;
     notifyListeners();
-    _log('Config saved: $_serverUrl  path: $_remotePath');
+    Log.i(LogTag.nextcloud, 'Config saved: $_serverUrl  path: $_remotePath');
   }
 
 
@@ -376,7 +378,7 @@ class NextcloudSync extends ChangeNotifier {
       await _buildClient().ping();
       return true;
     } catch (e) {
-      _log('testConnection failed: $e');
+      Log.w(LogTag.nextcloud, 'testConnection failed: $e');
       return false;
     }
   }
@@ -393,7 +395,7 @@ class NextcloudSync extends ChangeNotifier {
       await socket.close();
       return true;
     } catch (e) {
-      _log('Reachability check failed: $e');
+      Log.w(LogTag.nextcloud, 'Reachability check failed: $e');
       return false;
     }
   }
@@ -406,8 +408,7 @@ class NextcloudSync extends ChangeNotifier {
 
   Future<SyncDiff?> checkForChanges({List<Music>? localMusic}) async {
     if (!isReady) {
-      _log('Skipping check — not ready (initComplete=$_initComplete '
-          'configured=$isConfigured enabled=$_enabled)');
+      Log.d(LogTag.nextcloud, 'Skipping check — not ready (init=$_initComplete configured=$isConfigured enabled=$_enabled)');
       return null;
     }
 
@@ -423,7 +424,7 @@ class NextcloudSync extends ChangeNotifier {
       final reachable = await _isServerReachable();
       if (!reachable) {
         _setStatus(SyncStatus.error, 'Server unreachable');
-        _log('Server not reachable — skipping sync');
+        Log.d(LogTag.nextcloud, 'Server not reachable — skipping sync');
         return null;
       }
 
@@ -443,14 +444,14 @@ class NextcloudSync extends ChangeNotifier {
         for (final track in snapshot) {
           localMap[p.basename(track.path)] = File(track.path);
         }
-        _log('Snapshot of NPlayer songs: ${localMap.length} files');
+        Log.d(LogTag.nextcloud, 'Snapshot of NPlayer songs: ${localMap.length} files');
       } else {
         final localDir = await _localMusicDir();
         final files    = await _listLocalAudioFiles(localDir);
         for (final f in files) {
           localMap[p.basename(f.path)] = f;
         }
-        _log('Filesystem scan: ${localMap.length} files');
+        Log.d(LogTag.nextcloud, 'Filesystem scan: ${localMap.length} files');
       }
 
 
@@ -539,13 +540,12 @@ class NextcloudSync extends ChangeNotifier {
       }
 
 
-      _log('Check done: ↓${toDownload.length} ↑${toUpload.length} '
-          '=${unchanged} local=${localMap.length} remote=${remoteMap.length}');
+      Log.i(LogTag.nextcloud, 'Check done: ↓${toDownload.length} ↑${toUpload.length} =${unchanged} local=${localMap.length} remote=${remoteMap.length}');
       return diff;
     } catch (e, stack) {
       _lastError = e.toString();
       _setStatus(SyncStatus.error, 'Check failed: $e');
-      _log('checkForChanges error: $e\n$stack');
+      Log.e(LogTag.nextcloud, 'checkForChanges error: $e', stack);
       return null;
     }
   }
@@ -618,7 +618,7 @@ class NextcloudSync extends ChangeNotifier {
             final localPath    = p.join(localDir.path, remote.name);
             final existingSize = FileStat.statSync(localPath).size;
             if (existingSize == remote.size && remote.size > 0) {
-              _log('Skipped (already exists): ${remote.name}');
+              Log.v(LogTag.nextcloud, 'Skipped (already exists): ${remote.name}');
               _transferredBytes += remote.size;
               completed++;
               return;
@@ -652,11 +652,11 @@ class NextcloudSync extends ChangeNotifier {
             if (shortfall > 0) _transferredBytes += shortfall;
 
             completed++;
-            _log('Downloaded: ${remote.name} ($written bytes)');
+            Log.d(LogTag.nextcloud, 'Downloaded: ${remote.name} ($written bytes)');
           } catch (e) {
             if (_cancelled) return;
             errors++;
-            _log('Download failed for ${remote.name}: $e');
+            Log.w(LogTag.nextcloud, 'Download failed for ${remote.name}: $e');
           }
 
 
@@ -737,11 +737,11 @@ class NextcloudSync extends ChangeNotifier {
             if (_transferredBytes < expected) _transferredBytes = expected;
 
             completed++;
-            _log('Uploaded: $name ($fileSize bytes)');
+            Log.d(LogTag.nextcloud, 'Uploaded: $name ($fileSize bytes)');
           } catch (e) {
             if (_cancelled) return;
             errors++;
-            _log('Upload failed for $name: $e');
+            Log.w(LogTag.nextcloud, 'Upload failed for $name: $e');
           }
 
 
@@ -880,8 +880,7 @@ class NextcloudSync extends ChangeNotifier {
     final absDestination =
         '$base/remote.php/dav/files/$_username${Uri.encodeFull(remoteDest)}';
 
-    _log('Chunked upload start: ${p.basename(file.path)} '
-         '(${(fileSize / 1024 / 1024).toStringAsFixed(1)} MB) → $uploadId');
+    Log.d(LogTag.nextcloud, 'Chunked upload start: ${p.basename(file.path)} (${(fileSize / 1024 / 1024).toStringAsFixed(1)} MB) → $uploadId');
 
     // ── 1. Create upload directory ────────────────────────────────────────
     {
@@ -949,8 +948,7 @@ class NextcloudSync extends ChangeNotifier {
 
         _assertSuccessStatus(response.statusCode,
             'PUT chunk $chunkIndex/$totalChunks of ${p.basename(file.path)}');
-        _log('  chunk $chunkIndex/$totalChunks uploaded '
-             '($chunkStart–$chunkEnd bytes)');
+        Log.v(LogTag.nextcloud, 'chunk $chunkIndex/$totalChunks uploaded ($chunkStart–$chunkEnd bytes)');
       } finally {
         _activeCancelTokens.remove(cancelToken);
       }
@@ -980,7 +978,7 @@ class NextcloudSync extends ChangeNotifier {
         );
         _assertSuccessStatus(response.statusCode,
             'MOVE assemble ${p.basename(file.path)}');
-        _log('Chunked upload assembled: ${p.basename(file.path)}');
+        Log.d(LogTag.nextcloud, 'Chunked upload assembled: ${p.basename(file.path)}');
       } finally {
         _activeCancelTokens.remove(cancelToken);
       }
@@ -992,9 +990,9 @@ class NextcloudSync extends ChangeNotifier {
   Future<void> _deleteUploadDir(Dio dio, String uploadBase) async {
     try {
       await dio.delete(uploadBase);
-      _log('Cleaned up upload dir: $uploadBase');
+      Log.d(LogTag.nextcloud, 'Cleaned up upload dir: $uploadBase');
     } catch (e) {
-      _log('Could not clean up upload dir $uploadBase: $e');
+      Log.w(LogTag.nextcloud, 'Could not clean up upload dir $uploadBase: $e');
     }
   }
 
@@ -1070,14 +1068,14 @@ void _updateProgress({
       webdav.Client client, String path) async {
     try {
       await client.mkdir(path);
-      _log('Created remote directory: $path');
+      Log.d(LogTag.nextcloud, 'Created remote directory: $path');
     } catch (e) {
       final msg = e.toString();
       if (msg.contains('405') ||
           msg.contains('301') ||
           msg.contains('302') ||
           msg.contains('already exists')) {
-        _log('Remote directory already exists: $path');
+        Log.v(LogTag.nextcloud, 'Remote directory already exists: $path');
       } else if (e is SocketException || msg.contains('connection')) {
         rethrow;
       } else {
@@ -1097,7 +1095,7 @@ void _updateProgress({
     final dir     = Directory(dirPath);
     if (!await dir.exists()) {
       try { await dir.create(recursive: true); } catch (e) {
-        _log('Could not create music dir $dirPath: $e');
+        Log.w(LogTag.nextcloud, 'Could not create music dir $dirPath: $e');
       }
     }
     return dir;
@@ -1106,7 +1104,7 @@ void _updateProgress({
 
   Future<List<File>> _listLocalAudioFiles(Directory dir) async {
     if (!await dir.exists()) {
-      _log('Local music dir does not exist: ${dir.path}');
+      Log.w(LogTag.nextcloud, 'Local music dir does not exist: ${dir.path}');
       return [];
     }
     try {
@@ -1116,7 +1114,7 @@ void _updateProgress({
           .where((f) => _isSupportedAudio(p.basename(f.path)))
           .toList();
     } catch (e) {
-      _log('Error scanning ${dir.path}: $e');
+      Log.w(LogTag.nextcloud, 'Error scanning ${dir.path}: $e');
       return [];
     }
   }
@@ -1169,9 +1167,4 @@ void _setStatus(SyncStatus status, String message) {
   _statusMessage = message;
   notifyListeners();
 }
-
-
-  void _log(String msg) {
-    if (kDebugMode) print('[NextcloudSync] $msg');
-  }
 }
