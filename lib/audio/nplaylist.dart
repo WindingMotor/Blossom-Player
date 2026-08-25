@@ -14,7 +14,7 @@ class PlaylistManager {
   /// Initialize the PlaylistManager - must be called before using any other methods
   static Future<void> initialize() async {
     if (_isInitialized) return;
-    
+
     try {
       // Use platform-appropriate storage directory
       final Directory appDocDir;
@@ -29,14 +29,14 @@ class PlaylistManager {
         // Desktop (Linux, Windows, macOS): use application documents directory
         appDocDir = await getApplicationDocumentsDirectory();
       }
-      
+
       _playlistDir = path.join(appDocDir.path, 'playlists');
       _playlistArtDir = path.join(_playlistDir, 'playlistArt');
 
       // Create directories if they don't exist
       await Directory(_playlistDir).create(recursive: true);
       await Directory(_playlistArtDir).create(recursive: true);
-      
+
       _isInitialized = true;
       Log.i(LogTag.playlist, 'Initialized. dir=$_playlistDir');
     } catch (e) {
@@ -55,7 +55,7 @@ class PlaylistManager {
 
   static Future<void> load() async {
     await _ensureInitialized();
-    
+
     try {
       final file = File(path.join(_playlistDir, _playlistFileName));
 
@@ -78,7 +78,7 @@ class PlaylistManager {
                 return MapEntry(key, {'songs': [], 'imagePath': null});
               }
             }
-            
+
             // Ensure required keys exist
             if (!value.containsKey('songs')) {
               value['songs'] = [];
@@ -86,12 +86,13 @@ class PlaylistManager {
             if (!value.containsKey('imagePath')) {
               value['imagePath'] = null;
             }
-            
+
             return MapEntry(key, value);
           });
           Log.i(LogTag.playlist, 'Loaded ${_playlists.length} playlists');
         } else {
-          Log.w(LogTag.playlist, 'Invalid playlist file format — resetting');
+          Log.w(LogTag.playlist, 'Invalid playlist file format');
+          await _backupCorruptPlaylistFile(file);
           _playlists = {};
         }
       } else {
@@ -100,66 +101,69 @@ class PlaylistManager {
       }
     } catch (e) {
       Log.e(LogTag.playlist, 'Error loading playlists: $e');
+      final file = File(path.join(_playlistDir, _playlistFileName));
+      if (await file.exists()) {
+        await _backupCorruptPlaylistFile(file);
+      }
       _playlists = {};
-      // Try to save an empty playlist file to ensure the system works
-      await _forceSave();
     }
   }
 
-  /// Force save without validation - used for recovery
-  static Future<void> _forceSave() async {
+  static Future<void> _backupCorruptPlaylistFile(File file) async {
     try {
-      final file = File(path.join(_playlistDir, _playlistFileName));
-      
-      // Ensure directory exists
-      await file.parent.create(recursive: true);
-      
-      await file.writeAsString(jsonEncode(_playlists));
-      Log.d(LogTag.playlist, 'Force-saved playlists');
+      final timestamp =
+          DateTime.now().toIso8601String().replaceAll(RegExp(r'[:.]'), '-');
+      final backupPath = '${file.path}.corrupt.$timestamp';
+      await file.rename(backupPath);
+      Log.w(LogTag.playlist, 'Backed up corrupt playlist file: $backupPath');
     } catch (e) {
-      Log.e(LogTag.playlist, 'Error in force save: $e');
+      Log.e(LogTag.playlist, 'Error backing up corrupt playlist file: $e');
     }
   }
 
   static Future<void> save() async {
     await _ensureInitialized();
-    
+
     try {
       final file = File(path.join(_playlistDir, _playlistFileName));
-      
+
       // Ensure the parent directory exists
       await file.parent.create(recursive: true);
-      
+
       // Validate data before saving
       final validatedPlaylists = <String, Map<String, dynamic>>{};
       for (final entry in _playlists.entries) {
         final playlist = Map<String, dynamic>.from(entry.value);
-        
+
         // Ensure songs is a valid list
         if (playlist['songs'] is! List) {
           playlist['songs'] = [];
         } else {
           // Ensure all songs are strings
           playlist['songs'] = List<String>.from(
-            (playlist['songs'] as List).where((item) => item is String)
-          );
+              (playlist['songs'] as List).where((item) => item is String));
         }
-        
+
         // Validate image path
         if (playlist['imagePath'] != null &&
             playlist['imagePath'] is String &&
             !await File(playlist['imagePath'] as String).exists()) {
           playlist['imagePath'] = null;
         }
-        
+
         validatedPlaylists[entry.key] = playlist;
       }
-      
+
       _playlists = validatedPlaylists;
-      
+
       final jsonString = jsonEncode(_playlists);
-      await file.writeAsString(jsonString);
-      
+      final tempFile = File('${file.path}.tmp');
+      await tempFile.writeAsString(jsonString, flush: true);
+      if (await file.exists()) {
+        await file.delete();
+      }
+      await tempFile.rename(file.path);
+
       // Verify the file was written correctly
       if (await file.exists()) {
         final savedContent = await file.readAsString();
@@ -182,7 +186,7 @@ class PlaylistManager {
   static List<String> getPlaylistSongs(String playlistName) {
     final playlist = _playlists[playlistName];
     if (playlist == null) return [];
-    
+
     final songs = playlist['songs'];
     if (songs is List) {
       return List<String>.from(songs.where((item) => item is String));
@@ -193,7 +197,7 @@ class PlaylistManager {
   static String? getPlaylistImagePath(String playlistName) {
     final playlist = _playlists[playlistName];
     if (playlist == null) return null;
-    
+
     String? imagePath = playlist['imagePath'];
     if (imagePath != null && File(imagePath).existsSync()) {
       return imagePath;
@@ -204,9 +208,12 @@ class PlaylistManager {
         if (dir.existsSync()) {
           List<FileSystemEntity> files = dir.listSync();
           for (var file in files) {
-            if (file is File && path.basenameWithoutExtension(file.path) == playlistName) {
+            if (file is File &&
+                path.basenameWithoutExtension(file.path) == playlistName) {
+              // Update in-memory only — this getter runs during widget builds,
+              // and an unawaited save() here can interleave with other saves.
+              // The recovered path persists on the next regular save().
               _playlists[playlistName]!['imagePath'] = file.path;
-              save(); // Update the saved playlist data
               return file.path;
             }
           }
@@ -220,11 +227,11 @@ class PlaylistManager {
 
   static Future<void> createPlaylist(String name, {String? imagePath}) async {
     await _ensureInitialized();
-    
+
     if (name.trim().isEmpty) {
       throw ArgumentError('Playlist name cannot be empty');
     }
-    
+
     if (!_playlists.containsKey(name)) {
       _playlists[name] = {
         'songs': <String>[],
@@ -240,7 +247,7 @@ class PlaylistManager {
 
   static Future<void> deletePlaylist(String name) async {
     await _ensureInitialized();
-    
+
     if (!_playlists.containsKey(name)) {
       Log.w(LogTag.playlist, 'deletePlaylist: not found: $name');
       return;
@@ -256,93 +263,100 @@ class PlaylistManager {
       Log.w(LogTag.playlist, 'Error deleting playlist image: $e');
       // Continue with playlist deletion even if image deletion fails
     }
-    
+
     _playlists.remove(name);
     await save();
     Log.d(LogTag.playlist, 'Deleted playlist: $name');
   }
 
-  static Future<void> addSongToPlaylist(String playlistName, String songName) async {
+  static Future<void> addSongToPlaylist(
+      String playlistName, String songId) async {
     await _ensureInitialized();
-    
-    if (songName.trim().isEmpty) {
-      Log.w(LogTag.playlist, 'Cannot add empty song name to playlist');
+
+    if (songId.trim().isEmpty) {
+      Log.w(LogTag.playlist, 'Cannot add empty song id to playlist');
       return;
     }
-    
+
     if (!_playlists.containsKey(playlistName)) {
       await createPlaylist(playlistName);
     }
-    
+
     final songs = List<String>.from(_playlists[playlistName]!['songs']);
-    if (!songs.contains(songName)) {
-      songs.add(songName);
+    if (!songs.contains(songId)) {
+      songs.add(songId);
       _playlists[playlistName]!['songs'] = songs;
       _playlists[playlistName]!['modified'] = DateTime.now().toIso8601String();
       await save();
-      Log.d(LogTag.playlist, 'Added "$songName" to "$playlistName"');
+      Log.d(LogTag.playlist, 'Added "$songId" to "$playlistName"');
     } else {
-      Log.v(LogTag.playlist, '"$songName" already in "$playlistName"');
+      Log.v(LogTag.playlist, '"$songId" already in "$playlistName"');
     }
   }
 
-  static Future<void> removeSongFromPlaylist(String playlistName, String songName) async {
+  static Future<void> removeSongFromPlaylist(
+      String playlistName, String songId) async {
     await _ensureInitialized();
-    
+
     if (!_playlists.containsKey(playlistName)) {
       Log.w(LogTag.playlist, 'removeSong: playlist not found: $playlistName');
       return;
     }
 
     final songs = List<String>.from(_playlists[playlistName]!['songs']);
-    if (songs.remove(songName)) {
+    if (songs.remove(songId)) {
       _playlists[playlistName]!['songs'] = songs;
       _playlists[playlistName]!['modified'] = DateTime.now().toIso8601String();
       await save();
-      Log.d(LogTag.playlist, 'Removed "$songName" from "$playlistName"');
+      Log.d(LogTag.playlist, 'Removed "$songId" from "$playlistName"');
     } else {
-      Log.v(LogTag.playlist, '"$songName" was not in "$playlistName"');
+      Log.v(LogTag.playlist, '"$songId" was not in "$playlistName"');
     }
   }
 
-  static Future<void> reorderSongs(String playlistName, List<String> orderedSongTitles) async {
+  static Future<void> reorderSongs(
+      String playlistName, List<String> orderedSongIds) async {
     await _ensureInitialized();
 
     if (!_playlists.containsKey(playlistName)) {
       Log.w(LogTag.playlist, 'reorderSongs: playlist not found: $playlistName');
       return;
     }
-    
+
     // Simply replace the songs list with the new ordered list
-    _playlists[playlistName]!['songs'] = orderedSongTitles;
+    _playlists[playlistName]!['songs'] = orderedSongIds;
     _playlists[playlistName]!['modified'] = DateTime.now().toIso8601String();
-    
+
     await save();
-    Log.d(LogTag.playlist, 'Reordered "$playlistName" (${orderedSongTitles.length} songs)');
+    Log.d(LogTag.playlist,
+        'Reordered "$playlistName" (${orderedSongIds.length} songs)');
   }
 
-  static Future<void> setPlaylistImage(String playlistName, File imageFile) async {
+  static Future<void> setPlaylistImage(
+      String playlistName, File imageFile) async {
     await _ensureInitialized();
-    
+
     if (!_playlists.containsKey(playlistName)) {
-      Log.w(LogTag.playlist, 'setPlaylistImage: playlist not found: $playlistName');
+      Log.w(LogTag.playlist,
+          'setPlaylistImage: playlist not found: $playlistName');
       return;
     }
 
     if (!await imageFile.exists()) {
       throw ArgumentError('Image file does not exist: ${imageFile.path}');
     }
-    
+
     try {
       String extension = path.extension(imageFile.path);
-      String newImagePath = path.join(_playlistArtDir, '$playlistName$extension');
-      
+      String newImagePath =
+          path.join(_playlistArtDir, '$playlistName$extension');
+
       // Remove old image if it exists
       String? oldImagePath = _playlists[playlistName]!['imagePath'];
       if (oldImagePath != null && File(oldImagePath).existsSync()) {
         await File(oldImagePath).delete();
       }
-      
+
       await imageFile.copy(newImagePath);
       _playlists[playlistName]!['imagePath'] = newImagePath;
       _playlists[playlistName]!['modified'] = DateTime.now().toIso8601String();
@@ -367,7 +381,7 @@ class PlaylistManager {
 
   /// Get the playlist directory path (useful for debugging or migration)
   static String get playlistDirectory => _playlistDir;
-  
+
   /// Get the playlist art directory path
   static String get playlistArtDirectory => _playlistArtDir;
 }

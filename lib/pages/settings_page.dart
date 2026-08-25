@@ -40,10 +40,12 @@ class _SettingsPageState extends State<SettingsPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Sync controller text only when it differs (avoids clobbering in-progress edits)
-    final username = Provider.of<NPlayer>(context, listen: false).publicUsername ?? '';
+    final username =
+        Provider.of<NPlayer>(context, listen: false).publicUsername ?? '';
     if (_usernameController.text != username) {
       _usernameController.text = username;
-      _usernameController.selection = TextSelection.collapsed(offset: username.length);
+      _usernameController.selection =
+          TextSelection.collapsed(offset: username.length);
     }
   }
 
@@ -71,79 +73,81 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-Future<void> _clearCache(BuildContext context) async {
-  // Show confirmation dialog
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('Clear Cache?'),
-      content: Text(
-        'This will delete all cached song metadata. '
-        'Songs will need to be re-scanned on next app launch.\n\n'
-        'Your music files and playlists will not be affected.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text('Cancel'),
+  Future<void> _clearCache(BuildContext context) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Clear Cache?'),
+        content: Text(
+          'This will delete all cached song metadata. '
+          'Songs will need to be re-scanned on next app launch.\n\n'
+          'Your music files and playlists will not be affected.',
         ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text('Clear Cache'),
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.red,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Cancel'),
           ),
-        ),
-      ],
-    ),
-  );
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('Clear Cache'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+          ),
+        ],
+      ),
+    );
 
-  if (confirmed == true && mounted) {
-    try {
-      final player = Provider.of<NPlayer>(context, listen: false);
+    if (confirmed == true && mounted) {
+      try {
+        final player = Provider.of<NPlayer>(context, listen: false);
 
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) =>
+              const Center(child: CircularProgressIndicator()),
+        );
 
-      // Clear cache WITHOUT reloading
-      await player.cache.clear();
+        // Clear cache WITHOUT reloading
+        await player.cache.clear();
 
-      if (!mounted) return;
-      Navigator.of(context).pop();
+        if (!mounted) return;
+        Navigator.of(context).pop();
 
-      await _loadCacheStats();
+        await _loadCacheStats();
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cache deleted successfully')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error clearing cache: $e')),
-      );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cache deleted successfully')),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error clearing cache: $e')),
+        );
+      }
     }
   }
-}
 
   Future<void> _copyFilesToBlossomFolder(BuildContext context) async {
     try {
       // Get supported extensions dynamically
       final allowedExtensions = SupportedFormats.supportedAudioFormats
-          .where((format) => 
-              format['platform'] == 'ALL' || 
+          .where((format) =>
+              format['platform'] == 'ALL' ||
               (Platform.isAndroid && format['platform'] == 'ANDROID') ||
               (Platform.isIOS && format['platform'] == 'IOS'))
-          .map((format) => format['extension']!.substring(1)) // Remove leading dot
+          .map((format) =>
+              format['extension']!.substring(1)) // Remove leading dot
           .toSet()
           .toList();
 
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: allowedExtensions,
         allowMultiple: true,
@@ -177,15 +181,16 @@ Future<void> _clearCache(BuildContext context) async {
   Future<void> _resetWelcomePage(BuildContext context) async {
     await Settings.setHasSeenWelcomePage(false);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Welcome page will show on next app launch')),
+      const SnackBar(
+          content: Text('Welcome page will show on next app launch')),
     );
   }
 
   Future<void> _selectCustomDirectory(BuildContext context) async {
     try {
       // Use file_picker to select a directory
-      String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-      
+      String? selectedDirectory = await FilePicker.getDirectoryPath();
+
       if (selectedDirectory != null) {
         await Settings.setCustomMusicDirectory(selectedDirectory);
         if (!mounted) return;
@@ -199,7 +204,8 @@ Future<void> _clearCache(BuildContext context) async {
           context: context,
           builder: (context) => AlertDialog(
             title: Text('Scan for Music?'),
-            content: Text('Would you like to scan for music in this folder now?'),
+            content:
+                Text('Would you like to scan for music in this folder now?'),
             actions: [
               TextButton(
                 onPressed: () {
@@ -230,8 +236,8 @@ Future<void> _clearCache(BuildContext context) async {
 
   String _getSupportedFormatsDescription() {
     final formats = SupportedFormats.supportedAudioFormats
-        .where((format) => 
-            format['platform'] == 'ALL' || 
+        .where((format) =>
+            format['platform'] == 'ALL' ||
             (Platform.isAndroid && format['platform'] == 'ANDROID') ||
             (Platform.isIOS && format['platform'] == 'IOS'))
         .map((format) => format['extension']!.toUpperCase().substring(1))
@@ -243,45 +249,43 @@ Future<void> _clearCache(BuildContext context) async {
   Widget _buildAndroidDirectorySection(BuildContext context) {
     // Only show for Android
     if (!Platform.isAndroid) return const SizedBox.shrink();
-    
+
     final String? currentDir = Settings.customMusicDirectory;
-    
+
     return _buildSection(
-      'Music Folder',
-      [
-        _buildInfoTile(
-          'Current Music Folder',
-          currentDir?.isNotEmpty == true 
-              ? currentDir!
-              : Platform.isAndroid 
-                ? '/storage/emulated/0/Music (default)'
-                : Platform.isIOS
-                  ? 'App Documents (default)'
-                  : 'BlossomMedia folder (default)',
-          context
-        ),
-        SizedBox(height: 8),
-        _buildButton(
-          'Select Music Folder',
-          () => _selectCustomDirectory(context),
-          context,
-        ),
-        if (currentDir?.isNotEmpty == true) 
+        'Music Folder',
+        [
+          _buildInfoTile(
+              'Current Music Folder',
+              currentDir?.isNotEmpty == true
+                  ? currentDir!
+                  : Platform.isAndroid
+                      ? '/storage/emulated/0/Music (default)'
+                      : Platform.isIOS
+                          ? 'App Documents (default)'
+                          : 'BlossomMedia folder (default)',
+              context),
+          SizedBox(height: 8),
           _buildButton(
-            'Clear Custom Folder',
-            () async {
-              await Settings.clearCustomMusicDirectory();
-              setState(() {});
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Using default music folders now')),
-              );
-            },
+            'Select Music Folder',
+            () => _selectCustomDirectory(context),
             context,
           ),
-        SizedBox(height: 8),
-      ],
-      context
-    );
+          if (currentDir?.isNotEmpty == true)
+            _buildButton(
+              'Clear Custom Folder',
+              () async {
+                await Settings.clearCustomMusicDirectory();
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Using default music folders now')),
+                );
+              },
+              context,
+            ),
+          SizedBox(height: 8),
+        ],
+        context);
   }
 
   Widget _buildCacheSection(BuildContext context) {
@@ -291,7 +295,7 @@ Future<void> _clearCache(BuildContext context) async {
         _buildInfoTile(
           'About Cache',
           'Blossom caches song metadata to speed up library loading. '
-          'Clear cache if you experience issues with song information.',
+              'Clear cache if you experience issues with song information.',
           context,
         ),
         if (_isLoadingCache)
@@ -333,109 +337,110 @@ Future<void> _clearCache(BuildContext context) async {
     );
   }
 
-Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
-  return _buildSection(
-    'Public Sharing',
-    [
-      _buildInfoTile(
-        'About Public Sharing',
-        'Share what you\'re listening to with friends. '
-        'When enabled, your current song and online status will be visible to anyone with your User ID.',
-        context,
-      ),
-      SizedBox(height: 8),
-      
-      // Enable/Disable Toggle
-      _buildSwitchTile(
-        'Enable Public Sharing',
-        player.isSharingEnabled,
-        (bool value) async {
-          await player.togglePublicSharing(value);
-          setState(() {});
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(value 
-                ? 'Public sharing enabled - Friends can see what you\'re listening to'
-                : 'Public sharing disabled'
-              ),
-            ),
-          );
-        },
-        context,
-      ),
-      
-      Divider(height: 32, indent: 16, endIndent: 16),
-      
-      // User ID (UUID) - Read-only with copy button
-      ListTile(
-        title: Text('Your User ID'),
-        subtitle: Text(
-          player.userUuid.isNotEmpty ? player.userUuid : 'Generating...',
-          style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-        ),
-        leading: Icon(Icons.fingerprint, color: Theme.of(context).colorScheme.secondary),
-        trailing: IconButton(
-          icon: Icon(Icons.copy),
-          tooltip: 'Copy User ID',
-          onPressed: () async {
-            await Clipboard.setData(ClipboardData(text: player.userUuid));
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('User ID copied to clipboard')),
-            );
-          },
-        ),
-      ),
-      _buildInfoTile(
-        'Share this ID',
-        'Friends can use your User ID to see what you\'re currently listening to. '
-        'Your ID is unique and cannot be changed.',
-        context,
-      ),
-      
-      SizedBox(height: 16),
-      
-      // Public Username
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        child: TextField(
-          decoration: InputDecoration(
-            labelText: 'Public Display Name',
-            hintText: 'Music Lover',
-            helperText: 'This name is shown to friends viewing your status',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            prefixIcon: Icon(Icons.person),
-          ),
-          controller: _usernameController,
-          onSubmitted: (value) async {
-            if (value.trim().isNotEmpty) {
-              await player.setPublicUsername(value.trim());
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Display name updated to "$value"')),
-              );
-            }
-          },
-        ),
-      ),
-      
-      SizedBox(height: 8),
-      
-      // Current Status Preview
-      if (player.isSharingEnabled) ...[
-        Divider(height: 32, indent: 16, endIndent: 16),
+  Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
+    return _buildSection(
+      'Public Sharing',
+      [
         _buildInfoTile(
-          'Current Public Status',
-          player.isPlaying && player.getCurrentSong() != null
-            ? 'Now sharing: "${player.getCurrentSong()!.title}" by ${player.getCurrentSong()!.artist}'
-            : 'Online (not playing)',
+          'About Public Sharing',
+          'Share what you\'re listening to with friends. '
+              'When enabled, your current song and online status will be visible to anyone with your User ID.',
           context,
         ),
+        SizedBox(height: 8),
+
+        // Enable/Disable Toggle
+        _buildSwitchTile(
+          'Enable Public Sharing',
+          player.isSharingEnabled,
+          (bool value) async {
+            await player.togglePublicSharing(value);
+            setState(() {});
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(value
+                    ? 'Public sharing enabled - Friends can see what you\'re listening to'
+                    : 'Public sharing disabled'),
+              ),
+            );
+          },
+          context,
+        ),
+
+        Divider(height: 32, indent: 16, endIndent: 16),
+
+        // User ID (UUID) - Read-only with copy button
+        ListTile(
+          title: Text('Your User ID'),
+          subtitle: Text(
+            player.userUuid.isNotEmpty ? player.userUuid : 'Generating...',
+            style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+          ),
+          leading: Icon(Icons.fingerprint,
+              color: Theme.of(context).colorScheme.secondary),
+          trailing: IconButton(
+            icon: Icon(Icons.copy),
+            tooltip: 'Copy User ID',
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: player.userUuid));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('User ID copied to clipboard')),
+              );
+            },
+          ),
+        ),
+        _buildInfoTile(
+          'Share this ID',
+          'Friends can use your User ID to see what you\'re currently listening to. '
+              'Your ID is unique and cannot be changed.',
+          context,
+        ),
+
+        SizedBox(height: 16),
+
+        // Public Username
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: TextField(
+            decoration: InputDecoration(
+              labelText: 'Public Display Name',
+              hintText: 'Music Lover',
+              helperText: 'This name is shown to friends viewing your status',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              prefixIcon: Icon(Icons.person),
+            ),
+            controller: _usernameController,
+            onSubmitted: (value) async {
+              if (value.trim().isNotEmpty) {
+                await player.setPublicUsername(value.trim());
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Display name updated to "$value"')),
+                );
+              }
+            },
+          ),
+        ),
+
+        SizedBox(height: 8),
+
+        // Current Status Preview
+        if (player.isSharingEnabled) ...[
+          Divider(height: 32, indent: 16, endIndent: 16),
+          _buildInfoTile(
+            'Current Public Status',
+            player.isPlaying && player.getCurrentSong() != null
+                ? 'Now sharing: "${player.getCurrentSong()!.title}" by ${player.getCurrentSong()!.artist}'
+                : 'Online (not playing)',
+            context,
+          ),
+        ],
+
+        SizedBox(height: 8),
       ],
-      
-      SizedBox(height: 8),
-    ],
-    context,
-  );
-}
+      context,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -447,55 +452,64 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
         builder: (context, player, child) {
           return ListView(
             children: [
-              // Verison info 
+              // Verison info
               _buildSection(
-                'Version',
-                [
-                  _buildInfoTile(
-                    'Version',
-                    '1.1.2+7',
-                    context
-                  ),
-                ],
-                context
-              ),
+                  'Version',
+                  [
+                    _buildInfoTile('Version', '1.1.2+7', context),
+                  ],
+                  context),
               _buildSection(
-                'Library',
-                [
-                  _buildInfoTile(
-                    'Where to add music files',
-                    'Blossom scans the Music folder on your device for audio files',
-                    context
-                  ),
-                  _buildInfoTile(
-                    'Supported locations',
-                    Platform.isAndroid 
-                      ? 'Music folder, Downloads folder, and internal app storage'
-                      : Platform.isIOS
-                        ? 'Files app > Blossom folder'
-                        : 'BlossomMedia folder in your Documents directory',
-                    context
-                  ),
-                  _buildInfoTile(
-                    'Supported formats', 
-                    '${_getSupportedFormatsDescription()} audio files',
-                    context
-                  ),
-                  SizedBox(height: 8),
-                  if (!Platform.isAndroid)
-                    _buildButton(
-                      'Copy Files to Blossom Folder',
-                      () => _copyFilesToBlossomFolder(context),
+                  'Interface',
+                  [
+                    _buildSwitchTile(
+                      'Show Home Page',
+                      Settings.showHomePage,
+                      (bool value) async {
+                        await Settings.setShowHomePage(value);
+                        setState(() {});
+                      },
                       context,
                     ),
-                  SizedBox(height: 8),
-                ],
-                context
-              ),
-              
+                    _buildInfoTile(
+                      'Home page',
+                      'A Home tab with quick actions, recently added, and most played songs. Takes effect when you leave Settings.',
+                      context,
+                    ),
+                  ],
+                  context),
+              _buildSection(
+                  'Library',
+                  [
+                    _buildInfoTile(
+                        'Where to add music files',
+                        'Blossom scans the Music folder on your device for audio files',
+                        context),
+                    _buildInfoTile(
+                        'Supported locations',
+                        Platform.isAndroid
+                            ? 'Music folder, Downloads folder, and internal app storage'
+                            : Platform.isIOS
+                                ? 'Files app > Blossom folder'
+                                : 'BlossomMedia folder in your Documents directory',
+                        context),
+                    _buildInfoTile(
+                        'Supported formats',
+                        '${_getSupportedFormatsDescription()} audio files',
+                        context),
+                    SizedBox(height: 8),
+                    if (!Platform.isAndroid)
+                      _buildButton(
+                        'Copy Files to Blossom Folder',
+                        () => _copyFilesToBlossomFolder(context),
+                        context,
+                      ),
+                    SizedBox(height: 8),
+                  ],
+                  context),
+
               // Add the Android directory selection section
-              if (Platform.isAndroid)
-                _buildAndroidDirectorySection(context),
+              if (Platform.isAndroid) _buildAndroidDirectorySection(context),
 
               // Add the cache section
               _buildCacheSection(context),
@@ -529,6 +543,21 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
                         await Settings.setPreviousForShuffle(value);
                         setState(() {});
                       },
+                      context,
+                    ),
+                    _buildDropdownTile(
+                      'Shuffle Behavior',
+                      Settings.shuffleBehavior,
+                      ['classic', 'reversible', 'smart'],
+                      (String value) async {
+                        await Settings.setShuffleBehavior(value);
+                        setState(() {});
+                      },
+                      context,
+                    ),
+                    _buildInfoTile(
+                      'Shuffle modes',
+                      'Classic reshuffles the queue each tap. Reversible restores the original order on a second tap. Smart favors favorites and most-played songs.',
                       context,
                     ),
                   ],
@@ -586,97 +615,99 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
 
               _buildPublicSharingSection(context, player),
               _buildSection(
-                'Appearance',
-                [
-                  _buildDropdownTile('App Theme', Settings.appTheme, [
-                    'light',
-                    'dark',
-                    'oled',
-                    '-',
-                    'slate',
-                    'ocean',
-                    'forest',
-                    'algae',
-                    '-',
-                    'sunset',
-                    'rose',
-                    'pink',
-                    'lavender',
-                    'orange',
-                  ], (String value) async {
-                    if (value != '-') {
-                      await Settings.setAppTheme(value);
-                      Log.d(LogTag.settings, 'New theme set: $value');
-                      widget.onThemeChanged();
-                      setState(() {});
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (context) => MyApp()),
-                        (Route<dynamic> route) => false,
-                      );
-                    }
-                  }, context),
-                ],
-                context
-              ),
+                  'Appearance',
+                  [
+                    _buildDropdownTile('App Theme', Settings.appTheme, [
+                      'light',
+                      'dark',
+                      'oled',
+                      '-',
+                      'slate',
+                      'ocean',
+                      'forest',
+                      'algae',
+                      '-',
+                      'sunset',
+                      'rose',
+                      'pink',
+                      'lavender',
+                      'orange',
+                    ], (String value) async {
+                      if (value != '-') {
+                        await Settings.setAppTheme(value);
+                        Log.d(LogTag.settings, 'New theme set: $value');
+                        widget.onThemeChanged();
+                        setState(() {});
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (context) => MyApp()),
+                          (Route<dynamic> route) => false,
+                        );
+                      }
+                    }, context),
+                  ],
+                  context),
 // ── Nextcloud Sync ──────────────────────────────────────────
-          _buildSection(
-            'Nextcloud Sync',
-            [
-              _buildInfoTile(
-                'Sync your music library',
-                'Bidirectional sync between this device and your Nextcloud server.',
-                context,
-              ),
-              Consumer<NextcloudSync>(    // ← needs nextcloud_sync import too
-                builder: (context, nc, _) => ListTile(
-                  leading: Icon(
-                    nc.status == SyncStatus.syncing || nc.status == SyncStatus.checking
-                        ? Icons.sync
-                        : nc.status == SyncStatus.success
-                            ? Icons.check_circle_outline
-                            : nc.status == SyncStatus.error
-                                ? Icons.error_outline
-                                : Icons.cloud_outlined,
-                    color: Theme.of(context).colorScheme.secondary,
+              _buildSection(
+                'Nextcloud Sync',
+                [
+                  _buildInfoTile(
+                    'Sync your music library',
+                    'Bidirectional sync between this device and your Nextcloud server.',
+                    context,
                   ),
-                  title: Text(nc.isConfigured ? 'Status' : 'Not configured'),
-                  subtitle: Text(nc.statusMessage),
-                ),
-              ),
-              _buildButton(
-                'Open Nextcloud Settings',
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChangeNotifierProvider.value(
-                      value: NextcloudSync(),
-                      child: const NextcloudPage(),
+                  Consumer<NextcloudSync>(
+                    // ← needs nextcloud_sync import too
+                    builder: (context, nc, _) => ListTile(
+                      leading: Icon(
+                        nc.status == SyncStatus.syncing ||
+                                nc.status == SyncStatus.checking
+                            ? Icons.sync
+                            : nc.status == SyncStatus.success
+                                ? Icons.check_circle_outline
+                                : nc.status == SyncStatus.error
+                                    ? Icons.error_outline
+                                    : Icons.cloud_outlined,
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                      title:
+                          Text(nc.isConfigured ? 'Status' : 'Not configured'),
+                      subtitle: Text(nc.statusMessage),
                     ),
                   ),
-                ),
+                  _buildButton(
+                    'Open Nextcloud Settings',
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChangeNotifierProvider.value(
+                          value: NextcloudSync(),
+                          child: const NextcloudPage(),
+                        ),
+                      ),
+                    ),
+                    context,
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 context,
               ),
-              const SizedBox(height: 8),
-            ],
-            context,
-          ),
-            _buildSection(
-              'Library Stats',
-              [
-                _buildInfoTile(
-                  'Analyse your library',
-                  'View top artists, albums, genres, listening time, file sizes, and more.',
-                  context,
-                ),
-                _buildButton(
-                  'View Library Stats',
-                  () => showLibraryStatsSheet(context),
-                  context,
-                ),
-                const SizedBox(height: 8),
-              ],
-              context,
-            ),
+              _buildSection(
+                'Library Stats',
+                [
+                  _buildInfoTile(
+                    'Analyse your library',
+                    'View top artists, albums, genres, listening time, file sizes, and more.',
+                    context,
+                  ),
+                  _buildButton(
+                    'View Library Stats',
+                    () => showLibraryStatsSheet(context),
+                    context,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                context,
+              ),
               _buildSection(
                 'Developer Options',
                 [
@@ -702,28 +733,33 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
 
   Widget _buildSection(
       String title, List<Widget> children, BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.secondary,
-            ),
+    final initiallyExpanded = {'Playback', 'Appearance'}.contains(title);
+
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+        childrenPadding: const EdgeInsets.only(bottom: 8),
+        iconColor: Theme.of(context).colorScheme.secondary,
+        collapsedIconColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Theme.of(context).colorScheme.secondary,
           ),
         ),
-        ...children,
-        Divider(color: Colors.grey.shade800),
-      ],
+        children: children,
+      ),
     );
   }
 
   Widget _buildInfoTile(String title, String subtitle, BuildContext context) {
     return ListTile(
+      dense: true,
+      visualDensity: VisualDensity.compact,
       title: Text(title),
       subtitle: Text(subtitle),
       leading: Icon(Icons.info_outline,
@@ -734,14 +770,17 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
   Widget _buildButton(
       String text, VoidCallback onPressed, BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: ElevatedButton(
-        onPressed: onPressed,
-        child: Text(text),
-        style: ElevatedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          backgroundColor: Theme.of(context).colorScheme.secondary,
-          foregroundColor: Theme.of(context).colorScheme.onSecondary,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: Text(text),
         ),
       ),
     );
@@ -756,13 +795,18 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
         title: Text(title),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12.0),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
+            border: Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outline
+                    .withValues(alpha: 0.5)),
           ),
           child: DropdownButton<String>(
             value: currentValue,
@@ -780,14 +824,16 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
               return DropdownMenuItem<String>(
                 value: value,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8.0, vertical: 4.0),
                   child: Text(value.capitalize()),
                 ),
               );
             }).toList(),
             dropdownColor: Theme.of(context).colorScheme.surface,
             underline: Container(), // Remove the default underline
-            icon: Icon(Icons.arrow_drop_down, color: Theme.of(context).colorScheme.onSurface),
+            icon: Icon(Icons.arrow_drop_down,
+                color: Theme.of(context).colorScheme.onSurface),
           ),
         ),
       ),
@@ -819,7 +865,8 @@ Widget _buildPublicSharingSection(BuildContext context, NPlayer player) {
         value: value,
         onChanged: onChanged,
         activeColor: Theme.of(context).colorScheme.secondary,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       ),
     );
   }

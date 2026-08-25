@@ -16,10 +16,10 @@ class PlaylistPage extends StatefulWidget {
   const PlaylistPage({Key? key}) : super(key: key);
 
   @override
-  _PlaylistPageState createState() => _PlaylistPageState();
+  PlaylistPageState createState() => PlaylistPageState();
 }
 
-class _PlaylistPageState extends State<PlaylistPage>
+class PlaylistPageState extends State<PlaylistPage>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
@@ -100,12 +100,16 @@ class _PlaylistPageState extends State<PlaylistPage>
       builder: (context, playlists, child) {
         final player = context.read<NPlayer>();
         List<String> filteredPlaylists = playlists
-            .where((playlist) =>
-                playlist.toLowerCase().contains(_searchController.text.toLowerCase()))
+            .where((playlist) => playlist
+                .toLowerCase()
+                .contains(_searchController.text.toLowerCase()))
             .toList();
 
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
+          backgroundColor: Theme.of(context)
+              .colorScheme
+              .surfaceContainerHighest
+              .withValues(alpha: 0.1),
           body: SafeArea(
             child: FadeTransition(
               opacity: _fadeAnimation,
@@ -115,7 +119,9 @@ class _PlaylistPageState extends State<PlaylistPage>
                   OptimizedSearchBar(
                     searchController: _searchController,
                     onSearchChanged: (value) {
-                      if (value.length == 1) _scrollController.jumpTo(0);
+                      if (value.length == 1 && _scrollController.hasClients) {
+                        _scrollController.jumpTo(0);
+                      }
                       _safeSetState(() {});
                     },
                     hintText: 'Search playlists...',
@@ -129,7 +135,7 @@ class _PlaylistPageState extends State<PlaylistPage>
                       tooltip: 'Create Playlist',
                     ),
                   ),
-                  
+
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
@@ -140,7 +146,8 @@ class _PlaylistPageState extends State<PlaylistPage>
                               title: 'No playlists yet',
                               subtitle: 'Create a playlist to get started',
                               action: ElevatedButton.icon(
-                                onPressed: () => _showCreatePlaylistDialog(context, player),
+                                onPressed: () =>
+                                    _showCreatePlaylistDialog(context, player),
                                 icon: const Icon(Icons.add_rounded),
                                 label: const Text('Create Playlist'),
                                 style: ElevatedButton.styleFrom(
@@ -181,7 +188,7 @@ class _PlaylistPageState extends State<PlaylistPage>
         String playlist = playlists[index];
         List<Music> playlistSongs = player.getPlaylistSongs(playlist);
         String? imagePath = player.getPlaylistImagePath(playlist);
-        
+
         return _PlaylistCard(
           playlist: playlist,
           songCount: playlistSongs.length,
@@ -189,7 +196,11 @@ class _PlaylistPageState extends State<PlaylistPage>
           songs: playlistSongs,
           onTap: () => _showPlaylistBottomSheet(
               context, player, playlist, playlistSongs),
-          onPlay: () => player.playPlaylistFromIndex(playlistSongs, 0),
+          onPlay: () => player.playPlaylistFromIndex(
+            playlistSongs,
+            0,
+            playlistName: playlist,
+          ),
           onDelete: () => _showDeletePlaylistDialog(context, player, playlist),
           onImageTap: () => _selectPlaylistImage(context, player, playlist),
         );
@@ -197,8 +208,8 @@ class _PlaylistPageState extends State<PlaylistPage>
     );
   }
 
-  void _showPlaylistBottomSheet(
-      BuildContext context, NPlayer player, String playlist, List<Music> songs) {
+  void _showPlaylistBottomSheet(BuildContext context, NPlayer player,
+      String playlist, List<Music> songs) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -211,8 +222,14 @@ class _PlaylistPageState extends State<PlaylistPage>
           itemCount: songs.length,
           songs: songs,
           onPlayPressed: (song) {
-            int index = songs.indexOf(song);
-            player.playPlaylistFromIndex(songs, index);
+            final currentSongs = player.getPlaylistSongs(playlist);
+            int index = currentSongs.indexWhere((s) => s.path == song.path);
+            if (index == -1) index = 0;
+            player.playPlaylistFromIndex(
+              currentSongs,
+              index,
+              playlistName: playlist,
+            );
             Navigator.pop(context);
           },
           isPlaylist: true,
@@ -221,6 +238,42 @@ class _PlaylistPageState extends State<PlaylistPage>
         );
       },
     );
+  }
+
+  void openPlaylist(String playlistName) {
+    final player = context.read<NPlayer>();
+    final playlists = player.playlists;
+    final index = playlists.indexOf(playlistName);
+    if (index == -1) return;
+
+    if (_searchController.text.isNotEmpty) {
+      _searchController.clear();
+      _safeSetState(() {});
+    }
+
+    final width = MediaQuery.of(context).size.width;
+    final crossAxisCount = width > 600 ? 3 : 2;
+    final cardWidth = (width - 16 - (crossAxisCount - 1) * 12) / crossAxisCount;
+    final cardHeight = cardWidth / 0.85;
+    final offset = (index ~/ crossAxisCount) * (cardHeight + 12);
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        offset.clamp(0, _scrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showPlaylistBottomSheet(
+        context,
+        player,
+        playlistName,
+        player.getPlaylistSongs(playlistName),
+      );
+    });
   }
 
   void _showCreatePlaylistDialog(BuildContext context, NPlayer player) {
@@ -375,8 +428,8 @@ class _PlaylistCard extends StatelessWidget {
                   Text(
                     playlist,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                          fontWeight: FontWeight.w600,
+                        ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -384,8 +437,8 @@ class _PlaylistCard extends StatelessWidget {
                   Text(
                     '$songCount ${songCount == 1 ? 'song' : 'songs'}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -409,7 +462,10 @@ class _PlaylistCard extends StatelessWidget {
                           size: 28,
                           color: songs.isNotEmpty
                               ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant
+                                  .withValues(alpha: 0.3),
                         ),
                         onPressed: songs.isNotEmpty ? onPlay : null,
                         padding: const EdgeInsets.all(4),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:blossom/sheets/playlist_sheet.dart';
+import 'package:blossom/sheets/song_actions_sheet.dart';
 import 'package:blossom/song_list/song_list_tile_wrapper.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:flutter/material.dart';
@@ -141,6 +142,11 @@ class SongListBuilderState extends State<SongListBuilder> {
                       isSelected: selectedSongs.contains(song),
                       onTap: () => _handleTap(song),
                       onLongPress: () => _handleLongPress(index),
+                      onMorePressed: () => SongActionsSheet.show(
+                        context,
+                        song,
+                        isInQueueContext: widget.isPlayingList,
+                      ),
                     );
                   },
                 ),

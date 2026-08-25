@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:blossom/audio/nplayer.dart';
+import 'package:blossom/audio/song_data.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -65,6 +66,13 @@ class YearStat {
   const YearStat({required this.year, required this.songCount});
 }
 
+class PlayedStat {
+  final Music song;
+  final int playCount;
+
+  const PlayedStat({required this.song, required this.playCount});
+}
+
 class LibraryStats {
   // Overview
   final int totalSongs;
@@ -90,6 +98,13 @@ class LibraryStats {
   // Favorites
   final List<Music> topFavorites;
 
+  // Listening habits
+  final List<PlayedStat> topPlayed;
+  final int totalPlays;
+
+  // Recently added (by file modification time)
+  final List<Music> recentlyAdded;
+
   // Folder breakdown
   final Map<String, int> songsByFolder;
 
@@ -112,6 +127,9 @@ class LibraryStats {
     required this.largestFile,
     required this.smallestFile,
     required this.topFavorites,
+    required this.topPlayed,
+    required this.totalPlays,
+    required this.recentlyAdded,
     required this.songsByFolder,
     required this.generatedAt,
   });
@@ -143,6 +161,9 @@ class LibraryStats {
         largestFile: null,
         smallestFile: null,
         topFavorites: [],
+        topPlayed: [],
+        totalPlays: 0,
+        recentlyAdded: [],
         songsByFolder: {},
         generatedAt: DateTime.now(),
       );
@@ -224,10 +245,26 @@ class LibraryStats {
 
     // --- Extremes ---
     final sorted = List<Music>.from(songs);
-    final longestSong = sorted.reduce((a, b) => a.duration > b.duration ? a : b);
-    final shortestSong = sorted.reduce((a, b) => a.duration < b.duration ? a : b);
+    final longestSong =
+        sorted.reduce((a, b) => a.duration > b.duration ? a : b);
+    final shortestSong =
+        sorted.reduce((a, b) => a.duration < b.duration ? a : b);
     final largestFile = sorted.reduce((a, b) => a.size > b.size ? a : b);
     final smallestFile = sorted.reduce((a, b) => a.size < b.size ? a : b);
+
+    // --- Listening habits ---
+    int totalPlays = 0;
+    final played = <PlayedStat>[];
+    for (final s in songs) {
+      final count = SongData.getPlayCount(s.path);
+      totalPlays += count;
+      if (count > 0) played.add(PlayedStat(song: s, playCount: count));
+    }
+    played.sort((a, b) => b.playCount.compareTo(a.playCount));
+
+    // --- Recently added ---
+    final recentlyAdded = List<Music>.from(songs)
+      ..sort((a, b) => b.lastModified.compareTo(a.lastModified));
 
     // --- Folders ---
     final folderMap = <String, int>{};
@@ -253,6 +290,9 @@ class LibraryStats {
       largestFile: largestFile,
       smallestFile: smallestFile,
       topFavorites: favorites.take(20).toList(),
+      topPlayed: played.take(20).toList(),
+      totalPlays: totalPlays,
+      recentlyAdded: recentlyAdded.take(20).toList(),
       songsByFolder: Map.fromEntries(
         folderMap.entries.toList()..sort((a, b) => b.value.compareTo(a.value)),
       ),
@@ -309,19 +349,48 @@ class LibraryStats {
           .toList(),
       'extremes': {
         'longestSong': longestSong != null
-            ? {'title': longestSong!.title, 'artist': longestSong!.artist, 'duration': _formatDuration(longestSong!.duration)}
+            ? {
+                'title': longestSong!.title,
+                'artist': longestSong!.artist,
+                'duration': _formatDuration(longestSong!.duration)
+              }
             : null,
         'shortestSong': shortestSong != null
-            ? {'title': shortestSong!.title, 'artist': shortestSong!.artist, 'duration': _formatDuration(shortestSong!.duration)}
+            ? {
+                'title': shortestSong!.title,
+                'artist': shortestSong!.artist,
+                'duration': _formatDuration(shortestSong!.duration)
+              }
             : null,
         'largestFile': largestFile != null
-            ? {'title': largestFile!.title, 'artist': largestFile!.artist, 'size': _formatSize(largestFile!.size)}
+            ? {
+                'title': largestFile!.title,
+                'artist': largestFile!.artist,
+                'size': _formatSize(largestFile!.size)
+              }
             : null,
         'smallestFile': smallestFile != null
-            ? {'title': smallestFile!.title, 'artist': smallestFile!.artist, 'size': _formatSize(smallestFile!.size)}
+            ? {
+                'title': smallestFile!.title,
+                'artist': smallestFile!.artist,
+                'size': _formatSize(smallestFile!.size)
+              }
             : null,
       },
       'topFavorites': topFavorites
+          .map((s) => {'title': s.title, 'artist': s.artist, 'album': s.album})
+          .toList(),
+      'listening': {
+        'totalPlays': totalPlays,
+        'topPlayed': topPlayed
+            .map((p) => {
+                  'title': p.song.title,
+                  'artist': p.song.artist,
+                  'playCount': p.playCount,
+                })
+            .toList(),
+      },
+      'recentlyAdded': recentlyAdded
           .map((s) => {'title': s.title, 'artist': s.artist, 'album': s.album})
           .toList(),
       'songsByFolder': songsByFolder,
@@ -349,7 +418,8 @@ class LibraryStats {
     buf.writeln('Rank,Artist,Songs,Albums,Total Duration');
     for (var i = 0; i < topArtists.take(20).length; i++) {
       final a = topArtists[i];
-      buf.writeln('${i + 1},${_csvEscape(a.name)},${a.songCount},${a.albumCount},${a.formattedDuration}');
+      buf.writeln(
+          '${i + 1},${_csvEscape(a.name)},${a.songCount},${a.albumCount},${a.formattedDuration}');
     }
     buf.writeln();
 
@@ -357,7 +427,8 @@ class LibraryStats {
     buf.writeln('Rank,Album,Artist,Songs,Total Duration,Year');
     for (var i = 0; i < topAlbums.take(20).length; i++) {
       final a = topAlbums[i];
-      buf.writeln('${i + 1},${_csvEscape(a.name)},${_csvEscape(a.artist)},${a.songCount},${a.formattedDuration},${a.year}');
+      buf.writeln(
+          '${i + 1},${_csvEscape(a.name)},${_csvEscape(a.artist)},${a.songCount},${a.formattedDuration},${a.year}');
     }
     buf.writeln();
 
@@ -365,7 +436,8 @@ class LibraryStats {
     buf.writeln('Rank,Genre,Songs,Percentage');
     for (var i = 0; i < genreBreakdown.length; i++) {
       final g = genreBreakdown[i];
-      buf.writeln('${i + 1},${_csvEscape(g.name)},${g.songCount},${g.percentage.toStringAsFixed(1)}%');
+      buf.writeln(
+          '${i + 1},${_csvEscape(g.name)},${g.songCount},${g.percentage.toStringAsFixed(1)}%');
     }
     buf.writeln();
 
@@ -378,17 +450,31 @@ class LibraryStats {
 
     buf.writeln('--- EXTREMES ---');
     if (longestSong != null) {
-      buf.writeln('Longest Song,${_csvEscape(longestSong!.title)},${_csvEscape(longestSong!.artist)},${_formatDuration(longestSong!.duration)}');
+      buf.writeln(
+          'Longest Song,${_csvEscape(longestSong!.title)},${_csvEscape(longestSong!.artist)},${_formatDuration(longestSong!.duration)}');
     }
     if (shortestSong != null) {
-      buf.writeln('Shortest Song,${_csvEscape(shortestSong!.title)},${_csvEscape(shortestSong!.artist)},${_formatDuration(shortestSong!.duration)}');
+      buf.writeln(
+          'Shortest Song,${_csvEscape(shortestSong!.title)},${_csvEscape(shortestSong!.artist)},${_formatDuration(shortestSong!.duration)}');
     }
     if (largestFile != null) {
-      buf.writeln('Largest File,${_csvEscape(largestFile!.title)},${_csvEscape(largestFile!.artist)},${_formatSize(largestFile!.size)}');
+      buf.writeln(
+          'Largest File,${_csvEscape(largestFile!.title)},${_csvEscape(largestFile!.artist)},${_formatSize(largestFile!.size)}');
     }
     if (smallestFile != null) {
-      buf.writeln('Smallest File,${_csvEscape(smallestFile!.title)},${_csvEscape(smallestFile!.artist)},${_formatSize(smallestFile!.size)}');
+      buf.writeln(
+          'Smallest File,${_csvEscape(smallestFile!.title)},${_csvEscape(smallestFile!.artist)},${_formatSize(smallestFile!.size)}');
     }
+    buf.writeln();
+
+    buf.writeln('--- MOST PLAYED ---');
+    buf.writeln('Rank,Title,Artist,Plays');
+    for (var i = 0; i < topPlayed.length; i++) {
+      final p = topPlayed[i];
+      buf.writeln(
+          '${i + 1},${_csvEscape(p.song.title)},${_csvEscape(p.song.artist)},${p.playCount}');
+    }
+    buf.writeln('Total Plays,$totalPlays');
     buf.writeln();
 
     buf.writeln('--- SONGS BY FOLDER ---');
@@ -401,17 +487,29 @@ class LibraryStats {
   }
 
   Future<void> exportAndShare(String format) async {
-    final timestamp = generatedAt.toIso8601String().replaceAll(':', '-').substring(0, 19);
+    final timestamp =
+        generatedAt.toIso8601String().replaceAll(':', '-').substring(0, 19);
     final dir = await getTemporaryDirectory();
 
     if (format == 'json') {
       final file = File('${dir.path}/blossom_stats_$timestamp.json');
-      await file.writeAsString(const JsonEncoder.withIndent('  ').convert(toJson()));
-      await Share.shareXFiles([XFile(file.path)], subject: 'Blossom Library Stats');
+      await file
+          .writeAsString(const JsonEncoder.withIndent('  ').convert(toJson()));
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'Blossom Library Stats',
+        ),
+      );
     } else if (format == 'csv') {
       final file = File('${dir.path}/blossom_stats_$timestamp.csv');
       await file.writeAsString(toCsv());
-      await Share.shareXFiles([XFile(file.path)], subject: 'Blossom Library Stats');
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'Blossom Library Stats',
+        ),
+      );
     }
   }
 }
@@ -465,7 +563,8 @@ String _formatDuration(int ms) {
 String _formatSize(int bytes) {
   if (bytes < 1024) return '${bytes}B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
-  if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
+  if (bytes < 1024 * 1024 * 1024)
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)}GB';
 }
 

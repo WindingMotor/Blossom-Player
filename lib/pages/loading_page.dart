@@ -8,10 +8,16 @@ import '../audio/nplayer.dart';
 class LoadingPage extends StatefulWidget {
   final Widget child;
   final ThemeData theme;
-   final VoidCallback? onLoaded; 
+  final VoidCallback? onLoaded;
+  final bool initiallyLoaded;
 
-  const LoadingPage({Key? key, required this.child, required this.theme, this.onLoaded})
-      : super(key: key);
+  const LoadingPage({
+    Key? key,
+    required this.child,
+    required this.theme,
+    this.onLoaded,
+    this.initiallyLoaded = false,
+  }) : super(key: key);
 
   @override
   _LoadingPageState createState() => _LoadingPageState();
@@ -19,11 +25,11 @@ class LoadingPage extends StatefulWidget {
 
 class _LoadingPageState extends State<LoadingPage>
     with SingleTickerProviderStateMixin {
-  bool _isLoading = true;
+  late bool _isLoading;
   final List<FallingBlossom> _blossoms = [];
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
-  
+
   String _loadingStatus = 'Starting up...';
   String _detailStatus = '';
   int _songsLoaded = 0;
@@ -33,55 +39,59 @@ class _LoadingPageState extends State<LoadingPage>
   @override
   void initState() {
     super.initState();
+    _isLoading = !widget.initiallyLoaded;
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-    _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(_fadeController);
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _monitorLoadingProgress();
-    });
+    _fadeAnimation =
+        Tween<double>(begin: 1.0, end: 0.0).animate(_fadeController);
+
+    if (_isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _monitorLoadingProgress();
+      });
+    }
   }
 
   void _monitorLoadingProgress() async {
     final nPlayer = Provider.of<NPlayer>(context, listen: false);
-    
+
     await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
-    
+
     int lastSongCount = -1;
     int stableCount = 0;
     int lastUpdateCount = 0;
     final loadStartTime = DateTime.now();
-    
+
     while (mounted && !_isInitialized) {
       await Future.delayed(const Duration(milliseconds: 200));
       if (!mounted) break;
-      
+
       final currentSongCount = nPlayer.allSongs.length;
       final elapsed = DateTime.now().difference(loadStartTime).inSeconds;
-      
+
       // Calculate load rate
       final newSongs = currentSongCount - lastUpdateCount;
       if (newSongs > 0) {
         _loadRate = (newSongs / 0.2).round();
         lastUpdateCount = currentSongCount;
       }
-      
+
       setState(() {
         _songsLoaded = currentSongCount;
-        
+
         // More descriptive status messages
         if (currentSongCount == 0) {
           if (elapsed < 3) {
             _loadingStatus = 'Initializing audio engine...';
-            _detailStatus = elapsed < 2 
+            _detailStatus = elapsed < 2
                 ? 'Connecting to media scanner'
                 : 'Scanning music directories';
           } else {
-             _loadingStatus = 'Finalizing...';
-             _detailStatus = 'Checking storage';
+            _loadingStatus = 'Finalizing...';
+            _detailStatus = 'Checking storage';
           }
         } else if (currentSongCount < 10) {
           _loadingStatus = 'Discovering music files...';
@@ -109,9 +119,9 @@ class _LoadingPageState extends State<LoadingPage>
           _detailStatus = '$currentSongCount tracks • Elapsed: $time$rate';
         }
       });
-      
+
       // --- FIXED STABILITY LOGIC ---
-      
+
       // Case 1: Empty Library (0 songs)
       // If 0 songs found after 3 seconds, we assume the device is empty and proceed.
       if (currentSongCount == 0 && elapsed >= 3) {
@@ -126,44 +136,43 @@ class _LoadingPageState extends State<LoadingPage>
         stableCount++;
         // Wait for 3 stable checks (approx 600ms) before finishing
         final requiredStable = currentSongCount > 1000 ? 5 : 3;
-        
+
         if (stableCount >= requiredStable) {
-           Log.i(LogTag.ui, 'Library stable at $currentSongCount songs — proceeding');
+          Log.i(LogTag.ui,
+              'Library stable at $currentSongCount songs — proceeding');
           _isInitialized = true;
           break;
         }
       } else {
         // Count changed, reset stability counter
         if (currentSongCount != lastSongCount) {
-            stableCount = 0;
+          stableCount = 0;
         }
       }
-      
+
       lastSongCount = currentSongCount;
     }
-    
+
     // Complete and Transition
     if (mounted) {
       setState(() {
         _loadingStatus = 'Library ready!';
-        _detailStatus = _songsLoaded > 0 
-            ? '$_songsLoaded songs indexed' 
-            : 'No music found';
+        _detailStatus =
+            _songsLoaded > 0 ? '$_songsLoaded songs indexed' : 'No music found';
       });
-      
-      await Future.delayed(const Duration(milliseconds: 600));
-      
-    if (mounted) {
-      _fadeController.forward().then((_) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false; // Simply remove the overlay
-          });
-          widget.onLoaded?.call(); 
-        }
-      });
-    }
 
+      await Future.delayed(const Duration(milliseconds: 600));
+
+      if (mounted) {
+        _fadeController.forward().then((_) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false; // Simply remove the overlay
+            });
+            widget.onLoaded?.call();
+          }
+        });
+      }
     }
   }
 
@@ -191,7 +200,8 @@ class _LoadingPageState extends State<LoadingPage>
         size: 20 + random.nextDouble() * 30,
         delay: random.nextDouble() * 3,
         colorFilter: ColorFilter.mode(
-          widget.theme.colorScheme.secondary.withValues(alpha: 0.4 + random.nextDouble() * 0.3),
+          widget.theme.colorScheme.secondary
+              .withValues(alpha: 0.4 + random.nextDouble() * 0.3),
           BlendMode.srcIn,
         ),
       ));
@@ -231,7 +241,7 @@ class _LoadingPageState extends State<LoadingPage>
                                 ),
                               ),
                               const SizedBox(height: 24),
-                              
+
                               // App Name
                               Text(
                                 'Blossom',
@@ -242,9 +252,9 @@ class _LoadingPageState extends State<LoadingPage>
                                   letterSpacing: 1.2,
                                 ),
                               ),
-                              
+
                               const SizedBox(height: 48),
-                              
+
                               // Loading Status
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 400),
@@ -269,7 +279,8 @@ class _LoadingPageState extends State<LoadingPage>
                                       style: TextStyle(
                                         fontSize: 17,
                                         fontWeight: FontWeight.w600,
-                                        color: widget.theme.colorScheme.onSurface,
+                                        color:
+                                            widget.theme.colorScheme.onSurface,
                                         letterSpacing: 0.3,
                                       ),
                                     ),
@@ -280,7 +291,8 @@ class _LoadingPageState extends State<LoadingPage>
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontSize: 13,
-                                          color: widget.theme.colorScheme.onSurface
+                                          color: widget
+                                              .theme.colorScheme.onSurface
                                               .withValues(alpha: 0.65),
                                           height: 1.4,
                                         ),
@@ -289,9 +301,9 @@ class _LoadingPageState extends State<LoadingPage>
                                   ],
                                 ),
                               ),
-                              
+
                               const SizedBox(height: 32),
-                              
+
                               // Loading Indicator
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 300),
@@ -301,7 +313,8 @@ class _LoadingPageState extends State<LoadingPage>
                                         height: 40,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 3,
-                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
                                             widget.theme.colorScheme.secondary,
                                           ),
                                         ),
@@ -309,7 +322,8 @@ class _LoadingPageState extends State<LoadingPage>
                                     : Icon(
                                         Icons.check_circle_rounded,
                                         size: 40,
-                                        color: widget.theme.colorScheme.secondary,
+                                        color:
+                                            widget.theme.colorScheme.secondary,
                                       ),
                               ),
                             ],
@@ -360,18 +374,19 @@ class _FallingBlossomState extends State<FallingBlossom>
   @override
   void initState() {
     super.initState();
-    
+
     // Random wind characteristics for each blossom
     _horizontalAmplitude = 30 + random.nextDouble() * 50; // Wind drift amount
-    _horizontalFrequency = 0.8 + random.nextDouble() * 0.6; // Wind wave frequency
+    _horizontalFrequency =
+        0.8 + random.nextDouble() * 0.6; // Wind wave frequency
     _rotationSpeed = 2 + random.nextDouble() * 4; // Rotation speed
     _phase = random.nextDouble() * 2 * pi; // Random starting phase
-    
+
     _controller = AnimationController(
       duration: Duration(seconds: 6 + random.nextInt(6)),
       vsync: this,
     );
-    
+
     // Start animation immediately
     _controller.repeat();
   }
@@ -380,7 +395,7 @@ class _FallingBlossomState extends State<FallingBlossom>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final size = MediaQuery.of(context).size;
-    
+
     _animationY = Tween<double>(
       begin: widget.startY,
       end: size.height + 50,
@@ -396,15 +411,15 @@ class _FallingBlossomState extends State<FallingBlossom>
       animation: _controller,
       builder: (context, child) {
         // Sinusoidal horizontal movement for wind effect
-        final windOffset = _horizontalAmplitude * 
+        final windOffset = _horizontalAmplitude *
             sin(_horizontalFrequency * _controller.value * 2 * pi + _phase);
-        
+
         // Smooth rotation with some randomness
         final rotation = _rotationSpeed * _controller.value * 2 * pi;
-        
+
         // Add subtle scale variation to simulate depth
         final scale = 0.9 + 0.1 * sin(_controller.value * 2 * pi);
-        
+
         return Positioned(
           left: widget.startX + windOffset,
           top: _animationY.value,

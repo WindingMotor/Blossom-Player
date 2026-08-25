@@ -11,12 +11,14 @@ class SongListTile extends StatelessWidget {
   final Music song;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final VoidCallback? onMorePressed;
 
   const SongListTile({
     Key? key,
     required this.song,
     required this.onTap,
     required this.onLongPress,
+    this.onMorePressed,
   }) : super(key: key);
 
 
@@ -41,7 +43,7 @@ class SongListTile extends StatelessWidget {
       visualDensity: isDesktopPlatform 
           ? VisualDensity.compact 
           : VisualDensity.standard,
-        leading: _AlbumArt(picture: song.picture, songPath: song.path),
+        leading: AlbumArtThumbnail(picture: song.picture, songPath: song.path),
 
 title: Text(
   song.title,
@@ -55,11 +57,28 @@ subtitle: Text(
   ),
   overflow: TextOverflow.ellipsis,
 ),
-trailing: Text(
-  Utils.formatMilliseconds(song.duration),
-  style: textTheme.bodySmall?.copyWith(
-    color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
-  ),
+trailing: Row(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Text(
+      Utils.formatMilliseconds(song.duration),
+      style: textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+      ),
+    ),
+    if (onMorePressed != null)
+      IconButton(
+        icon: Icon(
+          Icons.more_vert_rounded,
+          size: 20,
+          color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+        ),
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        tooltip: 'Song options',
+        onPressed: onMorePressed,
+      ),
+  ],
 ),
         onTap: onTap,
         onLongPress: onLongPress,
@@ -68,11 +87,22 @@ trailing: Text(
   }
 }
 
-class _AlbumArt extends StatelessWidget {
+// Shared album-art thumbnail used by song, album, and artist list tiles so
+// they stay visually consistent. Falls back to a themed icon when there's
+// no embedded picture or it fails to decode.
+class AlbumArtThumbnail extends StatelessWidget {
   final Uint8List? picture;
   final String songPath; // you need to pass the song path!
+  final double size;
+  final IconData icon;
 
-  const _AlbumArt({Key? key, required this.picture, required this.songPath}) : super(key: key);
+  const AlbumArtThumbnail({
+    Key? key,
+    required this.picture,
+    required this.songPath,
+    this.size = 48,
+    this.icon = Icons.music_note,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -80,20 +110,20 @@ class _AlbumArt extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: SizedBox(
-        width: 48,
-        height: 48,
+        width: size,
+        height: size,
         child: picture != null
             ? Image(
                 image: AlbumArtCache.of(songPath, picture!),
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   color: theme.colorScheme.surface,
-                  child: Icon(Icons.music_note, color: theme.colorScheme.onSurface),
+                  child: Icon(icon, color: theme.colorScheme.onSurface),
                 ),
               )
             : Container(
                 color: theme.colorScheme.surface,
-                child: Icon(Icons.music_note, color: theme.colorScheme.onSurface),
+                child: Icon(icon, color: theme.colorScheme.onSurface),
               ),
       ),
     );

@@ -9,25 +9,6 @@ import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
 import '../sheets/bottom_sheet.dart';
 
-// ─── Isolate-safe top-level functions ────────────────────────────────────────
-// These MUST be top-level (not instance methods) to run in a compute() isolate.
-
-Map<String, List<Music>> _groupByAlbum(List<Music> songs) {
-  final map = <String, List<Music>>{};
-  for (final song in songs) {
-    map.putIfAbsent(song.album, () => []).add(song);
-  }
-  return map;
-}
-
-Map<String, List<Music>> _groupByFolder(List<Music> songs) {
-  final map = <String, List<Music>>{};
-  for (final song in songs) {
-    map.putIfAbsent(song.folderName, () => []).add(song);
-  }
-  return map;
-}
-
 // ─── Data model ───────────────────────────────────────────────────────────────
 
 class AlbumInfo {
@@ -46,10 +27,10 @@ class SongAlbums extends StatefulWidget {
   const SongAlbums({super.key});
 
   @override
-  _SongAlbumsState createState() => _SongAlbumsState();
+  SongAlbumsState createState() => SongAlbumsState();
 }
 
-class _SongAlbumsState extends State<SongAlbums>
+class SongAlbumsState extends State<SongAlbums>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
@@ -64,9 +45,6 @@ class _SongAlbumsState extends State<SongAlbums>
   List<AlbumInfo> _albumList = [];
   List<AlbumInfo> _largeAlbums = [];
   List<AlbumInfo> _smallAlbums = [];
-
-  // Loading state — shown while compute() runs
-  bool _isLoading = true;
 
   Timer? _saveDebounce;
   late AnimationController _animationController;
@@ -114,34 +92,36 @@ class _SongAlbumsState extends State<SongAlbums>
 
   // ── Core data pipeline — async, off UI thread ──────────────────────────────
 
-void _initializeAlbumList() {
-  final player   = Provider.of<NPlayer>(context, listen: false);
-  final albumMap = _organizeByFolder ? player.folderMap : player.albumMap;
+  void _initializeAlbumList() {
+    final player = Provider.of<NPlayer>(context, listen: false);
+    final albumMap = _organizeByFolder ? player.folderMap : player.albumMap;
 
-  final list = albumMap.entries.map((entry) => AlbumInfo(
-    name:      entry.key,
-    songs:     entry.value,
-    firstSong: entry.value.first,
-  )).toList();
+    final list = albumMap.entries
+        .map((entry) => AlbumInfo(
+              name: entry.key,
+              songs: entry.value,
+              firstSong: entry.value.first,
+            ))
+        .toList();
 
-  _sortList(list);
-  final filtered = _applySearch(list);
+    _sortList(list);
+    final filtered = _applySearch(list);
 
-  setState(() {
-    _albumList   = list;
-    _largeAlbums = filtered.where((a) => a.songs.length >= 5).toList();
-    _smallAlbums = filtered.where((a) => a.songs.length < 5).toList();
-  });
+    setState(() {
+      _albumList = list;
+      _largeAlbums = filtered.where((a) => a.songs.length >= 5).toList();
+      _smallAlbums = filtered.where((a) => a.songs.length < 5).toList();
+    });
 
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!mounted) return;
-    _animationController.forward();
-    final saved = Settings.albumsScrollPosition;
-    if (saved > 0 && _scrollController.hasClients) {
-      _scrollController.jumpTo(saved);
-    }
-  });
-}
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _animationController.forward();
+      final saved = Settings.albumsScrollPosition;
+      if (saved > 0 && _scrollController.hasClients) {
+        _scrollController.jumpTo(saved);
+      }
+    });
+  }
 
   void _sortList(List<AlbumInfo> list) {
     list.sort((a, b) {
@@ -227,8 +207,7 @@ void _initializeAlbumList() {
               const SizedBox(width: 10),
               Text(
                 _organizeByFolder ? 'Group by Album' : 'Organize by Folder',
-                style:
-                    TextStyle(color: Theme.of(context).colorScheme.primary),
+                style: TextStyle(color: Theme.of(context).colorScheme.primary),
               ),
             ],
           ),
@@ -275,7 +254,7 @@ void _initializeAlbumList() {
             OptimizedSearchBar(
               searchController: _searchController,
               onSearchChanged: (value) {
-                if (value.length == 1) {
+                if (value.length == 1 && _scrollController.hasClients) {
                   _scrollController.jumpTo(0);
                   Settings.setAlbumsScrollPosition(0);
                 }
@@ -298,21 +277,6 @@ void _initializeAlbumList() {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildLoadingSkeleton() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
-        childAspectRatio: 0.85,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: 8,
-      itemBuilder: (_, __) => _SkeletonCard(),
     );
   }
 
@@ -389,7 +353,14 @@ void _initializeAlbumList() {
             ),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
-              sliver: SliverList(
+              sliver: SliverFixedExtentList(
+                itemExtent: [
+                  TargetPlatform.windows,
+                  TargetPlatform.linux,
+                  TargetPlatform.macOS
+                ].contains(Theme.of(context).platform)
+                    ? 72
+                    : 88,
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final album = _smallAlbums[index];
@@ -432,57 +403,60 @@ void _initializeAlbumList() {
       ),
     );
   }
-}
 
-// ─── Skeleton loader card ─────────────────────────────────────────────────────
+  void openAlbumForSong(Music song) {
+    if (_organizeByFolder) {
+      _organizeByFolder = false;
+      _saveSortPreferences();
+      _initializeAlbumList();
+    }
 
-class _SkeletonCard extends StatefulWidget {
-  @override
-  State<_SkeletonCard> createState() => _SkeletonCardState();
-}
-
-class _SkeletonCardState extends State<_SkeletonCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final base = Theme.of(context).colorScheme.surfaceContainerHighest;
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, __) {
-        final color = Color.lerp(
-          base.withValues(alpha: 0.4),
-          base.withValues(alpha: 0.9),
-          _anim.value,
-        )!;
-        return Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          color: color,
-          child: const SizedBox.expand(),
+    final album = _albumList.cast<AlbumInfo?>().firstWhere(
+          (album) => album?.name == song.album,
+          orElse: () => null,
         );
-      },
-    );
+    if (album == null) return;
+
+    if (_searchController.text.isNotEmpty) {
+      _searchController.clear();
+      _rebuildDisplayLists();
+    }
+
+    final largeIndex = _largeAlbums.indexWhere((a) => a.name == album.name);
+    final smallIndex = _smallAlbums.indexWhere((a) => a.name == album.name);
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width > 600;
+    double offset = 0;
+
+    if (largeIndex != -1) {
+      final crossAxisCount = isDesktop ? 3 : 2;
+      final row = largeIndex ~/ crossAxisCount;
+      final cardWidth =
+          (width - 16 - (crossAxisCount - 1) * 12) / crossAxisCount;
+      final cardHeight = cardWidth / 0.85;
+      offset = 48 + row * (cardHeight + 12);
+    } else if (smallIndex != -1) {
+      final crossAxisCount = isDesktop ? 3 : 2;
+      final largeRows = (_largeAlbums.length / crossAxisCount).ceil();
+      final cardWidth =
+          (width - 16 - (crossAxisCount - 1) * 12) / crossAxisCount;
+      final cardHeight = cardWidth / 0.85;
+      final smallExtent = UIHelpers.isDesktopPlatform(context) ? 72.0 : 88.0;
+      offset =
+          48 + largeRows * (cardHeight + 12) + 64 + smallIndex * smallExtent;
+    }
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        offset.clamp(0, _scrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showAlbumSongs(context, album);
+    });
   }
 }
 
@@ -509,8 +483,7 @@ class _AlbumCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color:
-              Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -538,10 +511,9 @@ class _AlbumCard extends StatelessWidget {
                 children: [
                   Text(
                     album.name,
-                    style:
-                        Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -549,9 +521,7 @@ class _AlbumCard extends StatelessWidget {
                   Text(
                     organizeByFolder ? 'Folder' : album.firstSong.artist,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -561,30 +531,27 @@ class _AlbumCard extends StatelessWidget {
                     children: [
                       Icon(Icons.music_note,
                           size: 14,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant),
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant),
                       const SizedBox(width: 4),
                       Text(
                         '${album.songs.length} songs',
-                        style:
-                            Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                  fontSize: 11,
-                                ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                              fontSize: 11,
+                            ),
                       ),
                       const Spacer(),
                       Text(
                         album.yearRange,
-                        style:
-                            Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                  fontSize: 11,
-                                ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                              fontSize: 11,
+                            ),
                       ),
                     ],
                   ),
@@ -606,8 +573,7 @@ class _PlaceholderArt extends StatelessWidget {
       child: Icon(
         Icons.album,
         size: 64,
-        color:
-            Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
       ),
     );
   }
@@ -629,50 +595,43 @@ class _AlbumListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
     final isDesktop = UIHelpers.isDesktopPlatform(context);
-    final tileSize = isDesktop ? 36.0 : 48.0;
 
     return Card(
-      color: Theme.of(context).cardColor,
       elevation: 0,
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      margin: EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: isDesktop ? 2 : 4,
+      ),
       child: ListTile(
         dense: isDesktop,
-        visualDensity: isDesktop
-            ? VisualDensity.compact
-            : VisualDensity.standard,
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            width: tileSize,
-            height: tileSize,
-            child: album.firstSong.picture != null
-                ? Image(
-                    image: AlbumArtCache.of(
-                        album.firstSong.path, album.firstSong.picture!),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: Colors.grey[800],
-                      child: Icon(Icons.album, color: Colors.grey[600]),
-                    ),
-                  )
-                : Container(
-                    color: Colors.grey[800],
-                    child: Icon(Icons.album, color: Colors.grey[600]),
-                  ),
-          ),
+        visualDensity:
+            isDesktop ? VisualDensity.compact : VisualDensity.standard,
+        leading: AlbumArtThumbnail(
+          picture: album.firstSong.picture,
+          songPath: album.firstSong.path,
+          icon: Icons.album,
         ),
-        title: Text(album.name, overflow: TextOverflow.ellipsis),
+        title: Text(
+          album.name,
+          style: textTheme.bodyMedium,
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: Text(
           '${album.songs.length} songs • ${organizeByFolder ? 'Folder' : album.firstSong.artist}',
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
+          style: textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+          ),
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Text(
           album.yearRange,
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
+          style: textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+          ),
         ),
         onTap: onTap,
       ),

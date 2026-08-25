@@ -1,5 +1,5 @@
 /// Reusable search bar widget with integrated controls
-/// 
+///
 /// Provides:
 /// - Search functionality with clear button
 /// - Optional sort/filter menu integration
@@ -11,7 +11,7 @@ import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
 
 /// Search bar widget with integrated controls
-/// 
+///
 /// Parameters:
 /// - [searchController]: TextEditingController for search input
 /// - [onSearchChanged]: Callback when search text changes
@@ -60,19 +60,39 @@ class OptimizedSearchBar extends StatefulWidget {
 }
 
 class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
+  final FocusNode _searchFocusNode = FocusNode();
+  late bool _hadSearchText;
+
   @override
   void initState() {
     super.initState();
+    _hadSearchText = widget.searchController.text.isNotEmpty;
     widget.searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant OptimizedSearchBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchController != widget.searchController) {
+      oldWidget.searchController.removeListener(_onSearchChanged);
+      _hadSearchText = widget.searchController.text.isNotEmpty;
+      widget.searchController.addListener(_onSearchChanged);
+    }
   }
 
   @override
   void dispose() {
     widget.searchController.removeListener(_onSearchChanged);
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
   void _onSearchChanged() {
+    final hasText = widget.searchController.text.isNotEmpty;
+    if (_hadSearchText && !hasText) {
+      _searchFocusNode.unfocus();
+    }
+    _hadSearchText = hasText;
     setState(() {});
   }
 
@@ -89,12 +109,16 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
             color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+              color:
+                  Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.05),
+                color: Theme.of(context)
+                    .colorScheme
+                    .shadow
+                    .withValues(alpha: 0.05),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -116,12 +140,17 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                     Expanded(
                       child: TextField(
                         controller: widget.searchController,
+                        focusNode: _searchFocusNode,
                         onChanged: widget.onSearchChanged,
                         decoration: InputDecoration(
                           hintText: widget.hintText,
-                          hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                          ),
+                          hintStyle:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant
+                                        .withValues(alpha: 0.6),
+                                  ),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.zero,
                         ),
@@ -140,22 +169,27 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                           child: Icon(
                             Icons.clear_rounded,
                             size: 16,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant
+                                .withValues(alpha: 0.7),
                           ),
                         ),
                       )
                     else
                       const SizedBox(width: 20),
-                    
+
                     // Custom trailing widget (if provided)
                     if (widget.trailingWidget != null)
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: widget.trailingWidget!,
                       ),
-                    
+
                     // Filter/Sort button (if enabled and no trailing widget)
-                    if (widget.trailingWidget == null && widget.showSortButton && widget.onShowSortMenu != null)
+                    if (widget.trailingWidget == null &&
+                        widget.showSortButton &&
+                        widget.onShowSortMenu != null)
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: Material(
@@ -167,24 +201,32 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                             child: Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Tooltip(
-                                message: 'Sorted by $currentSort $sortDirection',
+                                message:
+                                    'Sorted by $currentSort $sortDirection',
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
                                       Icons.tune_rounded,
                                       size: 16,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
                                     ),
                                     const SizedBox(width: 2),
                                     Icon(
-                                      player.sortAscending ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                      player.sortAscending
+                                          ? Icons.keyboard_arrow_up
+                                          : Icons.keyboard_arrow_down,
                                       size: 16,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
                                     ),
                                   ],
                                 ),
@@ -193,9 +235,11 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                           ),
                         ),
                       ),
-                    
+
                     // Shuffle button (if enabled and no trailing widget)
-                    if (widget.trailingWidget == null && widget.showShuffleButton && widget.onShuffle != null)
+                    if (widget.trailingWidget == null &&
+                        widget.showShuffleButton &&
+                        widget.onShuffle != null)
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: Material(
@@ -208,15 +252,19 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                               child: Icon(
                                 Icons.shuffle_rounded,
                                 size: 18,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
                               ),
                             ),
                           ),
                         ),
                       ),
-                    
+
                     // Settings button (if enabled and no trailing widget)
-                    if (widget.trailingWidget == null && widget.showSettingsButton && widget.onSettings != null)
+                    if (widget.trailingWidget == null &&
+                        widget.showSettingsButton &&
+                        widget.onSettings != null)
                       Padding(
                         padding: const EdgeInsets.only(left: 4),
                         child: Material(
@@ -229,7 +277,9 @@ class _OptimizedSearchBarState extends State<OptimizedSearchBar> {
                               child: Icon(
                                 Icons.settings_rounded,
                                 size: 18,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
                               ),
                             ),
                           ),

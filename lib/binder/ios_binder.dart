@@ -5,9 +5,8 @@ import 'package:process_run/shell.dart';
 
 class iOS_Binder {
   static const String _mountDir = "~/Music/BlossomMount";
-  static const String _blossomId = "com.wmstudios.blossom";
 
- static Future<bool>? _initialCheckFuture;
+  static Future<bool>? _initialCheckFuture;
 
   static Future<bool> getInitialCheck() {
     _initialCheckFuture ??= _performInitialCheck();

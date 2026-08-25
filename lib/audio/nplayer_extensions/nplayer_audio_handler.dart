@@ -9,7 +9,8 @@ import 'package:blossom/tools/logger.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:path_provider/path_provider.dart';
 
-class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
+class CustomAudioHandler extends BaseAudioHandler
+    with QueueHandler, SeekHandler {
   final AudioPlayer _player;
   final NPlayer _nPlayer;
   late final AudioSession _audioSession;
@@ -36,7 +37,7 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
 
     try {
       _audioSession = await AudioSession.instance;
-      
+
       // Enhanced completion detection with multiple fallbacks
       _subscriptions.add(_player.onPlayerComplete.listen((_) async {
         if (_completionHandled) return;
@@ -58,9 +59,10 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
           _completionHandled = false;
         }
       }));
-      
+
       if (Platform.isAndroid) {
-        await _audioSession.configure(AudioSessionConfiguration.music().copyWith(
+        await _audioSession
+            .configure(AudioSessionConfiguration.music().copyWith(
           androidAudioAttributes: const AndroidAudioAttributes(
             contentType: AndroidAudioContentType.music,
             usage: AndroidAudioUsage.media,
@@ -72,25 +74,19 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
           androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
           androidWillPauseWhenDucked: false,
         ));
-
-        try {
-          await _audioSession.setActive(true,
-              avAudioSessionSetActiveOptions:
-                  AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation);
-          _hasAudioFocus = true;
-        } catch (e) {
-          Log.w(LogTag.audioHandler, 'Error activating audio session: $e');
-        }
       } else {
         await _audioSession.configure(AudioSessionConfiguration.music());
       }
 
-      _subscriptions.add(_audioSession.interruptionEventStream.listen((event) async {
+      _subscriptions
+          .add(_audioSession.interruptionEventStream.listen((event) async {
         try {
-          Log.d(LogTag.audioHandler, 'Audio interruption — begin: ${event.begin}, type: ${event.type}');
+          Log.d(LogTag.audioHandler,
+              'Audio interruption — begin: ${event.begin}, type: ${event.type}');
 
           if (event.begin) {
-            if (Platform.isAndroid && event.type == AudioInterruptionType.duck) {
+            if (Platform.isAndroid &&
+                event.type == AudioInterruptionType.duck) {
               final behavior = Settings.audioDuckBehavior;
               if (behavior == 'duck') {
                 await _player.setVolume(Settings.duckVolume);
@@ -104,7 +100,8 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
               // routing changes cause transient focus losses (~100–200ms) that
               // resolve on their own.  Only pause if the loss lasts > 400ms.
               _interruptionDebounce?.cancel();
-              _interruptionDebounce = Timer(const Duration(milliseconds: 150), () {
+              _interruptionDebounce =
+                  Timer(const Duration(milliseconds: 150), () {
                 _interruptionDebounce = null;
                 if (!_hasAudioFocus) {
                   _nPlayer.pauseSong(isInterruption: true);
@@ -117,7 +114,8 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
             _interruptionDebounce = null;
             _hasAudioFocus = true;
 
-            if (Platform.isAndroid && event.type == AudioInterruptionType.duck) {
+            if (Platform.isAndroid &&
+                event.type == AudioInterruptionType.duck) {
               if (Settings.audioDuckBehavior == 'duck') {
                 await _player.setVolume(Settings.volume);
               } else if (Settings.audioDuckBehavior == 'pause' &&
@@ -143,38 +141,38 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
 
       // Enhanced state monitoring with position tracking
       _subscriptions.add(_player.onPlayerStateChanged.listen((state) {
-  try {
-    final isPlaying = state == PlayerState.playing;
+        try {
+          final isPlaying = state == PlayerState.playing;
 
-    // Add debouncing for rapid state changes
-    _stateDebounceTimer?.cancel();
-    _stateDebounceTimer = Timer(const Duration(milliseconds: 50), () {
-      _stateDebounceTimer = null;
-      playbackState.add(playbackState.value.copyWith(
-        playing: isPlaying,
-        processingState: AudioProcessingState.ready,
-        controls: [
-          MediaControl.skipToPrevious,
-          isPlaying ? MediaControl.pause : MediaControl.play,
-          MediaControl.skipToNext,
-        ],
-        systemActions: {
-          MediaAction.seek,
-          MediaAction.seekForward,
-          MediaAction.seekBackward,
-        },
-        androidCompactActionIndices: const [0, 1, 2],
-      ));
-    });
-    
-    if (Platform.isAndroid) {
-      Timer(const Duration(milliseconds: 50), () {
-        AudioService.androidForceEnableMediaButtons();
-      });
-    }
-  } catch (e) {
-    Log.w(LogTag.audioHandler, 'Error in onPlayerStateChanged: $e');
-  }
+          // Add debouncing for rapid state changes
+          _stateDebounceTimer?.cancel();
+          _stateDebounceTimer = Timer(const Duration(milliseconds: 50), () {
+            _stateDebounceTimer = null;
+            playbackState.add(playbackState.value.copyWith(
+              playing: isPlaying,
+              processingState: AudioProcessingState.ready,
+              controls: [
+                MediaControl.skipToPrevious,
+                isPlaying ? MediaControl.pause : MediaControl.play,
+                MediaControl.skipToNext,
+              ],
+              systemActions: {
+                MediaAction.seek,
+                MediaAction.seekForward,
+                MediaAction.seekBackward,
+              },
+              androidCompactActionIndices: const [0, 1, 2],
+            ));
+          });
+
+          if (Platform.isAndroid) {
+            Timer(const Duration(milliseconds: 50), () {
+              AudioService.androidForceEnableMediaButtons();
+            });
+          }
+        } catch (e) {
+          Log.w(LogTag.audioHandler, 'Error in onPlayerStateChanged: $e');
+        }
       }));
 
       _subscriptions.add(_player.onDurationChanged.listen((duration) {
@@ -212,10 +210,12 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
                 timeRemaining.inMilliseconds > 0 &&
                 !_completionHandled &&
                 _backupCompletionTimer == null) {
-              Log.v(LogTag.audioHandler, 'Near end detected, arming backup timer');
+              Log.v(LogTag.audioHandler,
+                  'Near end detected, arming backup timer');
               _backupCompletionTimer = Timer(timeRemaining, () async {
                 _backupCompletionTimer = null;
-                if (!_completionHandled && _player.state == PlayerState.playing) {
+                if (!_completionHandled &&
+                    _player.state == PlayerState.playing) {
                   Log.i(LogTag.audioHandler, 'Backup completion triggered');
                   _completionHandled = true;
                   await _nPlayer.handleSongCompletion();
@@ -229,7 +229,6 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
           Log.w(LogTag.audioHandler, 'Error in onPositionChanged: $e');
         }
       }));
-
     } catch (e) {
       Log.e(LogTag.audioHandler, 'Error during initialization: $e');
     } finally {
@@ -237,78 +236,89 @@ class CustomAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler
     }
   }
 
-  @override
-Future<void> play() async {
-  Log.d(LogTag.audioHandler, 'play() called from external control');
+  Future<bool> ensureAudioFocus() async {
+    if (_hasAudioFocus) return true;
 
-  if (_player.state == PlayerState.playing) return;
+    try {
+      if (Platform.isAndroid) {
+        await _audioSession
+            .configure(AudioSessionConfiguration.music().copyWith(
+          androidAudioAttributes: const AndroidAudioAttributes(
+            contentType: AndroidAudioContentType.music,
+            usage: AndroidAudioUsage.media,
+            flags: AndroidAudioFlags.none,
+          ),
+          androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+          androidWillPauseWhenDucked: false,
+        ));
+      }
 
-  try {
-    if (!_hasAudioFocus) {
-      Log.d(LogTag.audioHandler, 'Requesting audio focus for external play');
-      
-      // First, try to reconfigure the session
-      await _audioSession.configure(AudioSessionConfiguration.music().copyWith(
-        androidAudioAttributes: const AndroidAudioAttributes(
-          contentType: AndroidAudioContentType.music,
-          usage: AndroidAudioUsage.media,
-          flags: AndroidAudioFlags.none,
-        ),
-        androidAudioFocusGainType: AndroidAudioFocusGainType.gain, // Use stronger focus gain
-        androidWillPauseWhenDucked: false, // Don't auto-pause
-      ));
-      
-      // Request focus with retry logic
       bool focusGranted = false;
       for (int attempt = 0; attempt < 3; attempt++) {
         await Future.delayed(Duration(milliseconds: 100 * (attempt + 1)));
-        focusGranted = await _audioSession.setActive(true);
+        focusGranted = await _audioSession.setActive(true,
+            avAudioSessionSetActiveOptions:
+                AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation);
         if (focusGranted) break;
-        Log.w(LogTag.audioHandler, 'Focus attempt ${attempt + 1} failed, retrying...');
+        Log.w(LogTag.audioHandler,
+            'Focus attempt ${attempt + 1} failed, retrying...');
       }
 
-      if (!focusGranted) {
-        Log.w(LogTag.audioHandler, 'Could not gain audio focus after 3 attempts');
-      } else {
-        _hasAudioFocus = true;
+      _hasAudioFocus = focusGranted;
+      if (focusGranted) {
         Log.d(LogTag.audioHandler, 'Audio focus granted');
+      } else {
+        Log.w(
+            LogTag.audioHandler, 'Could not gain audio focus after 3 attempts');
       }
+      return focusGranted;
+    } catch (e) {
+      Log.w(LogTag.audioHandler, 'Error requesting audio focus: $e');
+      return false;
     }
-
-    await _nPlayer.resumeSong();
-    
-    // Update state after successful resume
-    playbackState.add(playbackState.value.copyWith(
-      playing: true,
-      controls: [
-        MediaControl.skipToPrevious,
-        MediaControl.pause,
-        MediaControl.skipToNext,
-      ],
-      androidCompactActionIndices: const [0, 1, 2],
-    ));
-    
-    if (Platform.isAndroid) {
-      Timer(const Duration(milliseconds: 50), () {
-        AudioService.androidForceEnableMediaButtons();
-      });
-    }
-  } catch (e) {
-    Log.e(LogTag.audioHandler, 'Error in play(): $e');
   }
-}
 
+  @override
+  Future<void> play() async {
+    Log.d(LogTag.audioHandler, 'play() called from external control');
 
+    if (_player.state == PlayerState.playing) return;
+
+    try {
+      await ensureAudioFocus();
+
+      await _nPlayer.resumeSong();
+
+      // Update state after successful resume
+      playbackState.add(playbackState.value.copyWith(
+        playing: true,
+        controls: [
+          MediaControl.skipToPrevious,
+          MediaControl.pause,
+          MediaControl.skipToNext,
+        ],
+        androidCompactActionIndices: const [0, 1, 2],
+      ));
+
+      if (Platform.isAndroid) {
+        Timer(const Duration(milliseconds: 50), () {
+          AudioService.androidForceEnableMediaButtons();
+        });
+      }
+    } catch (e) {
+      Log.e(LogTag.audioHandler, 'Error in play(): $e');
+    }
+  }
 
   @override
   Future<void> pause() async {
     Log.d(LogTag.audioHandler, 'pause() called');
-    
+
     if (_player.state != PlayerState.playing) return;
-    
+
     try {
       await _player.pause();
-      
+
       playbackState.add(playbackState.value.copyWith(
         playing: false,
         controls: [
@@ -318,7 +328,7 @@ Future<void> play() async {
         ],
         androidCompactActionIndices: const [0, 1, 2],
       ));
-      
+
       if (Platform.isAndroid) {
         await AudioService.androidForceEnableMediaButtons();
       }
@@ -327,18 +337,18 @@ Future<void> play() async {
     }
   }
 
-@override
-Future<void> seek(Duration position) async {
-  Log.v(LogTag.audioHandler, 'seek to ${position.inMilliseconds}ms');
-  try {
-    await _player.seek(position);
-    playbackState.add(playbackState.value.copyWith(updatePosition: position));
-    await _nPlayer.seek(position);
-  } catch (e) {
-    Log.w(LogTag.audioHandler, 'Error in seek(): $e');
+  @override
+  Future<void> seek(Duration position) async {
+    Log.v(LogTag.audioHandler, 'seek to ${position.inMilliseconds}ms');
+    try {
+      // NPlayer.seek() seeks the shared AudioPlayer and updates internal
+      // position state — seeking _player here too would seek twice.
+      await _nPlayer.seek(position);
+      playbackState.add(playbackState.value.copyWith(updatePosition: position));
+    } catch (e) {
+      Log.w(LogTag.audioHandler, 'Error in seek(): $e');
+    }
   }
-}
-
 
   @override
   Future<void> stop() async {
@@ -375,7 +385,7 @@ Future<void> seek(Duration position) async {
         if (!focusGranted) return;
         _hasAudioFocus = true;
       }
-      
+
       if (Settings.previousForShuffle) {
         await _nPlayer.shuffle();
       } else {
@@ -472,7 +482,8 @@ Future<void> seek(Duration position) async {
       displayDescription: song.album.isNotEmpty ? song.album : 'Unknown Album',
       // artCacheFile triggers audio_service native BitmapFactory.decodeFile()
       // → sets METADATA_KEY_ALBUM_ART bitmap that Android Auto reads.
-      extras: artCacheFilePath != null ? {'artCacheFile': artCacheFilePath} : null,
+      extras:
+          artCacheFilePath != null ? {'artCacheFile': artCacheFilePath} : null,
     );
 
     _scheduleMediaItemUpdate(item);
@@ -480,7 +491,6 @@ Future<void> seek(Duration position) async {
     _backupCompletionTimer?.cancel();
     _backupCompletionTimer = null;
   }
-
 
   // Retry focus reclaim with back-off so Spotify can't sneak in during the gap.
   Future<void> _regainFocusAndResume({required bool shortDelay}) async {
@@ -507,7 +517,8 @@ Future<void> seek(Duration position) async {
         Log.w(LogTag.audioHandler, 'Focus regain attempt failed: $e');
       }
     }
-    Log.w(LogTag.audioHandler, 'Could not regain audio focus after interruption');
+    Log.w(
+        LogTag.audioHandler, 'Could not regain audio focus after interruption');
   }
 
   // ─── Android Auto / MediaBrowser support ────────────────────────────────
@@ -515,7 +526,7 @@ Future<void> seek(Duration position) async {
 
   @override
   Future<List<MediaItem>> getChildren(String parentMediaId,
-      [Map<String, dynamic>? options]) =>
+          [Map<String, dynamic>? options]) =>
       _browser.getChildren(parentMediaId, options);
 
   @override

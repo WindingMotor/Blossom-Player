@@ -12,10 +12,10 @@ class ArtistsPage extends StatefulWidget {
   const ArtistsPage({super.key});
 
   @override
-  _ArtistsPageState createState() => _ArtistsPageState();
+  ArtistsPageState createState() => ArtistsPageState();
 }
 
-class _ArtistsPageState extends State<ArtistsPage>
+class ArtistsPageState extends State<ArtistsPage>
     with TickerProviderStateMixin {
   late String _sortBy;
   late bool _sortAscending;
@@ -30,7 +30,7 @@ class _ArtistsPageState extends State<ArtistsPage>
   @override
   void initState() {
     super.initState();
-    
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -38,7 +38,7 @@ class _ArtistsPageState extends State<ArtistsPage>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
-    
+
     _loadSortPreferences();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -147,7 +147,10 @@ class _ArtistsPageState extends State<ArtistsPage>
     final filteredList = _filterArtists();
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
+      backgroundColor: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest
+          .withValues(alpha: 0.1),
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -156,7 +159,7 @@ class _ArtistsPageState extends State<ArtistsPage>
               OptimizedSearchBar(
                 searchController: _searchController,
                 onSearchChanged: (value) {
-                  if (value.length == 1) {
+                  if (value.length == 1 && _scrollController.hasClients) {
                     _scrollController.jumpTo(0);
                     Settings.setArtistsScrollPosition(0);
                   }
@@ -170,7 +173,6 @@ class _ArtistsPageState extends State<ArtistsPage>
                   sortAscending: _sortAscending,
                 ),
               ),
-              
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
@@ -183,7 +185,8 @@ class _ArtistsPageState extends State<ArtistsPage>
                       padding: const EdgeInsets.only(top: 0),
                       controller: _scrollController,
                       itemCount: filteredList.length,
-                      itemExtent: UIHelpers.isDesktopPlatform(context) ? 60.0 : 80.0,
+                      itemExtent:
+                          UIHelpers.isDesktopPlatform(context) ? 60.0 : 80.0,
                       cacheExtent: 1000,
                       itemBuilder: (context, index) {
                         final artist = filteredList[index];
@@ -209,9 +212,9 @@ class _ArtistsPageState extends State<ArtistsPage>
       return _artistList;
     }
     final lowercaseQuery = _searchController.text.toLowerCase();
-    return _artistList.where((artist) =>
-        artist.name.toLowerCase().contains(lowercaseQuery)
-    ).toList();
+    return _artistList
+        .where((artist) => artist.name.toLowerCase().contains(lowercaseQuery))
+        .toList();
   }
 
   void _showArtistSongs(BuildContext context, ArtistInfo artist) {
@@ -224,22 +227,57 @@ class _ArtistsPageState extends State<ArtistsPage>
       backgroundColor: Colors.transparent,
       builder: (context) => MusicBottomSheet(
         title: artist.name,
-        subtitle: '${artist.songCount} songs • ${artist.songs.map((s) => s.album).toSet().length} albums',
+        subtitle:
+            '${artist.songCount} songs • ${artist.songs.map((s) => s.album).toSet().length} albums',
         itemCount: artist.songCount,
         songs: artist.songs,
         onPlayPressed: (song) => player.playArtist(artist.songs, song),
         image: artist.firstSong.picture != null
-            ? Image(image: AlbumArtCache.of(artist.firstSong.path, artist.firstSong.picture!), fit: BoxFit.cover)
+            ? Image(
+                image: AlbumArtCache.of(
+                    artist.firstSong.path, artist.firstSong.picture!),
+                fit: BoxFit.cover)
             : null,
       ),
     );
+  }
+
+  void openArtist(String artistName) {
+    if (_artistList.isEmpty) {
+      _initializeArtistList();
+    }
+
+    final index = _artistList.indexWhere(
+      (artist) => artist.name.toLowerCase() == artistName.toLowerCase(),
+    );
+    if (index == -1) return;
+
+    if (_searchController.text.isNotEmpty) {
+      _searchController.clear();
+      setState(() {});
+    }
+
+    final itemExtent = UIHelpers.isDesktopPlatform(context) ? 60.0 : 80.0;
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        index * itemExtent,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showArtistSongs(context, _artistList[index]);
+    });
   }
 
   void _sortArtists() {
     _artistList.sort((a, b) {
       switch (_sortBy) {
         case 'name':
-          return _sortAscending ? a.name.compareTo(b.name) : b.name.compareTo(a.name);
+          return _sortAscending
+              ? a.name.compareTo(b.name)
+              : b.name.compareTo(a.name);
         case 'songs':
           return _sortAscending
               ? a.songCount.compareTo(b.songCount)
@@ -259,7 +297,7 @@ class _ArtistsPageState extends State<ArtistsPage>
       }
     });
   }
-  
+
   void _saveSortPreferences() {
     Settings.setArtistSort(_sortBy, _sortAscending);
   }
@@ -294,42 +332,43 @@ class _ArtistListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
     final isDesktop = UIHelpers.isDesktopPlatform(context);
-    final tileSize = isDesktop ? 36.0 : 48.0;
 
     return Card(
-      color: Theme.of(context).cardColor,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: isDesktop ? 2 : 4,
+      ),
       child: ListTile(
         dense: isDesktop,
-        visualDensity: isDesktop ? VisualDensity.compact : VisualDensity.standard,
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: SizedBox(
-            width: tileSize,
-            height: tileSize,
-            child: artist.firstSong.picture != null
-                ? Image(
-                    image: AlbumArtCache.of(artist.firstSong.path, artist.firstSong.picture!),
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    color: Colors.grey[800],
-                    child: Icon(Icons.album, color: Colors.grey[600]),
-                  ),
-          ),
+        visualDensity:
+            isDesktop ? VisualDensity.compact : VisualDensity.standard,
+        leading: AlbumArtThumbnail(
+          picture: artist.firstSong.picture,
+          songPath: artist.firstSong.path,
+          icon: Icons.person_rounded,
         ),
-        title: Text(artist.name, overflow: TextOverflow.ellipsis),
+        title: Text(
+          artist.name,
+          style: textTheme.bodyMedium,
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: Text(
           '${artist.songCount} songs • ${artist.albumCount} albums',
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+          ),
           overflow: TextOverflow.ellipsis,
         ),
         trailing: Text(
           artist.yearRange,
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+          ),
         ),
         onTap: onTap,
       ),

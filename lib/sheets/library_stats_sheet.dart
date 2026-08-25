@@ -269,35 +269,56 @@ class _StatCard extends StatelessWidget {
     final theme = Theme.of(context);
     final c = color ?? theme.colorScheme.primary;
 
+    // Row layout: icon chip + centered text column. Unlike the old
+    // icon-over-text Column, this can't overflow vertically in a fixed
+    // aspect-ratio grid cell.
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: c.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: c.withValues(alpha: 0.18)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Icon(icon, color: c, size: 22),
-          const Spacer(),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: c.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            child: Icon(icon, color: c, size: 18),
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.7),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -512,12 +533,12 @@ class _OverviewTab extends StatelessWidget {
       children: [
         // Top stat cards grid
         GridView.count(
-          crossAxisCount: 3,
+          crossAxisCount: 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
-          childAspectRatio: 1.1,
+          childAspectRatio: 2.7,
           children: [
             _StatCard(label: 'Songs', value: '${stats.totalSongs}', icon: Icons.music_note_rounded, color: p),
             _StatCard(label: 'Artists', value: '${stats.totalArtists}', icon: Icons.person_rounded, color: s),
@@ -611,6 +632,20 @@ class _OverviewTab extends StatelessWidget {
               : '',
           color: Colors.teal,
         ),
+
+        if (stats.topPlayed.isNotEmpty) ...[
+          _SectionHeader('Most Played · ${stats.totalPlays} total plays'),
+          ...stats.topPlayed.take(10).toList().asMap().entries.map(
+                (entry) => _RankedTile(
+                  rank: entry.key + 1,
+                  title: entry.value.song.title,
+                  subtitle: entry.value.song.artist,
+                  trailing: '${entry.value.playCount}',
+                  trailingSubtitle:
+                      entry.value.playCount == 1 ? 'play' : 'plays',
+                ),
+              ),
+        ],
 
         if (stats.topFavorites.isNotEmpty) ...[
           const _SectionHeader('Favorited Songs'),

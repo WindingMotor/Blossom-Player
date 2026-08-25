@@ -168,7 +168,8 @@ class _StandbyPageState extends State<StandbyPage>
                     right: mediaQuery.padding.right,
                   ),
                   child: currentSong != null
-                      ? _buildMainContent(context, player, currentSong, isLandscape)
+                      ? _buildMainContent(
+                          context, player, currentSong, isLandscape)
                       : _buildNoSongContent(context),
                 ),
               ),
@@ -179,7 +180,8 @@ class _StandbyPageState extends State<StandbyPage>
     );
   }
 
-  Widget _buildMainContent(BuildContext context, NPlayer player, dynamic currentSong, bool isLandscape) {
+  Widget _buildMainContent(BuildContext context, NPlayer player,
+      dynamic currentSong, bool isLandscape) {
     if (isLandscape) {
       // Landscape layout - side by side
       return Row(
@@ -216,28 +218,43 @@ class _StandbyPageState extends State<StandbyPage>
       // Portrait layout - stacked vertically with flexible sizing
       return LayoutBuilder(
         builder: (context, constraints) {
-          final availableHeight = constraints.maxHeight;
-          final albumArtHeight = availableHeight * 0.55; // 55% for album art
-          final controlsHeight = availableHeight * 0.45;  // 45% for controls
-          
+          final compact = constraints.maxHeight < 680;
+
           return Column(
             children: [
               // Album Art
-              SizedBox(
-                height: albumArtHeight,
+              Flexible(
+                flex: compact ? 5 : 6,
                 child: AnimatedScale(
                   scale: _isQueueVisible ? 0.8 : 1.0,
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 8.0),
-                    child: _buildAlbumArt(currentSong),
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        24.0,
+                        compact ? 8.0 : 16.0,
+                        24.0,
+                        compact ? 4.0 : 8.0,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight:
+                              constraints.maxHeight * (compact ? 0.48 : 0.55),
+                          maxWidth: constraints.maxWidth - 48,
+                        ),
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: _buildAlbumArt(currentSong),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
               // Controls
-              SizedBox(
-                height: controlsHeight,
+              Flexible(
+                flex: compact ? 5 : 4,
                 child: Stack(
                   children: [
                     _buildControls(context, player, currentSong, isLandscape),
@@ -276,66 +293,90 @@ class _StandbyPageState extends State<StandbyPage>
     );
   }
 
-  Widget _buildControls(BuildContext context, NPlayer player, dynamic currentSong, bool isLandscape) {
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: isLandscape ? 24.0 : 20.0,
-        vertical: isLandscape ? 24.0 : 8.0,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Song Title
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                currentSong.title,
-                style: TextStyle(
-                  fontSize: isLandscape ? 32 : 26,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+  Widget _buildControls(BuildContext context, NPlayer player,
+      dynamic currentSong, bool isLandscape) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < 260;
+        final content = Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isLandscape ? 24.0 : 20.0,
+            vertical:
+                isLandscape ? (compact ? 12.0 : 24.0) : (compact ? 4.0 : 8.0),
           ),
-          const SizedBox(height: 4),
-          // Artist
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                currentSong.artist,
-                style: TextStyle(
-                  fontSize: isLandscape ? 24 : 18,
-                  color: Colors.white.withValues(alpha: 0.8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  currentSong.title,
+                  style: TextStyle(
+                    fontSize:
+                        isLandscape ? (compact ? 26 : 32) : (compact ? 22 : 26),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  currentSong.artist,
+                  style: TextStyle(
+                    fontSize:
+                        isLandscape ? (compact ? 20 : 24) : (compact ? 16 : 18),
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(
+                  height:
+                      isLandscape ? (compact ? 12 : 24) : (compact ? 8 : 16)),
+              _buildProgressBar(context, player),
+              SizedBox(
+                  height:
+                      isLandscape ? (compact ? 10 : 20) : (compact ? 6 : 12)),
+              _buildControlButtons(context, player, isLandscape,
+                  compact: compact),
+            ],
           ),
-          SizedBox(height: isLandscape ? 24 : 16),
-          // Progress Bar
-          _buildProgressBar(context, player),
-          SizedBox(height: isLandscape ? 20 : 12),
-          // Control Buttons
-          _buildControlButtons(context, player, isLandscape),
-        ],
-      ),
+        );
+
+        return SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: content,
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildControlButtons(BuildContext context, NPlayer player, bool isLandscape) {
-    final buttonSize = isLandscape ? 28.0 : 24.0;
-    final playButtonSize = isLandscape ? 60.0 : 52.0;
-    final skipButtonSize = isLandscape ? 44.0 : 38.0;
-    final spacing = isLandscape ? 16.0 : 12.0;
+  Widget _buildControlButtons(
+    BuildContext context,
+    NPlayer player,
+    bool isLandscape, {
+    bool compact = false,
+  }) {
+    final buttonSize =
+        isLandscape ? (compact ? 24.0 : 28.0) : (compact ? 22.0 : 24.0);
+    final playButtonSize =
+        isLandscape ? (compact ? 52.0 : 60.0) : (compact ? 46.0 : 52.0);
+    final skipButtonSize =
+        isLandscape ? (compact ? 38.0 : 44.0) : (compact ? 34.0 : 38.0);
+    final spacing =
+        isLandscape ? (compact ? 10.0 : 16.0) : (compact ? 8.0 : 12.0);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -343,13 +384,15 @@ class _StandbyPageState extends State<StandbyPage>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
-            icon: Icon(Icons.shuffle_rounded, color: Colors.white, size: buttonSize),
+            icon: Icon(Icons.shuffle_rounded,
+                color: Colors.white, size: buttonSize),
             onPressed: () => player.shuffle(),
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
           ),
           SizedBox(width: spacing),
           IconButton(
-            icon: Icon(Icons.skip_previous_rounded, color: Colors.white, size: skipButtonSize),
+            icon: Icon(Icons.skip_previous_rounded,
+                color: Colors.white, size: skipButtonSize),
             onPressed: () => player.previousSong(),
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           ),
@@ -367,13 +410,15 @@ class _StandbyPageState extends State<StandbyPage>
           ),
           SizedBox(width: spacing),
           IconButton(
-            icon: Icon(Icons.skip_next_rounded, color: Colors.white, size: skipButtonSize),
+            icon: Icon(Icons.skip_next_rounded,
+                color: Colors.white, size: skipButtonSize),
             onPressed: () => player.nextSong(),
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           ),
           SizedBox(width: spacing),
           IconButton(
-            icon: Icon(Icons.queue_music_rounded, color: Colors.white, size: buttonSize),
+            icon: Icon(Icons.queue_music_rounded,
+                color: Colors.white, size: buttonSize),
             onPressed: () => _showQueue(context),
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
           ),
@@ -390,14 +435,18 @@ class _StandbyPageState extends State<StandbyPage>
           Icon(
             Icons.music_note_rounded,
             size: 64,
-            color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.5),
+            color:
+                Theme.of(context).colorScheme.secondary.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
             'No song playing',
             style: TextStyle(
               fontSize: 24,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 8),
@@ -405,7 +454,10 @@ class _StandbyPageState extends State<StandbyPage>
             'Play a song to see it here',
             style: TextStyle(
               fontSize: 16,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -425,9 +477,7 @@ class _StandbyPageState extends State<StandbyPage>
           ],
         ),
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          bottomLeft: Radius.circular(20)
-        ),
+            topLeft: Radius.circular(20), bottomLeft: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -455,8 +505,8 @@ class _StandbyPageState extends State<StandbyPage>
                       Text(
                         'Queue',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                       Text(
                         '${player.playingSongs.length} songs',
@@ -483,28 +533,24 @@ class _StandbyPageState extends State<StandbyPage>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
+                    _buildStatItem(context, 'Songs',
+                        player.playingSongs.length.toString()),
                     _buildStatItem(
-                      context, 
-                      'Songs', 
-                      player.playingSongs.length.toString()
-                    ),
+                        context,
+                        'Albums',
+                        player.playingSongs
+                            .map((s) => s.album)
+                            .toSet()
+                            .length
+                            .toString()),
                     _buildStatItem(
-                      context,
-                      'Albums',
-                      player.playingSongs
-                          .map((s) => s.album)
-                          .toSet()
-                          .length
-                          .toString()
-                    ),
-                    _buildStatItem(
-                      context, 
-                      'Total Time', 
-                      _formatDuration(player.playingSongs.fold<Duration>(
-                        Duration.zero,
-                        (total, song) => total + Duration(milliseconds: song.duration),
-                      ))
-                    ),
+                        context,
+                        'Total Time',
+                        _formatDuration(player.playingSongs.fold<Duration>(
+                          Duration.zero,
+                          (total, song) =>
+                              total + Duration(milliseconds: song.duration),
+                        ))),
                   ],
                 ),
               ),

@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:blossom/audio/song_data.dart';
 import 'package:blossom/tools/logger.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -24,8 +25,10 @@ class SettingsKeys {
   // Playback related keys
   static const String volume = 'volume';
   static const String lastPlayingSong = 'lastPlayingSong';
+  static const String lastPlayingPosition = 'lastPlayingPosition';
   static const String repeatMode = 'repeatMode';
   static const String previousForShuffle = 'previousForShuffle';
+  static const String shuffleBehavior = 'shuffleBehavior';
   static const String showConfetti = 'showConfetti';
   
   // Library sort keys
@@ -45,6 +48,7 @@ class SettingsKeys {
 
   // UI related keys
   static const String hasSeenWelcomePage = 'hasSeenWelcomePage';
+  static const String showHomePage = 'showHomePage';
   
   // Custom directory key
   static const String userSelectedMusicDir = 'userSelectedMusicDir';
@@ -75,8 +79,9 @@ class Settings {
     _prefs = await SharedPreferences.getInstance();
     await SongData.init();
     
-    // Set debug mode and propagate to logger
-    _debugMode = _prefs.getBool(SettingsKeys.debugMode) ?? true;
+    // Set debug mode and propagate to logger.
+    // Default OFF for release builds; debug builds keep logging on.
+    _debugMode = _prefs.getBool(SettingsKeys.debugMode) ?? kDebugMode;
     Log.setEnabled(_debugMode);
     
     uuid = _prefs.getString('uuid') ?? '';
@@ -270,14 +275,21 @@ static Future<void> initializeUsername() async {
       _prefs.setDouble(SettingsKeys.volume, vol);
   
   /// Get last playing song
-  static String? get lastPlayingSong => 
+  static String? get lastPlayingSong =>
       _prefs.getString(SettingsKeys.lastPlayingSong);
-  
+
   /// Set last playing song
   static Future<void> setLastPlayingSong(String? song) {
     Log.v(LogTag.settings, 'Last playing song: $song');
     return _prefs.setString(SettingsKeys.lastPlayingSong, song ?? '');
   }
+
+  /// Last playback position within the last playing song (milliseconds)
+  static int get lastPlayingPosition =>
+      _prefs.getInt(SettingsKeys.lastPlayingPosition) ?? 0;
+
+  static Future<void> setLastPlayingPosition(int milliseconds) =>
+      _prefs.setInt(SettingsKeys.lastPlayingPosition, milliseconds);
   
   /// Get repeat mode
   static String get repeatMode => 
@@ -288,12 +300,25 @@ static Future<void> initializeUsername() async {
       _prefs.setString(SettingsKeys.repeatMode, mode);
   
   /// Get previous for shuffle setting
-  static bool get previousForShuffle => 
+  static bool get previousForShuffle =>
       _prefs.getBool(SettingsKeys.previousForShuffle) ?? false;
-  
+
   /// Set previous for shuffle setting
-  static Future<void> setPreviousForShuffle(bool enabled) => 
+  static Future<void> setPreviousForShuffle(bool enabled) =>
       _prefs.setBool(SettingsKeys.previousForShuffle, enabled);
+
+  /// Shuffle behavior: 'classic' (reshuffles the queue in place),
+  /// 'reversible' (shuffle again restores the original order),
+  /// 'smart' (favorites and most-played songs surface earlier).
+  static String get shuffleBehavior {
+    final value = _prefs.getString(SettingsKeys.shuffleBehavior) ?? 'classic';
+    return ['classic', 'reversible', 'smart'].contains(value)
+        ? value
+        : 'classic';
+  }
+
+  static Future<void> setShuffleBehavior(String behavior) =>
+      _prefs.setString(SettingsKeys.shuffleBehavior, behavior);
 
   /// Get show confetti setting
   static bool get showConfetti => _prefs.getBool(SettingsKeys.showConfetti) ?? false;
@@ -542,8 +567,15 @@ static Future<String> getSongDir() async {
       _prefs.getBool(SettingsKeys.hasSeenWelcomePage) ?? false;
   
   /// Set whether welcome page has been seen
-  static Future<void> setHasSeenWelcomePage(bool seen) => 
+  static Future<void> setHasSeenWelcomePage(bool seen) =>
       _prefs.setBool(SettingsKeys.hasSeenWelcomePage, seen);
+
+  /// Whether the Home tab is shown as the first page
+  static bool get showHomePage =>
+      _prefs.getBool(SettingsKeys.showHomePage) ?? true;
+
+  static Future<void> setShowHomePage(bool show) =>
+      _prefs.setBool(SettingsKeys.showHomePage, show);
 
   ///***************************************************************************
   /// Public Sharing Settings 

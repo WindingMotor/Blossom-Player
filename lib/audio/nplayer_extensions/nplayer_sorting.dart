@@ -53,11 +53,14 @@ extension NPlayerSorting on NPlayer {
     
     for (final word in words) {
       if (word.startsWith('artist:')) {
-        artistFilter.add(word.substring(7).toLowerCase());
+        final value = word.substring(7).toLowerCase();
+        if (value.isNotEmpty) artistFilter.add(value);
       } else if (word.startsWith('album:')) {
-        albumFilter.add(word.substring(6).toLowerCase());
+        final value = word.substring(6).toLowerCase();
+        if (value.isNotEmpty) albumFilter.add(value);
       } else if (word.startsWith('year:')) {
-        yearFilter.add(word.substring(5));
+        final value = word.substring(5);
+        if (value.isNotEmpty) yearFilter.add(value);
       } else if (word.isNotEmpty) {
         terms.add(word);
       }

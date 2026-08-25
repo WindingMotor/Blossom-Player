@@ -8,6 +8,7 @@ class SongListTileWrapper extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final VoidCallback? onMorePressed;
 
   const SongListTileWrapper({
     Key? key,
@@ -16,6 +17,7 @@ class SongListTileWrapper extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     required this.onLongPress,
+    this.onMorePressed,
   }) : super(key: key);
 
   @override
@@ -39,6 +41,7 @@ class SongListTileWrapper extends StatelessWidget {
         song: song,
         onTap: onTap,
         onLongPress: onLongPress,
+        onMorePressed: onMorePressed,
       ),
     );
   }

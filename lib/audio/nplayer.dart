@@ -21,6 +21,7 @@ import 'package:blossom/tools/logger.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:blossom/audio/nplayer.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:image/image.dart' as img;
 
 part 'nplayer_extensions/nplayer_sorting.dart';
@@ -108,6 +109,17 @@ class Music {
   }
 }
 
+enum PlaybackSourceType { library, album, artist, playlist }
+
+class PlaybackSource {
+  final PlaybackSourceType type;
+  final String? name;
+
+  const PlaybackSource(this.type, {this.name});
+
+  bool get canOpen =>
+      type == PlaybackSourceType.album || type == PlaybackSourceType.playlist;
+}
 
 /// Main class for managing music playback and related functionality.
 class NPlayer extends ChangeNotifier {
@@ -142,13 +154,13 @@ class NPlayer extends ChangeNotifier {
   NServer? _server;
   NClient? _client;
   bool _isServerOn = false;
-  
+
   Timer? _debounceTimer;
   final Duration _debounceDuration = Duration(milliseconds: 300);
 
   final HeadsetEvent _headsetPlugin = HeadsetEvent();
   bool _isHeadphonesConnected = false;
-  
+
   Timer? _sleepTimer;
   Timer? _fadeTimer;
   Timer? _heartbeatTimer;
@@ -158,8 +170,13 @@ class NPlayer extends ChangeNotifier {
   static const fadeStartSeconds = 10;
   static const fadeUpdateInterval = 50;
 
-  Map<String, List<Music>> _albumMap  = {};
+  // Pre-shuffle queue snapshot for the 'reversible' shuffle behavior.
+  List<Music>? _preShuffleQueue;
+
+  Map<String, List<Music>> _albumMap = {};
   Map<String, List<Music>> _folderMap = {};
+  PlaybackSource _playbackSource =
+      const PlaybackSource(PlaybackSourceType.library);
 
   // MARK: Getters
   List<Music> get allSongs => _allSongs;
@@ -178,8 +195,15 @@ class NPlayer extends ChangeNotifier {
   bool get isHeadphonesConnected => _isHeadphonesConnected;
   int? get sleepTimerMinutes => _sleepTimerMinutes;
   Duration? get remainingTime => _remainingTime;
-  Map<String, List<Music>> get albumMap  => _albumMap;
+  Map<String, List<Music>> get albumMap => _albumMap;
   Map<String, List<Music>> get folderMap => _folderMap;
+  PlaybackSource get playbackSource => _playbackSource;
+
+  /// True when the queue is shuffled and the original order can be restored
+  /// (only meaningful with the 'reversible' shuffle behavior).
+  bool get isShuffled => _preShuffleQueue != null;
+
+  int _lastPositionSaveMs = 0;
 
   bool _isInitialized = false;
   bool _isDisposed = false;
@@ -190,7 +214,7 @@ class NPlayer extends ChangeNotifier {
     final song = getCurrentSong();
     return song != null ? Duration(milliseconds: song.duration) : Duration.zero;
   }
-  
+
   Music? getCurrentSong() {
     if (_currentSongIndex == null ||
         _playingSongs.isEmpty ||
@@ -199,7 +223,7 @@ class NPlayer extends ChangeNotifier {
     }
     return _playingSongs[_currentSongIndex!];
   }
-  
+
   // MARK: Constructor and Initialization
   // Helper to allow extensions to trigger notifyListeners correctly
   void _internalNotifyListeners() {
@@ -218,61 +242,61 @@ class NPlayer extends ChangeNotifier {
     }
   }
 
-Future<void> _initializeAudioHandler() async {
-  try {
-    _audioHandler = await audio_service.AudioService.init(
-      builder: () => CustomAudioHandler(_audioPlayer, this),
-      config: const audio_service.AudioServiceConfig(
-        androidNotificationChannelId: 'com.wmstudios.blossom.audio',
-        androidNotificationChannelName: 'Blossom Music Player',
-        androidNotificationClickStartsActivity: true,
-        androidNotificationOngoing: false,
-        androidStopForegroundOnPause: false,
-        androidNotificationIcon: 'drawable/ic_notification',
-        androidShowNotificationBadge: false,
-        preloadArtwork: false,
-        // Downscale album art bitmaps so the MediaSession parcel stays small
-        // enough for Android Auto to receive without dropping it.
-        artDownscaleWidth: 512,
-        artDownscaleHeight: 512,
-      ),
-    );
-    Log.i(LogTag.audioHandler, 'AudioHandler initialized successfully');
-  } catch (e) {
-    Log.e(LogTag.audioHandler, 'Error initializing AudioHandler: $e');
-    _audioHandler = CustomAudioHandler(_audioPlayer, this);
-    Log.w(LogTag.audioHandler, 'Fallback: created AudioHandler directly');
-  }
-}
-
-Future<void> _initialize() async {
-  if (_isInitialized || _initializationCompleter != null) return;
-  _initializationCompleter = Completer<void>();
-
-  try {
-    // Configure AudioPlayer to delegate all audio focus to our AudioHandler
+  Future<void> _initializeAudioHandler() async {
     try {
-      await _audioPlayer.setAudioContext(ap.AudioContext(
-        android: ap.AudioContextAndroid(
-          isSpeakerphoneOn: false,
-          stayAwake: true,
-          contentType: ap.AndroidContentType.music,
-          usageType: ap.AndroidUsageType.media,
-          audioFocus: ap.AndroidAudioFocus.none,
+      _audioHandler = await audio_service.AudioService.init(
+        builder: () => CustomAudioHandler(_audioPlayer, this),
+        config: const audio_service.AudioServiceConfig(
+          androidNotificationChannelId: 'com.wmstudios.blossom.audio',
+          androidNotificationChannelName: 'Blossom Music Player',
+          androidNotificationClickStartsActivity: true,
+          androidNotificationOngoing: false,
+          androidStopForegroundOnPause: false,
+          androidNotificationIcon: 'drawable/ic_notification',
+          androidShowNotificationBadge: false,
+          preloadArtwork: false,
+          // Downscale album art bitmaps so the MediaSession parcel stays small
+          // enough for Android Auto to receive without dropping it.
+          artDownscaleWidth: 512,
+          artDownscaleHeight: 512,
         ),
-        iOS: ap.AudioContextIOS(
-          category: ap.AVAudioSessionCategory.playback,
-          options: {},
-        ),
-      ));
-      Log.d(LogTag.playback, 'AudioContext configured');
+      );
+      Log.i(LogTag.audioHandler, 'AudioHandler initialized successfully');
     } catch (e) {
-      Log.w(LogTag.playback, 'AudioContext config failed (continuing): $e');
+      Log.e(LogTag.audioHandler, 'Error initializing AudioHandler: $e');
+      _audioHandler = CustomAudioHandler(_audioPlayer, this);
+      Log.w(LogTag.audioHandler, 'Fallback: created AudioHandler directly');
     }
+  }
 
-    // Initialize AudioHandler (owns all session config + focus requests)
-    await _initializeAudioHandler();
-      
+  Future<void> _initialize() async {
+    if (_isInitialized || _initializationCompleter != null) return;
+    _initializationCompleter = Completer<void>();
+
+    try {
+      // Configure AudioPlayer to delegate all audio focus to our AudioHandler
+      try {
+        await _audioPlayer.setAudioContext(ap.AudioContext(
+          android: ap.AudioContextAndroid(
+            isSpeakerphoneOn: false,
+            stayAwake: true,
+            contentType: ap.AndroidContentType.music,
+            usageType: ap.AndroidUsageType.media,
+            audioFocus: ap.AndroidAudioFocus.none,
+          ),
+          iOS: ap.AudioContextIOS(
+            category: ap.AVAudioSessionCategory.playback,
+            options: {},
+          ),
+        ));
+        Log.d(LogTag.playback, 'AudioContext configured');
+      } catch (e) {
+        Log.w(LogTag.playback, 'AudioContext config failed (continuing): $e');
+      }
+
+      // Initialize AudioHandler (owns all session config + focus requests)
+      await _initializeAudioHandler();
+
       // Initialize synchronous components
       _setupAudioPlayerListeners();
       _initHeadsetDetection();
@@ -287,12 +311,16 @@ Future<void> _initialize() async {
 
       await _loadSongs();
       await loadSortSettings();
-      
+
       // Apply initial sort based on loaded settings
       sortSongs(sortBy: _sortBy, ascending: _sortAscending);
 
+      // Restore the last playing song (paused) so playback can resume
+      // where the user left off.
+      await _restoreLastPlayingSession();
+
       // Initialize public sharing
-       await _initializePublicSharing();
+      await _initializePublicSharing();
 
       _isInitialized = true;
       _initializationCompleter!.complete();
@@ -309,7 +337,8 @@ Future<void> _initialize() async {
     await setVolume(Settings.volume);
     _repeatMode = Settings.repeatMode;
     await _loadFavorites();
-    Log.d(LogTag.playback, 'Settings loaded: volume=${Settings.volume}, repeat=$_repeatMode');
+    Log.d(LogTag.playback,
+        'Settings loaded: volume=${Settings.volume}, repeat=$_repeatMode');
   }
 
   void _setupAudioPlayerListeners() {
@@ -331,6 +360,14 @@ Future<void> _initialize() async {
         // tree at ~5 Hz and kills 120 Hz rendering.  The progress bar uses
         // ValueListenableBuilder on positionNotifier directly.
         // AudioHandler owns the throttled (1 Hz) MediaSession broadcast.
+
+        // Persist position (throttled) so playback resumes mid-song after
+        // an app restart.
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        if (nowMs - _lastPositionSaveMs >= 5000) {
+          _lastPositionSaveMs = nowMs;
+          Settings.setLastPlayingPosition(position.inMilliseconds);
+        }
       }),
     );
     // onPlayerComplete is intentionally NOT subscribed here.

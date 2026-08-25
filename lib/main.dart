@@ -12,6 +12,7 @@ import 'package:blossom/pages/social_page.dart';
 import 'package:blossom/pages/standby/standby_page.dart';
 import 'package:blossom/pages/welcome_page.dart';
 import 'package:blossom/tools/downloader.dart';
+import 'package:blossom/tools/app_navigation.dart';
 import 'package:blossom/pages/loading_page.dart';
 import 'package:blossom/audio/nplaylist.dart';
 import 'package:blossom/tools/nextcloud_sync.dart';
@@ -31,6 +32,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'audio/nplayer.dart';
 import 'audio/widgets/nplayer_widget.dart';
+import 'pages/home_page.dart';
 import 'pages/library_page.dart';
 import 'widgets/sleep_timer_countdown.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -69,15 +71,7 @@ Future<void> requestPermissions() async {
 /// Application entry point
 void main() {
   runZonedGuarded(() async {
-    
     WidgetsFlutterBinding.ensureInitialized();
-    try {
-      await SyncNotificationManager.instance.initialize();
-    } catch (e) {
-      Log.w(LogTag.syncNotification, 'Init failed — notifications disabled: $e');
-    }
-
-
 
     try {
       if (!kIsWeb && (Platform.isLinux || Platform.isWindows)) {
@@ -94,9 +88,14 @@ void main() {
       await Settings.init();
       await NextcloudSync().initialize();
       final notifier = SyncNotificationManager.instance;
-      await notifier.initialize();
-      await notifier.requestPermissionIfNeeded();
-      notifier.attachTo(NextcloudSync());
+      try {
+        await notifier.initialize();
+        await notifier.requestPermissionIfNeeded();
+        notifier.attachTo(NextcloudSync());
+      } catch (e) {
+        Log.w(LogTag.syncNotification,
+            'Init failed — notifications disabled: $e');
+      }
 
       await Settings.loadFriendsList();
       await Settings.initializeUsername();
@@ -140,6 +139,7 @@ void main() {
       MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => NPlayer()),
+          ChangeNotifierProvider(create: (_) => AppNavigationController()),
           // Expose the already-initialized singleton so every
           // Consumer<NextcloudSync> in the widget tree can find it without a
           // ProviderNotFoundException (library_page, nextcloud_page, etc.).
@@ -193,7 +193,15 @@ class _MainStructureState extends State<MainStructure>
   int _currentIndex = 0;
   late PageController _pageController;
   late AnimationController _animationController;
-  final bool enableTesting = false;
+  final GlobalKey<PlaylistPageState> _playlistPageKey =
+      GlobalKey<PlaylistPageState>();
+  final GlobalKey<SongAlbumsState> _albumsPageKey =
+      GlobalKey<SongAlbumsState>();
+  final GlobalKey<ArtistsPageState> _artistsPageKey =
+      GlobalKey<ArtistsPageState>();
+  bool _hasLoadedLibrary = false;
+  bool _hasRunStartupLibraryCheck = false;
+  AppNavigationController? _navigationController;
 
   @override
   void initState() {
@@ -221,9 +229,22 @@ class _MainStructureState extends State<MainStructure>
     );
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = context.read<AppNavigationController>();
+    if (_navigationController == controller) return;
+    _navigationController?.removeListener(_handleNavigationRequest);
+    _navigationController = controller;
+    _navigationController?.addListener(_handleNavigationRequest);
+  }
+
   /// Triggered by LoadingPage once allSongs is confirmed stable.
   void _onLibraryLoaded() {
     if (!mounted) return;
+    _hasLoadedLibrary = true;
+    if (_hasRunStartupLibraryCheck) return;
+    _hasRunStartupLibraryCheck = true;
     final nplayer = Provider.of<NPlayer>(context, listen: false);
     final snapshot = List<Music>.unmodifiable(nplayer.allSongs);
     checkNextcloudOnStartup(context, localMusic: snapshot);
@@ -244,9 +265,63 @@ class _MainStructureState extends State<MainStructure>
 
   @override
   void dispose() {
+    _navigationController?.removeListener(_handleNavigationRequest);
     _pageController.dispose();
     _animationController.dispose();
     super.dispose();
+  }
+
+  void _handleNavigationRequest() {
+    final request = _navigationController?.takeRequest();
+    if (request == null || !mounted) return;
+
+    switch (request.target) {
+      case AppNavigationTarget.playlist:
+        final playlistName = request.name;
+        if (playlistName == null || playlistName.isEmpty) return;
+        _openPageAndRun(_indexOfPage('playlists'), () {
+          final state = _playlistPageKey.currentState;
+          if (state == null) return false;
+          state.openPlaylist(playlistName);
+          return true;
+        });
+        break;
+      case AppNavigationTarget.album:
+        final song = request.song;
+        if (song == null) return;
+        _openPageAndRun(_indexOfPage('albums'), () {
+          final state = _albumsPageKey.currentState;
+          if (state == null) return false;
+          state.openAlbumForSong(song);
+          return true;
+        });
+        break;
+      case AppNavigationTarget.artist:
+        final artistName = request.name;
+        if (artistName == null || artistName.isEmpty) return;
+        _openPageAndRun(_indexOfPage('artists'), () {
+          final state = _artistsPageKey.currentState;
+          if (state == null) return false;
+          state.openArtist(artistName);
+          return true;
+        });
+        break;
+    }
+  }
+
+  void _openPageAndRun(int index, bool Function() action, {int attempt = 0}) {
+    if (!mounted) return;
+    setState(() => _currentIndex = index);
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(index);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (action()) return;
+      if (attempt < 5) {
+        _openPageAndRun(index, action, attempt: attempt + 1);
+      }
+    });
   }
 
   void _onPageChanged(int index) {
@@ -262,132 +337,120 @@ class _MainStructureState extends State<MainStructure>
     }
   }
 
-  List<Widget> _getPages() {
-    final pages = <Widget>[
-      SongLibrary(onThemeChanged: _onThemeChanged),
-      const PlaylistPage(),
-      const SongAlbums(),
-      const ArtistsPage(),
+  /// Single source of truth for the tab pages: id, widget, title, and nav
+  /// icons stay in sync no matter which optional pages are enabled.
+  List<_PageEntry> _buildPageEntries() {
+    final isDesktop =
+        !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
+    final entries = <_PageEntry>[
+      if (Settings.showHomePage)
+        _PageEntry(
+          id: 'home',
+          title: 'Home',
+          label: 'Home',
+          icon: Icons.home_outlined,
+          activeIcon: Icons.home_rounded,
+          page: const HomePage(),
+        ),
+      _PageEntry(
+        id: 'library',
+        title: 'Song Library',
+        label: 'Library',
+        icon: Icons.library_music_rounded,
+        activeIcon: Icons.library_music,
+        page: SongLibrary(onThemeChanged: _onThemeChanged),
+      ),
+      _PageEntry(
+        id: 'playlists',
+        title: 'Playlists',
+        label: 'Playlists',
+        icon: Icons.playlist_play_rounded,
+        activeIcon: Icons.playlist_play,
+        page: PlaylistPage(key: _playlistPageKey),
+      ),
+      _PageEntry(
+        id: 'albums',
+        title: 'Albums',
+        label: 'Albums',
+        icon: Icons.album_rounded,
+        activeIcon: Icons.album,
+        page: SongAlbums(key: _albumsPageKey),
+      ),
+      _PageEntry(
+        id: 'artists',
+        title: 'Artists',
+        label: 'Artists',
+        icon: Icons.person_rounded,
+        activeIcon: Icons.person,
+        page: ArtistsPage(key: _artistsPageKey),
+      ),
+      if (Settings.isPublicSharingEnabled)
+        _PageEntry(
+          id: 'social',
+          title: 'Social',
+          label: 'Social',
+          icon: Icons.people_outline_rounded,
+          activeIcon: Icons.people_rounded,
+          page: const SocialPage(),
+        ),
+      if (isDesktop)
+        _PageEntry(
+          id: 'downloader',
+          title: 'Downloader',
+          label: 'Download',
+          icon: Icons.download_rounded,
+          activeIcon: Icons.download,
+          page: const Downloader(),
+        ),
     ];
 
-    if (Settings.isPublicSharingEnabled) {
-      pages.add(const SocialPage());
-    }
-
-    if (!kIsWeb &&
-        (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
-      pages.add(const Downloader());
-    }
-
-    return pages;
+    return entries;
   }
 
+  int _indexOfPage(String id) {
+    final index = _buildPageEntries().indexWhere((e) => e.id == id);
+    return index == -1 ? 0 : index;
+  }
+
+  List<Widget> _getPages() =>
+      _buildPageEntries().map((e) => e.page).toList();
+
   String _getAppBarTitle() {
-    switch (_currentIndex) {
-      case 0:
-        return 'Song Library';
-      case 1:
-        return 'Playlists';
-      case 2:
-        return 'Albums';
-      case 3:
-        return 'Artists';
+    final entries = _buildPageEntries();
+    if (_currentIndex >= 0 && _currentIndex < entries.length) {
+      return entries[_currentIndex].title;
     }
-
-    int idx = 4;
-
-    if (Settings.isPublicSharingEnabled) {
-      if (_currentIndex == idx) return 'Social';
-      idx++;
-    }
-
-    if (enableTesting) {
-      if (_currentIndex == idx) return 'Stream';
-      idx++;
-    }
-
-    final isDesktop = !kIsWeb &&
-        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-    if (isDesktop && _currentIndex == idx) return 'Downloader';
-
     return 'Blossom';
   }
 
   double _getPlayerBottomOffset() {
     if (_showWelcomePage) return 10;
-    final isDesktop = !kIsWeb &&
-        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    final isDesktop =
+        !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    return isDesktop ? 80 : 80 + bottomPadding;
+    return isDesktop ? 80 : 70 + bottomPadding;
   }
 
   List<_ModernNavItem> _getNavItems() {
-    final isDesktop = !kIsWeb &&
-        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-
-    final items = <_ModernNavItem>[
-      _ModernNavItem(
-        icon: Icons.library_music_rounded,
-        activeIcon: Icons.library_music,
-        label: 'Library',
-        index: 0,
-      ),
-      _ModernNavItem(
-        icon: Icons.playlist_play_rounded,
-        activeIcon: Icons.playlist_play,
-        label: 'Playlists',
-        index: 1,
-      ),
-      _ModernNavItem(
-        icon: Icons.album_rounded,
-        activeIcon: Icons.album,
-        label: 'Albums',
-        index: 2,
-      ),
-      _ModernNavItem(
-        icon: Icons.person_rounded,
-        activeIcon: Icons.person,
-        label: 'Artists',
-        index: 3,
-      ),
+    final entries = _buildPageEntries();
+    return [
+      for (var i = 0; i < entries.length; i++)
+        _ModernNavItem(
+          icon: entries[i].icon,
+          activeIcon: entries[i].activeIcon,
+          label: entries[i].label,
+          index: i,
+        ),
     ];
-
-    if (Settings.isPublicSharingEnabled) {
-      items.add(_ModernNavItem(
-        icon: Icons.people_outline_rounded,
-        activeIcon: Icons.people_rounded,
-        label: 'Social',
-        index: items.length,
-      ));
-    }
-
-    if (enableTesting) {
-      items.add(_ModernNavItem(
-        icon: Icons.wifi_rounded,
-        activeIcon: Icons.wifi,
-        label: 'Server',
-        index: items.length,
-      ));
-    }
-
-    if (isDesktop) {
-      items.add(_ModernNavItem(
-        icon: Icons.download_rounded,
-        activeIcon: Icons.download,
-        label: 'Download',
-        index: items.length,
-      ));
-    }
-
-    return items;
   }
 
   Widget _buildModernBottomNavBar() {
     if (_showWelcomePage) return const SizedBox.shrink();
 
     final navItems = _getNavItems();
-    final isDesktop = !kIsWeb &&
-        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    final isDesktop =
+        !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
     return Positioned(
       left: isDesktop ? 16 : 8,
@@ -460,78 +523,93 @@ class _MainStructureState extends State<MainStructure>
       _pageController.jumpToPage(0);
     }
 
-    final isDesktop = !kIsWeb &&
-        (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-
-    if (_isLandscape(context)) {
-      return const StandbyPage();
-    }
+    final isDesktop =
+        !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
     return LoadingPage(
       theme: theme,
       onLoaded: _onLibraryLoaded,
-      child: Scaffold(
-        appBar: !Platform.isIOS && !Platform.isAndroid
-            ? CustomAppBar(
-                titleWidget: Text(
-                  _getAppBarTitle(),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                additionalActions: isDesktop
-                    ? [
-                        IconButton(
-                          icon: const Icon(Icons.fullscreen),
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const StandbyPage(),
-                              ),
-                            );
-                          },
-                          tooltip: 'Enter Standby Mode',
+      initiallyLoaded: _hasLoadedLibrary,
+      child: _isLandscape(context)
+          ? const StandbyPage()
+          : Scaffold(
+              appBar: !Platform.isIOS && !Platform.isAndroid
+                  ? CustomAppBar(
+                      titleWidget: Text(
+                        _getAppBarTitle(),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ]
-                    : null,
-              )
-            : null,
-        extendBody: true,
-        body: Stack(
-          children: [
-            PageView.builder(
-              controller: _pageController,
-              itemCount: pages.length,
-              itemBuilder: (context, index) {
-                if (index >= pages.length) return const SizedBox.shrink();
-                if (index == 0) {
-                  return SongLibrary(onThemeChanged: _onThemeChanged);
-                }
-                return pages[index];
-              },
-              onPageChanged: _onPageChanged,
-              physics: const ClampingScrollPhysics(),
+                      ),
+                      additionalActions: isDesktop
+                          ? [
+                              IconButton(
+                                icon: const Icon(Icons.fullscreen),
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => const StandbyPage(),
+                                    ),
+                                  );
+                                },
+                                tooltip: 'Enter Standby Mode',
+                              ),
+                            ]
+                          : null,
+                    )
+                  : null,
+              extendBody: true,
+              body: Stack(
+                children: [
+                  PageView.builder(
+                    controller: _pageController,
+                    itemCount: pages.length,
+                    itemBuilder: (context, index) {
+                      if (index >= pages.length) return const SizedBox.shrink();
+                      return pages[index];
+                    },
+                    onPageChanged: _onPageChanged,
+                    physics: const ClampingScrollPhysics(),
+                  ),
+                  if (_showWelcomePage)
+                    WelcomePage(onDismiss: _dismissWelcomePage),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: _getPlayerBottomOffset(),
+                    child: _isLandscape(context)
+                        ? const SizedBox.shrink()
+                        : isDesktop
+                            ? const NPlayerWidgetDesktop()
+                            : const NPlayerWidget(),
+                  ),
+                  _buildModernBottomNavBar(),
+                  const SleepTimerCountdown(),
+                ],
+              ),
             ),
-            if (_showWelcomePage)
-              WelcomePage(onDismiss: _dismissWelcomePage),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: _getPlayerBottomOffset(),
-              child: _isLandscape(context)
-                  ? const SizedBox.shrink()
-                  : isDesktop
-                      ? const NPlayerWidgetDesktop()
-                      : const NPlayerWidget(),
-            ),
-            _buildModernBottomNavBar(),
-            const SleepTimerCountdown(),
-          ],
-        ),
-      ),
     );
   }
+}
+
+/// Descriptor tying together a tab page, its title, and its nav icons.
+class _PageEntry {
+  final String id;
+  final String title;
+  final String label;
+  final IconData icon;
+  final IconData activeIcon;
+  final Widget page;
+
+  const _PageEntry({
+    required this.id,
+    required this.title,
+    required this.label,
+    required this.icon,
+    required this.activeIcon,
+    required this.page,
+  });
 }
 
 /// Data class for navigation items
@@ -623,8 +701,7 @@ class _ModernNavButtonState extends State<_ModernNavButton>
                   height: 50,
                   child: Center(
                     child: Container(
-                      padding:
-                          EdgeInsets.all(widget.isActive ? 8 : 6),
+                      padding: EdgeInsets.all(widget.isActive ? 8 : 6),
                       decoration: BoxDecoration(
                         color: widget.isActive
                             ? Theme.of(context)

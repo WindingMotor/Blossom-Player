@@ -28,10 +28,10 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
   // Cached statistics - computed once when sheet opens
   Duration _total = Duration.zero;
   int _albumCount = 0;
-  
+
   // Limited songs for performance
   static const int _maxDisplaySongs = 50; // Increased for better UX
-  
+
   // Key for accessing SongListBuilder
   final GlobalKey<SongListBuilderState> _songListBuilderKey =
       GlobalKey<SongListBuilderState>();
@@ -45,8 +45,6 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
       }
     });
   }
-
-
 
   @override
   void dispose() {
@@ -65,7 +63,8 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
     }
 
     // Find current song index
-    final currentIndex = allSongs.indexWhere((song) => song.path == currentSong.path);
+    final currentIndex =
+        allSongs.indexWhere((song) => song.path == currentSong.path);
     if (currentIndex == -1) {
       return allSongs.take(_maxDisplaySongs).toList();
     }
@@ -73,7 +72,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
     // Show 3 previous + current + remaining songs up to limit
     final startIndex = (currentIndex - 3).clamp(0, allSongs.length - 1);
     final endIndex = (startIndex + _maxDisplaySongs).clamp(0, allSongs.length);
-    
+
     return allSongs.sublist(startIndex, endIndex);
   }
 
@@ -88,8 +87,8 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
 
   // Compute stats once when sheet opens
   void _computeStats(List<Music> list) {
-    _total = list.fold(Duration.zero,
-        (d, s) => d + Duration(milliseconds: s.duration));
+    _total = list.fold(
+        Duration.zero, (d, s) => d + Duration(milliseconds: s.duration));
     _albumCount = list.map((m) => m.album).toSet().length;
   }
 
@@ -99,8 +98,8 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
   Widget build(BuildContext context) {
     return Selector<NPlayer, ({Music? current, List<Music> list})>(
       selector: (ctx, p) => (current: p.getCurrentSong(), list: p.playingSongs),
-      shouldRebuild: (previous, next) => 
-          previous.current?.path != next.current?.path || 
+      shouldRebuild: (previous, next) =>
+          previous.current?.path != next.current?.path ||
           previous.list.length != next.list.length ||
           !_listsEqual(previous.list, next.list),
       builder: (ctx, data, _) {
@@ -108,7 +107,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
 
         // Compute stats once
         _computeStats(data.list);
-        
+
         // Get limited songs for better performance
         final limitedSongs = _getLimitedSongs(data.list, data.current);
 
@@ -120,7 +119,8 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
     );
   }
 
-  Widget _sheet(BuildContext ctx, Music now, List<Music> displaySongs, int totalSongs) {
+  Widget _sheet(
+      BuildContext ctx, Music now, List<Music> displaySongs, int totalSongs) {
     final theme = Theme.of(ctx);
     return Container(
       height: MediaQuery.of(ctx).size.height * 0.85, // Slightly taller
@@ -142,7 +142,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
           const SizedBox(height: 6),
           _Stats(
             count: totalSongs,
-            albums: _albumCount, 
+            albums: _albumCount,
             total: _total,
             displayCount: displaySongs.length,
           ),
@@ -153,7 +153,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
             child: Column(
               children: [
                 Expanded(child: _songList(ctx, displaySongs)),
-                if (totalSongs > _maxDisplaySongs) 
+                if (totalSongs > _maxDisplaySongs)
                   _limitMessage(ctx, totalSongs),
               ],
             ),
@@ -163,8 +163,6 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
     );
   }
 
-
-
   // Improved limit message with better spacing
   Widget _limitMessage(BuildContext ctx, int totalSongs) {
     final theme = Theme.of(ctx);
@@ -173,7 +171,8 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          color:
+              theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: theme.colorScheme.outline.withValues(alpha: 0.15),
@@ -192,7 +191,8 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
             Text(
               'Showing next $_maxDisplaySongs of $totalSongs songs',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                color:
+                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
@@ -211,6 +211,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
         return SongListBuilder(
           key: _songListBuilderKey,
           songs: songs,
+          isPlayingList: true,
           orientation: orientation,
         );
       },
@@ -225,16 +226,22 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
       final player = context.read<NPlayer>();
       final now = player.getCurrentSong();
       if (now == null) return;
-      
+
       final allSongs = player.playingSongs;
       final currentIndex = allSongs.indexWhere((song) => song.path == now.path);
       if (currentIndex == -1) return;
-      
+
       // Calculate the position in the limited list
       final startIndex = (currentIndex - 3).clamp(0, allSongs.length);
       final positionInLimitedList = currentIndex - startIndex;
-      
-      songListBuilderState.scrollToPosition(positionInLimitedList.toDouble());
+
+      final isDesktopPlatform = [
+        TargetPlatform.windows,
+        TargetPlatform.linux,
+        TargetPlatform.macOS,
+      ].contains(Theme.of(context).platform);
+      final itemExtent = isDesktopPlatform ? 60.0 : 80.0;
+      songListBuilderState.scrollToPosition(positionInLimitedList * itemExtent);
     }
   }
 
@@ -254,7 +261,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
 
   Widget _controls(BuildContext ctx) {
     final theme = Theme.of(ctx);
-    
+
     Widget button(IconData icon, String label, VoidCallback tap) {
       return Expanded(
         child: Material(
@@ -264,7 +271,8 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
             onTap: tap,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6), // Better padding
+              padding: const EdgeInsets.symmetric(
+                  vertical: 10, horizontal: 6), // Better padding
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -314,17 +322,16 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
               showModalBottomSheet(
                 context: ctx,
                 isScrollControlled: true,
-      useSafeArea: true,
+                useSafeArea: true,
                 backgroundColor: Colors.transparent,
                 builder: (_) => LyricsSheet(
                   artist: now.artist,
                   title: now.title,
-                  picture: now.picture,  // Add this line
+                  picture: now.picture, // Add this line
                 ),
               );
             }
           }),
-
         ],
       ),
     );
@@ -343,7 +350,8 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.queue_music_rounded, size: 64, color: Colors.grey[400]),
+                  Icon(Icons.queue_music_rounded,
+                      size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
                     'No songs in queue',
@@ -377,7 +385,8 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext ctx) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Better spacing
+        padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 8), // Better spacing
         child: Row(
           children: [
             IconButton(
@@ -472,40 +481,41 @@ class _Stats extends StatelessWidget {
         : '${d.inMinutes}min';
 
     Widget item(IconData i, String v, String l) => Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(i, size: 16, color: Theme.of(ctx).colorScheme.primary),
-          const SizedBox(height: 2),
-          Text(
-            v, 
-            style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(i, size: 16, color: Theme.of(ctx).colorScheme.primary),
+              const SizedBox(height: 2),
+              Text(
+                v,
+                style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                l,
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                      fontSize: 10,
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w500,
+                    ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-          Text(
-            l,
-            style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-              fontSize: 10, 
-              color: Colors.grey[500],
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
+        );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Better padding
+        padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 12), // Better padding
         decoration: BoxDecoration(
           color: Theme.of(ctx).colorScheme.surface.withValues(alpha: .6),
           borderRadius: BorderRadius.circular(16),

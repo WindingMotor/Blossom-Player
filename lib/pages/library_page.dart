@@ -244,8 +244,6 @@ class _CloudSyncBadgeState extends State<_CloudSyncBadge>
     with SingleTickerProviderStateMixin {
   late final AnimationController _spinController;
 
-  SyncStatus _lastStatus = SyncStatus.idle;
-
   @override
   void initState() {
     super.initState();
@@ -272,7 +270,6 @@ class _CloudSyncBadgeState extends State<_CloudSyncBadge>
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut);
     }
-    _lastStatus = status;
   }
 
   Color _dotColor(SyncStatus status, ColorScheme cs) {

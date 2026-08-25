@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'package:blossom/sheets/playing_sheet.dart';
 import 'package:blossom/sheets/playlist_sheet.dart';
+import 'package:blossom/tools/app_navigation.dart';
 import 'package:blossom/tools/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -43,12 +44,12 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
     with TickerProviderStateMixin {
   bool _isPlayerExpanded = false;
   double _swipeOffset = 0.0;
-  
+
   // Keep original animation setup
   late AnimationController _expandController;
   late Animation<double> _expandAnimation;
   late Animation<double> _fadeAnimation;
-  
+
   @override
   void initState() {
     super.initState();
@@ -56,12 +57,12 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    
+
     _expandAnimation = CurvedAnimation(
       parent: _expandController,
       curve: Curves.easeOutCubic,
     );
-    
+
     _fadeAnimation = Tween<double>(
       begin: 1.0,
       end: 0.0,
@@ -92,8 +93,10 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
   }
 
   // Keep original album art styling exactly
-  Widget _buildAlbumArt(NPlayer player, {double size = 50, double radius = 10}) {
-    return RepaintBoundary( // Performance optimization only
+  Widget _buildAlbumArt(NPlayer player,
+      {double size = 50, double radius = 10}) {
+    return RepaintBoundary(
+      // Performance optimization only
       child: Container(
         width: size,
         height: size,
@@ -114,7 +117,6 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
             width: size,
             height: size,
             fit: BoxFit.cover,
-
             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
               if (wasSynchronouslyLoaded) return child;
               return AnimatedOpacity(
@@ -144,7 +146,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
   // Keep exact original song text styling
   Widget _buildSongText(NPlayer player) {
     final song = player.getCurrentSong()!;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -214,11 +216,12 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
           padding: EdgeInsets.all(isPrimary ? 6 : 4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(size / 2),
-            color: isPrimary 
-                ? Colors.white.withValues(alpha: 0.2) 
+            color: isPrimary
+                ? Colors.white.withValues(alpha: 0.2)
                 : Colors.transparent,
-            border: isPrimary 
-                ? Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1)
+            border: isPrimary
+                ? Border.all(
+                    color: Colors.white.withValues(alpha: 0.3), width: 1)
                 : null,
           ),
           child: Icon(
@@ -240,7 +243,8 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
 
   // Keep original mini controls with performance optimization
   Widget _buildMiniControls() {
-    return Selector<NPlayer, bool>( // Performance optimization only
+    return Selector<NPlayer, bool>(
+      // Performance optimization only
       selector: (_, player) => player.isPlaying,
       builder: (context, isPlaying, child) {
         return Row(
@@ -281,7 +285,8 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
 
   // Keep original expanded controls with performance optimization
   Widget _buildExpandedControls() {
-    return Selector<NPlayer, bool>( // Performance optimization only
+    return Selector<NPlayer, bool>(
+      // Performance optimization only
       selector: (_, player) => player.isPlaying,
       builder: (context, isPlaying, child) {
         final player = context.read<NPlayer>();
@@ -333,7 +338,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
-      useSafeArea: true,
+                  useSafeArea: true,
                   backgroundColor: Colors.transparent,
                   builder: (context) => const PlayingSongsSheet(),
                 );
@@ -415,7 +420,8 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
   // Keep exact original background with blur (your preferred style)
   Widget _buildBackground(NPlayer player) {
     return Positioned.fill(
-      child: RepaintBoundary( // Performance optimization only
+      child: RepaintBoundary(
+        // Performance optimization only
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16.0),
           child: Blur(
@@ -423,7 +429,8 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
             blurColor: Colors.black,
             colorOpacity: 0.5,
             overlay: Container(
-              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.3),
+              color:
+                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.3),
             ),
             child: Image(
               image: _getImageProvider(player),
@@ -460,7 +467,50 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
   }
 
   List<PopupMenuEntry<String>> _buildPopupMenuItems(NPlayer player) {
+    final source = player.playbackSource;
+    final song = player.getCurrentSong();
+    final canOpenPlaylist = source.type == PlaybackSourceType.playlist &&
+        source.name?.isNotEmpty == true;
+    final canOpenArtist = song?.artist.isNotEmpty == true;
+    final canOpenAlbum = song?.album.isNotEmpty == true;
+
     return <PopupMenuEntry<String>>[
+      if (canOpenPlaylist || canOpenArtist || canOpenAlbum) ...[
+        if (canOpenPlaylist)
+          const PopupMenuItem<String>(
+            value: 'open_playlist',
+            child: Row(
+              children: [
+                Icon(Icons.playlist_play_rounded),
+                SizedBox(width: 8),
+                Text('Open Playlist'),
+              ],
+            ),
+          ),
+        if (canOpenArtist)
+          const PopupMenuItem<String>(
+            value: 'open_artist',
+            child: Row(
+              children: [
+                Icon(Icons.person_rounded),
+                SizedBox(width: 8),
+                Text('Open Artist'),
+              ],
+            ),
+          ),
+        if (canOpenAlbum)
+          const PopupMenuItem<String>(
+            value: 'open_album',
+            child: Row(
+              children: [
+                Icon(Icons.album_rounded),
+                SizedBox(width: 8),
+                Text('Open Album'),
+              ],
+            ),
+          ),
+        const PopupMenuDivider(),
+      ],
       const PopupMenuItem<String>(
         value: 'shuffle',
         child: Row(
@@ -479,9 +529,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
               player.getCurrentSong()!.isFavorite
                   ? Icons.favorite_rounded
                   : Icons.favorite_border_rounded,
-              color: player.getCurrentSong()!.isFavorite
-                  ? Colors.red
-                  : null,
+              color: player.getCurrentSong()!.isFavorite ? Colors.red : null,
             ),
             const SizedBox(width: 8),
             const Text('Favorite'),
@@ -531,72 +579,110 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
     ];
   }
 
- Future<void> _handleMenuSelection(String? value, NPlayer player) async {
-  if (value == null) return;
-  
-  HapticFeedback.selectionClick();
-  switch (value) {
-    case 'shuffle':
-      player.shuffle();
-      break;
-    case 'favorite':
-      player.toggleFavorite();
-      break;
-    case 'addtoplaylist':
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-      useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => PlaylistSheet(
-          selectedSongs: {player.getCurrentSong()!},
-          player: player,
-          onPlaylistAction: (player, name) => player.addSongToPlaylist(
-            name, // ← playlist name (String) - first parameter
-            player.getCurrentSong()!, // ← song (Music object) - second parameter
+  Future<void> _handleMenuSelection(String? value, NPlayer player) async {
+    if (value == null) return;
+
+    HapticFeedback.selectionClick();
+    switch (value) {
+      case 'shuffle':
+        player.shuffle();
+        break;
+      case 'open_playlist':
+        _openPlaylistSource(player);
+        break;
+      case 'open_artist':
+        final artist = player.getCurrentSong()?.artist;
+        if (artist?.isNotEmpty == true) _openArtist(artist!);
+        break;
+      case 'open_album':
+        final song = player.getCurrentSong();
+        if (song != null) _openAlbum(song);
+        break;
+      case 'favorite':
+        player.toggleFavorite();
+        break;
+      case 'addtoplaylist':
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => PlaylistSheet(
+            selectedSongs: {player.getCurrentSong()!},
+            player: player,
+            onPlaylistAction: (player, name) => player.addSongToPlaylist(
+              name, // ← playlist name (String) - first parameter
+              player
+                  .getCurrentSong()!, // ← song (Music object) - second parameter
+            ),
+            onDeselectAll: () {},
           ),
-          onDeselectAll: () {},
-        ),
-      );
-      break;
-    case 'sleep':
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-      useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => const SleepTimerSheet(),
-      );
-      break;
-    case 'edit':
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-      useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => MetadataSheet(
-          song: player.getCurrentSong()!,
-        ),
-      );
-      break;
-    case 'share':
-      try {
-        await player.shareSong(player.getCurrentSong()!);
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error sharing song: $e')),
-          );
+        );
+        break;
+      case 'sleep':
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => const SleepTimerSheet(),
+        );
+        break;
+      case 'edit':
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => MetadataSheet(
+            song: player.getCurrentSong()!,
+          ),
+        );
+        break;
+      case 'share':
+        try {
+          await player.shareSong(player.getCurrentSong()!);
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error sharing song: $e')),
+            );
+          }
         }
-      }
-      break;
+        break;
+    }
   }
-}
+
+  void _openPlaylistSource(NPlayer player) {
+    final source = player.playbackSource;
+    if (source.name?.isNotEmpty == true) {
+      context.read<AppNavigationController>().openPlaylist(source.name!);
+    }
+    _collapsePlayer();
+  }
+
+  void _openArtist(String artist) {
+    context.read<AppNavigationController>().openArtist(artist);
+    _collapsePlayer();
+  }
+
+  void _openAlbum(Music song) {
+    context.read<AppNavigationController>().openAlbum(song);
+    _collapsePlayer();
+  }
+
+  void _collapsePlayer() {
+    if (_isPlayerExpanded) {
+      setState(() => _isPlayerExpanded = false);
+      _expandController.reverse();
+    }
+  }
 
   // Keep exact original build method structure and styling
   @override
   Widget build(BuildContext context) {
-    return Selector<NPlayer, Music?>( // Performance optimization only
+    return Selector<NPlayer, Music?>(
+      // Performance optimization only
       selector: (_, player) => player.getCurrentSong(),
       builder: (context, currentSong, child) {
         if (currentSong == null) {
@@ -619,7 +705,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
-      useSafeArea: true,
+                      useSafeArea: true,
                       backgroundColor: Colors.transparent,
                       builder: (context) => const PlayingSongsSheet(),
                     );
@@ -687,9 +773,10 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                         child: Stack(
                           children: [
                             _buildBackground(player),
-                            
+
                             // Mini player with original fade animation
-                            if (!_isPlayerExpanded || _fadeAnimation.value > 0.0)
+                            if (!_isPlayerExpanded ||
+                                _fadeAnimation.value > 0.0)
                               Positioned.fill(
                                 child: AnimatedBuilder(
                                   animation: _fadeAnimation,
@@ -698,15 +785,18 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                                       opacity: _fadeAnimation.value,
                                       child: Container(
                                         key: const ValueKey('collapsed'),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16.0,
-                                          vertical: 8.0,
+                                        padding: const EdgeInsets.fromLTRB(
+                                          16.0,
+                                          4.0,
+                                          16.0,
+                                          8.0,
                                         ),
                                         child: Row(
                                           children: [
                                             _buildAlbumArt(player),
                                             const SizedBox(width: 14),
-                                            Expanded(child: _buildSongText(player)),
+                                            Expanded(
+                                                child: _buildSongText(player)),
                                             const SizedBox(width: 12),
                                             _buildMiniControls(),
                                           ],
@@ -716,21 +806,26 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                                   },
                                 ),
                               ),
-                            
+
                             // Expanded player — fades in after 50% open
-                            if (_isPlayerExpanded && _expandAnimation.value > 0.5)
+                            if (_isPlayerExpanded &&
+                                _expandAnimation.value > 0.5)
                               Positioned.fill(
                                 child: AnimatedBuilder(
                                   animation: _expandAnimation,
                                   builder: (context, child) {
-                                    final opacity = ((_expandAnimation.value - 0.5) / 0.5).clamp(0.0, 1.0);
+                                    final opacity =
+                                        ((_expandAnimation.value - 0.5) / 0.5)
+                                            .clamp(0.0, 1.0);
                                     return Opacity(
                                       opacity: opacity,
                                       child: Padding(
                                         key: const ValueKey('expanded'),
-                                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                                        padding: const EdgeInsets.fromLTRB(
+                                            16, 4, 16, 12),
                                         child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.start,
                                           mainAxisSize: MainAxisSize.max,
                                           children: [
                                             // Album art fills remaining space
@@ -739,15 +834,22 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                                                 child: Hero(
                                                   tag: 'album_art',
                                                   child: LayoutBuilder(
-                                                    builder: (context, constraints) {
-                                                      final artSize = constraints.maxHeight.clamp(120.0, 280.0);
-                                                      return _buildAlbumArt(player, size: artSize, radius: 16);
+                                                    builder:
+                                                        (context, constraints) {
+                                                      final artSize =
+                                                          constraints.maxHeight
+                                                              .clamp(
+                                                                  120.0, 280.0);
+                                                      return _buildAlbumArt(
+                                                          player,
+                                                          size: artSize,
+                                                          radius: 16);
                                                     },
                                                   ),
                                                 ),
                                               ),
                                             ),
-                                            const SizedBox(height: 16),
+                                            const SizedBox(height: 8),
 
                                             // Song title
                                             Text(
@@ -763,29 +865,66 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                                             ),
                                             const SizedBox(height: 4),
                                             // Artist
-                                            Text(
-                                              currentSong.artist,
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(alpha: 0.7),
-                                                fontSize: 15,
+                                            Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                onTap: () => _openArtist(
+                                                    currentSong.artist),
+                                                child: Padding(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 2,
+                                                  ),
+                                                  child: Text(
+                                                    currentSong.artist,
+                                                    style: TextStyle(
+                                                      color: Colors.white
+                                                          .withValues(
+                                                              alpha: 0.78),
+                                                      fontSize: 15,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    maxLines: 1,
+                                                  ),
+                                                ),
                                               ),
-                                              textAlign: TextAlign.center,
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 1,
                                             ),
-                                            const SizedBox(height: 2),
                                             // Album
-                                            Text(
-                                              currentSong.album,
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(alpha: 0.45),
-                                                fontSize: 13,
+                                            Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                onTap: () =>
+                                                    _openAlbum(currentSong),
+                                                child: Padding(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 2,
+                                                  ),
+                                                  child: Text(
+                                                    currentSong.album,
+                                                    style: TextStyle(
+                                                      color: Colors.white
+                                                          .withValues(
+                                                              alpha: 0.45),
+                                                      fontSize: 13,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    maxLines: 1,
+                                                  ),
+                                                ),
                                               ),
-                                              textAlign: TextAlign.center,
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 1,
                                             ),
-                                            const SizedBox(height: 12),
+                                            const SizedBox(height: 10),
 
                                             // Progress bar
                                             _buildProgressBar(player),

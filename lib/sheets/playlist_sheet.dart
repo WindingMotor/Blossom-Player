@@ -38,6 +38,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
   bool _showSearchField = false;
   bool _isCreatingPlaylist = false;
   String _searchQuery = '';
+  bool _hadSearchText = false;
   Timer? _searchDebouncer;
 
   final FocusNode _searchFocusNode = FocusNode();
@@ -49,7 +50,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
     _initializeControllers();
     _initializeAnimations();
     _filteredPlaylists = List.from(widget.player.playlists);
-    
+
     // Auto-focus search if many playlists
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.player.playlists.length > 10) {
@@ -61,7 +62,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
   void _initializeControllers() {
     _searchController = TextEditingController();
     _newPlaylistController = TextEditingController();
-    
+
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -70,7 +71,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _searchAnimationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -110,6 +111,12 @@ class _PlaylistSheetState extends State<PlaylistSheet>
   }
 
   void _onSearchChanged() {
+    final hasText = _searchController.text.isNotEmpty;
+    if (_hadSearchText && !hasText) {
+      _searchFocusNode.unfocus();
+    }
+    _hadSearchText = hasText;
+
     _searchDebouncer?.cancel();
     _searchDebouncer = Timer(const Duration(milliseconds: 300), () {
       if (mounted) {
@@ -168,7 +175,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
 
   Future<void> _handlePlaylistAction(String playlist) async {
     HapticFeedback.selectionClick();
-    
+
     // Show confirmation for large selections
     if (widget.selectedSongs.length > 20) {
       final confirmed = await _showConfirmationDialog(
@@ -180,34 +187,32 @@ class _PlaylistSheetState extends State<PlaylistSheet>
 
     try {
       widget.onPlaylistAction(widget.player, playlist);
-      
-      
+
       Navigator.pop(context);
     } catch (e) {
-      if (mounted) {
-
-      }
+      if (mounted) {}
     }
   }
 
   Future<bool> _showConfirmationDialog(String title, String content) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(content),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL'),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(title),
+            content: Text(content),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('CANCEL'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('ADD'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ADD'),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   Future<void> _createNewPlaylist() async {
@@ -219,29 +224,27 @@ class _PlaylistSheetState extends State<PlaylistSheet>
 
     try {
       widget.player.createPlaylist(name);
-      
+
       if (mounted) {
         setState(() {
           _filteredPlaylists = List.from(widget.player.playlists);
           _showNewPlaylistField = false;
           _isCreatingPlaylist = false;
         });
-        
+
         _newPlaylistController.clear();
 
         // Auto-select the new playlist
         await _handlePlaylistAction(name);
       }
-    } catch (e) {
-
-    }
+    } catch (e) {}
   }
 
   Widget _buildPlaylistTile(String playlist, int index) {
     final player = widget.player;
     final songs = player.getPlaylistSongs(playlist);
     final imagePath = player.getPlaylistImagePath(playlist);
-    final isHighlighted = _searchQuery.isNotEmpty && 
+    final isHighlighted = _searchQuery.isNotEmpty &&
         playlist.toLowerCase().contains(_searchQuery.toLowerCase());
 
     return AnimatedContainer(
@@ -250,11 +253,15 @@ class _PlaylistSheetState extends State<PlaylistSheet>
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         elevation: 0,
-        color: isHighlighted 
-            ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
+        color: isHighlighted
+            ? Theme.of(context)
+                .colorScheme
+                .primaryContainer
+                .withValues(alpha: 0.3)
             : Theme.of(context).cardColor,
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           leading: Hero(
             tag: 'playlist_$playlist',
             child: ClipRRect(
@@ -273,19 +280,19 @@ class _PlaylistSheetState extends State<PlaylistSheet>
           title: Text(
             playlist,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: isHighlighted 
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-            ),
+                  fontWeight: FontWeight.w600,
+                  color: isHighlighted
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           subtitle: Text(
             '${songs.length} ${songs.length == 1 ? 'song' : 'songs'}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
           ),
           trailing: Icon(
             Icons.add_rounded,
@@ -311,9 +318,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
           ),
           const SizedBox(height: 16),
           Text(
-            _searchQuery.isNotEmpty 
-                ? 'No playlists found'
-                : 'No playlists yet',
+            _searchQuery.isNotEmpty ? 'No playlists found' : 'No playlists yet',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -322,8 +327,8 @@ class _PlaylistSheetState extends State<PlaylistSheet>
                 ? 'Try a different search term'
                 : 'Create your first playlist to get started',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
             textAlign: TextAlign.center,
           ),
           if (_searchQuery.isEmpty) ...[
@@ -382,7 +387,10 @@ class _PlaylistSheetState extends State<PlaylistSheet>
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -419,7 +427,8 @@ class _PlaylistSheetState extends State<PlaylistSheet>
                             ),
                             itemCount: _filteredPlaylists.length,
                             itemBuilder: (context, index) {
-                              return _buildPlaylistTile(_filteredPlaylists[index], index);
+                              return _buildPlaylistTile(
+                                  _filteredPlaylists[index], index);
                             },
                           ),
                   ),
@@ -442,16 +451,16 @@ class _PlaylistSheetState extends State<PlaylistSheet>
               Text(
                 'Add to Playlist',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontSize: isDesktop ? 24 : 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontSize: isDesktop ? 24 : 20,
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const SizedBox(height: 4),
               Text(
                 '${widget.selectedSongs.length} ${widget.selectedSongs.length == 1 ? 'song' : 'songs'} selected',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
             ],
           ),
@@ -509,6 +518,7 @@ class _PlaylistSheetState extends State<PlaylistSheet>
                     icon: const Icon(Icons.clear),
                     onPressed: () {
                       _searchController.clear();
+                      _searchFocusNode.unfocus();
                       _filteredPlaylists = List.from(widget.player.playlists);
                     },
                   )

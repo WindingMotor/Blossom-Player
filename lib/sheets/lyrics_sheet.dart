@@ -7,27 +7,24 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 
-
 class LyricsSheet extends StatefulWidget {
   final String artist;
   final String title;
   final Uint8List? picture;
 
-
   const LyricsSheet({
-    Key? key, 
-    required this.artist, 
+    Key? key,
+    required this.artist,
     required this.title,
     this.picture,
   }) : super(key: key);
-
 
   @override
   _LyricsSheetState createState() => _LyricsSheetState();
 }
 
-
-class _LyricsSheetState extends State<LyricsSheet> with TickerProviderStateMixin {
+class _LyricsSheetState extends State<LyricsSheet>
+    with TickerProviderStateMixin {
   String _searchQuery = '';
   late AnimationController _slideController;
   late AnimationController _fadeController;
@@ -43,12 +40,11 @@ class _LyricsSheetState extends State<LyricsSheet> with TickerProviderStateMixin
   int _totalMatches = 0;
   bool _showScrollToTop = false;
 
-
   @override
   void initState() {
     super.initState();
     _fetchLyrics();
-    
+
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
@@ -57,7 +53,7 @@ class _LyricsSheetState extends State<LyricsSheet> with TickerProviderStateMixin
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _slideAnimation = CurvedAnimation(
       parent: _slideController,
       curve: Curves.easeOutCubic,
@@ -66,10 +62,10 @@ class _LyricsSheetState extends State<LyricsSheet> with TickerProviderStateMixin
       parent: _fadeController,
       curve: Curves.easeIn,
     );
-    
+
     _slideController.forward();
     _fadeController.forward();
-    
+
     _scrollController.addListener(() {
       if (_scrollController.offset > 500 && !_showScrollToTop) {
         setState(() => _showScrollToTop = true);
@@ -78,7 +74,6 @@ class _LyricsSheetState extends State<LyricsSheet> with TickerProviderStateMixin
       }
     });
   }
-
 
   @override
   void dispose() {
@@ -93,33 +88,35 @@ class _LyricsSheetState extends State<LyricsSheet> with TickerProviderStateMixin
     super.dispose();
   }
 
-
   Map<String, String> _getBrowserHeaders() {
     return {
       'Accept': 'application/json',
       'Accept-Language': 'en-US,en;q=0.9',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     };
   }
-
 
   Future<void> _fetchLyrics() async {
     _isLoadingNotifier.value = true;
     _lyricsNotifier.value = '';
     _currentApiNotifier.value = 'Connecting to LRCLIB...';
-    
+
     final encodedArtist = Uri.encodeComponent(widget.artist.trim());
     final encodedTitle = Uri.encodeComponent(widget.title.trim());
-    
-    final String apiUrl = 'https://lrclib.net/api/get?artist_name=$encodedArtist&track_name=$encodedTitle';
-    
+
+    final String apiUrl =
+        'https://lrclib.net/api/get?artist_name=$encodedArtist&track_name=$encodedTitle';
+
     try {
       Log.d(LogTag.ui, 'Fetching lyrics from LRCLIB: $apiUrl');
 
-      final response = await http.get(
+      final response = await http
+          .get(
         Uri.parse(apiUrl),
         headers: _getBrowserHeaders(),
-      ).timeout(
+      )
+          .timeout(
         const Duration(seconds: 10),
         onTimeout: () {
           throw TimeoutException('Request timed out after 10 seconds');
@@ -154,7 +151,8 @@ class _LyricsSheetState extends State<LyricsSheet> with TickerProviderStateMixin
       }
     } on SocketException catch (e) {
       Log.w(LogTag.ui, 'LRCLIB socket error: ${e.message}');
-      _showErrorMessage('Network connection failed. Check your internet connection.');
+      _showErrorMessage(
+          'Network connection failed. Check your internet connection.');
     } on TimeoutException catch (e) {
       Log.w(LogTag.ui, 'LRCLIB timeout: ${e.message}');
       _showErrorMessage('Request timed out. Please try again.');
@@ -165,10 +163,9 @@ class _LyricsSheetState extends State<LyricsSheet> with TickerProviderStateMixin
       Log.e(LogTag.ui, 'LRCLIB unexpected error: $e');
       _showErrorMessage('Unexpected error occurred: $e');
     }
-    
+
     _isLoadingNotifier.value = false;
   }
-
 
   void _showErrorMessage(String message) {
     _currentApiNotifier.value = 'Failed';
@@ -192,12 +189,10 @@ Common issues:
 Try tapping the refresh button to retry''';
   }
 
-
   Future<void> _retryFetch() async {
     HapticFeedback.mediumImpact();
     await _fetchLyrics();
   }
-
 
   void _updateMatchCount() {
     if (_searchQuery.isEmpty) {
@@ -206,18 +201,16 @@ Try tapping the refresh button to retry''';
       return;
     }
 
-
     final queryLower = _searchQuery.toLowerCase();
     final lyricsLower = _lyricsNotifier.value.toLowerCase();
     _totalMatches = queryLower.allMatches(lyricsLower).length;
-    
+
     if (_totalMatches > 0 && _currentMatchIndex >= _totalMatches) {
       _currentMatchIndex = 0;
     } else if (_totalMatches == 0) {
       _currentMatchIndex = 0;
     }
   }
-
 
   void _navigateToNextMatch() {
     if (_totalMatches > 0) {
@@ -228,22 +221,20 @@ Try tapping the refresh button to retry''';
     }
   }
 
-
   void _navigateToPreviousMatch() {
     if (_totalMatches > 0) {
       HapticFeedback.selectionClick();
       setState(() {
-        _currentMatchIndex = (_currentMatchIndex - 1 + _totalMatches) % _totalMatches;
+        _currentMatchIndex =
+            (_currentMatchIndex - 1 + _totalMatches) % _totalMatches;
       });
     }
   }
-
 
   void _copyLyrics() {
     Clipboard.setData(ClipboardData(text: _lyricsNotifier.value));
     HapticFeedback.mediumImpact();
   }
-
 
   void _scrollToTop() {
     HapticFeedback.lightImpact();
@@ -254,58 +245,58 @@ Try tapping the refresh button to retry''';
     );
   }
 
-
   List<TextSpan> _highlightOccurrences(String source, String query) {
     if (query.isEmpty || source.isEmpty) {
       return [TextSpan(text: source)];
     }
 
-
     final queryLower = query.toLowerCase();
     final sourceLower = source.toLowerCase();
-    
+
     if (!sourceLower.contains(queryLower)) {
       return [TextSpan(text: source)];
     }
 
-
     final matches = queryLower.allMatches(sourceLower).toList();
     int lastMatchEnd = 0;
     final List<TextSpan> children = [];
-    
+
     for (int i = 0; i < matches.length; i++) {
       final match = matches[i];
-      
+
       if (match.start != lastMatchEnd) {
-        children.add(TextSpan(text: source.substring(lastMatchEnd, match.start)));
+        children
+            .add(TextSpan(text: source.substring(lastMatchEnd, match.start)));
       }
-      
+
       final bool isCurrentMatch = i == _currentMatchIndex;
-      
+
       children.add(TextSpan(
         text: source.substring(match.start, match.end),
         style: TextStyle(
-          backgroundColor: isCurrentMatch 
+          backgroundColor: isCurrentMatch
               ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.7)
               : Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-          color: isCurrentMatch ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.primary,
+          color: isCurrentMatch
+              ? Theme.of(context).colorScheme.onPrimary
+              : Theme.of(context).colorScheme.primary,
           fontWeight: isCurrentMatch ? FontWeight.bold : FontWeight.w600,
         ),
       ));
       lastMatchEnd = match.end;
     }
-    
+
     if (lastMatchEnd != source.length) {
       children.add(TextSpan(text: source.substring(lastMatchEnd)));
     }
-    
+
     return children;
   }
 
   // Calculate responsive font size based on screen width
   double _getResponsiveFontSize(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     if (screenWidth < 360) {
       return 16.0; // Small phones
     } else if (screenWidth < 400) {
@@ -319,12 +310,11 @@ Try tapping the refresh button to retry''';
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return AnimatedBuilder(
       animation: _slideAnimation,
       builder: (context, child) {
@@ -373,24 +363,25 @@ Try tapping the refresh button to retry''';
     );
   }
 
-
   Widget _buildDragHandle() {
     return Container(
       width: 48,
       height: 5,
       margin: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+        color: Theme.of(context)
+            .colorScheme
+            .onSurfaceVariant
+            .withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(3),
       ),
     );
   }
 
-
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
@@ -438,7 +429,8 @@ Try tapping the refresh button to retry''';
                               widget.picture!,
                               fit: BoxFit.cover,
                               gaplessPlayback: true,
-                              errorBuilder: (context, error, stackTrace) => Icon(
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Icon(
                                 Icons.music_note_rounded,
                                 color: colorScheme.onSurfaceVariant,
                                 size: 32,
@@ -471,7 +463,8 @@ Try tapping the refresh button to retry''';
                         Text(
                           widget.artist,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+                            color: colorScheme.onSurface
+                                .withAlpha((0.6 * 255).round()),
                             fontSize: 13,
                           ),
                           maxLines: 1,
@@ -489,7 +482,9 @@ Try tapping the refresh button to retry''';
                         builder: (context, isLoading, child) {
                           return UIHelpers.buildIconButton(
                             context,
-                            icon: isLoading ? Icons.hourglass_empty_rounded : Icons.refresh_rounded,
+                            icon: isLoading
+                                ? Icons.hourglass_empty_rounded
+                                : Icons.refresh_rounded,
                             onTap: isLoading ? () {} : _retryFetch,
                             tooltip: 'Refresh',
                             size: 24,
@@ -540,6 +535,9 @@ Try tapping the refresh button to retry''';
         controller: _searchController,
         focusNode: _searchFocusNode,
         onChanged: (value) {
+          if (_searchQuery.isNotEmpty && value.isEmpty) {
+            _searchFocusNode.unfocus();
+          }
           setState(() {
             _searchQuery = value;
             _updateMatchCount();
@@ -556,8 +554,8 @@ Try tapping the refresh button to retry''';
           prefixIcon: Icon(
             Icons.search_rounded,
             size: 20,
-            color: _searchQuery.isNotEmpty 
-                ? colorScheme.primary 
+            color: _searchQuery.isNotEmpty
+                ? colorScheme.primary
                 : colorScheme.onSurfaceVariant,
           ),
           suffixIcon: _searchQuery.isNotEmpty
@@ -566,7 +564,8 @@ Try tapping the refresh button to retry''';
                   children: [
                     if (_totalMatches > 0) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: colorScheme.primary,
                           borderRadius: BorderRadius.circular(10),
@@ -582,7 +581,8 @@ Try tapping the refresh button to retry''';
                       ),
                       const SizedBox(width: 4),
                       IconButton(
-                        icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 20),
+                        icon: const Icon(Icons.keyboard_arrow_up_rounded,
+                            size: 20),
                         onPressed: _navigateToPreviousMatch,
                         tooltip: 'Previous',
                         color: colorScheme.primary,
@@ -590,7 +590,8 @@ Try tapping the refresh button to retry''';
                         constraints: const BoxConstraints(),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                            size: 20),
                         onPressed: _navigateToNextMatch,
                         tooltip: 'Next',
                         color: colorScheme.primary,
@@ -603,6 +604,7 @@ Try tapping the refresh button to retry''';
                       onPressed: () {
                         HapticFeedback.lightImpact();
                         _searchController.clear();
+                        _searchFocusNode.unfocus();
                         setState(() {
                           _searchQuery = '';
                           _updateMatchCount();
@@ -615,7 +617,8 @@ Try tapping the refresh button to retry''';
                   ],
                 )
               : null,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           border: InputBorder.none,
           isDense: true,
         ),
@@ -623,11 +626,10 @@ Try tapping the refresh button to retry''';
     );
   }
 
-
   Widget _buildLyricsContent() {
     final theme = Theme.of(context);
     final responsiveFontSize = _getResponsiveFontSize(context);
-    
+
     return Scrollbar(
       controller: _scrollController,
       thumbVisibility: true,
@@ -686,11 +688,11 @@ Try tapping the refresh button to retry''';
                     ),
                   );
                 }
-                
+
                 if (lyrics.isEmpty) {
                   return const SizedBox.shrink();
                 }
-                
+
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 20),
@@ -716,10 +718,9 @@ Try tapping the refresh button to retry''';
     );
   }
 
-
   Widget _buildScrollToTopButton() {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return FloatingActionButton(
       onPressed: _scrollToTop,
       elevation: 0,
