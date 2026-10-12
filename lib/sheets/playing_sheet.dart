@@ -1,5 +1,6 @@
 // ignore_for_file: depend_on_referenced_packages
 import 'package:blossom/sheets/lyrics_sheet.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:blossom/song_list/song_list_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,18 +14,7 @@ class PlayingSongsSheet extends StatefulWidget {
   State<PlayingSongsSheet> createState() => _PlayingSongsSheetState();
 }
 
-class _PlayingSongsSheetState extends State<PlayingSongsSheet>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    duration: const Duration(milliseconds: 200),
-    vsync: this,
-  )..forward();
-
-  late final Animation<double> _fade = CurvedAnimation(
-    parent: _controller,
-    curve: Curves.easeOut,
-  );
-
+class _PlayingSongsSheetState extends State<PlayingSongsSheet> {
   // Cached statistics - computed once when sheet opens
   Duration _total = Duration.zero;
   int _albumCount = 0;
@@ -44,12 +34,6 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
         _scrollToCurrent();
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   // Get limited songs list for performance - include previous songs
@@ -111,10 +95,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
         // Get limited songs for better performance
         final limitedSongs = _getLimitedSongs(data.list, data.current);
 
-        return FadeTransition(
-          opacity: _fade,
-          child: _sheet(ctx, data.current!, limitedSongs, data.list.length),
-        );
+        return _sheet(ctx, data.current!, limitedSongs, data.list.length);
       },
     );
   }
@@ -319,7 +300,7 @@ class _PlayingSongsSheetState extends State<PlayingSongsSheet>
           button(Icons.lyrics_rounded, 'Lyrics', () {
             final now = context.read<NPlayer>().getCurrentSong();
             if (now != null) {
-              showModalBottomSheet(
+              showBlossomSheet(
                 context: ctx,
                 isScrollControlled: true,
                 useSafeArea: true,

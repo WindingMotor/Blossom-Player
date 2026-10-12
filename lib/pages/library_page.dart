@@ -1,6 +1,8 @@
 /// Library Page - Main interface for browsing and managing music library
 import 'dart:math';
 import 'package:blossom/custom/search_bar.dart';
+import 'package:blossom/custom/page_entrance.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:blossom/song_list/song_list_builder.dart';
 import 'package:blossom/tools/nextcloud_sync.dart';
 import 'package:blossom/tools/settings.dart';
@@ -18,13 +20,9 @@ class SongLibrary extends StatefulWidget {
   _SongLibraryState createState() => _SongLibraryState();
 }
 
-class _SongLibraryState extends State<SongLibrary>
-    with TickerProviderStateMixin {
+class _SongLibraryState extends State<SongLibrary> {
   final GlobalKey<SongListBuilderState> _songListBuilderKey =
       GlobalKey<SongListBuilderState>();
-
-  late AnimationController _animationController;
-  late Animation<double>   _fadeAnimation;
 
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey _filterButtonKey = GlobalKey();
@@ -32,21 +30,15 @@ class _SongLibraryState extends State<SongLibrary>
   @override
   void initState() {
     super.initState();
-    _animationController =
-        UIHelpers.createFadeAnimationController(this);
-    _fadeAnimation =
-        UIHelpers.createFadeAnimation(_animationController);
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final player = Provider.of<NPlayer>(context, listen: false);
       player.loadSortSettings().then((_) {
         player.sortSongs(
-          sortBy:    Settings.songSortBy,
+          sortBy: Settings.songSortBy,
           ascending: Settings.songSortAscending,
         );
         if (mounted) {
           setState(() {});
-          _animationController.forward();
         }
       });
     });
@@ -55,18 +47,17 @@ class _SongLibraryState extends State<SongLibrary>
   @override
   void dispose() {
     _searchController.dispose();
-    _animationController.dispose();
     super.dispose();
   }
 
   void _scrollToRandomSong() {
     final state = _songListBuilderKey.currentState;
     if (state != null) {
-      final player    = Provider.of<NPlayer>(context, listen: false);
+      final player = Provider.of<NPlayer>(context, listen: false);
       final songCount = player.sortedSongs.length;
       if (songCount > 0) {
-        final randomIndex    = Random().nextInt(songCount);
-        const itemExtent     = 80.0;
+        final randomIndex = Random().nextInt(songCount);
+        const itemExtent = 80.0;
         final scrollPosition = randomIndex * itemExtent;
         state.scrollToPosition(scrollPosition);
       }
@@ -80,34 +71,43 @@ class _SongLibraryState extends State<SongLibrary>
       buttonKey: _filterButtonKey,
       items: [
         UIHelpers.buildPopupMenuItem(context,
-            value: 'title',    icon: Icons.abc_rounded,
+            value: 'title',
+            icon: Icons.abc_rounded,
             isActive: player.sortBy == 'title'),
         UIHelpers.buildPopupMenuItem(context,
-            value: 'artist',   icon: Icons.person_rounded,
+            value: 'artist',
+            icon: Icons.person_rounded,
             isActive: player.sortBy == 'artist'),
         UIHelpers.buildPopupMenuItem(context,
-            value: 'album',    icon: Icons.album_rounded,
+            value: 'album',
+            icon: Icons.album_rounded,
             isActive: player.sortBy == 'album'),
         const PopupMenuDivider(),
         UIHelpers.buildPopupMenuItem(context,
-            value: 'favorite', icon: Icons.favorite_rounded,
+            value: 'favorite',
+            icon: Icons.favorite_rounded,
             isActive: player.sortBy == 'favorite'),
         UIHelpers.buildPopupMenuItem(context,
-            value: 'plays',    icon: Icons.play_circle_outline_rounded,
+            value: 'plays',
+            icon: Icons.play_circle_outline_rounded,
             isActive: player.sortBy == 'plays'),
         const PopupMenuDivider(),
         UIHelpers.buildPopupMenuItem(context,
-            value: 'duration', icon: Icons.timer_rounded,
+            value: 'duration',
+            icon: Icons.timer_rounded,
             isActive: player.sortBy == 'duration'),
         UIHelpers.buildPopupMenuItem(context,
-            value: 'year',     icon: Icons.calendar_today_rounded,
+            value: 'year',
+            icon: Icons.calendar_today_rounded,
             isActive: player.sortBy == 'year'),
         const PopupMenuDivider(),
         UIHelpers.buildPopupMenuItem(context,
-            value: 'folder',   icon: Icons.folder_rounded,
+            value: 'folder',
+            icon: Icons.folder_rounded,
             isActive: player.sortBy == 'folder'),
         UIHelpers.buildPopupMenuItem(context,
-            value: 'modified', icon: Icons.update_rounded,
+            value: 'modified',
+            icon: Icons.update_rounded,
             isActive: player.sortBy == 'modified'),
       ],
     ).then((String? value) {
@@ -124,7 +124,7 @@ class _SongLibraryState extends State<SongLibrary>
   Widget _buildTrailingButtons() {
     return Consumer<NPlayer>(
       builder: (context, player, child) {
-        final currentSort   = UIHelpers.capitalize(player.sortBy);
+        final currentSort = UIHelpers.capitalize(player.sortBy);
         final sortDirection = player.sortAscending ? '↑' : '↓';
 
         return Row(
@@ -134,22 +134,22 @@ class _SongLibraryState extends State<SongLibrary>
             const SizedBox(width: 4),
             UIHelpers.buildSortButton(
               context,
-              key:          _filterButtonKey,
-              onTap:        _showSortMenu,
+              key: _filterButtonKey,
+              onTap: _showSortMenu,
               sortAscending: player.sortAscending,
-              tooltip:      'Sorted by $currentSort $sortDirection',
+              tooltip: 'Sorted by $currentSort $sortDirection',
             ),
             const SizedBox(width: 8),
             UIHelpers.buildIconButton(
               context,
-              icon:    Icons.shuffle_rounded,
-              onTap:   _scrollToRandomSong,
+              icon: Icons.shuffle_rounded,
+              onTap: _scrollToRandomSong,
               tooltip: 'Shuffle',
             ),
             const SizedBox(width: 4),
             UIHelpers.buildIconButton(
               context,
-              icon:  Icons.settings_rounded,
+              icon: Icons.settings_rounded,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -176,8 +176,7 @@ class _SongLibraryState extends State<SongLibrary>
               .surfaceContainerHighest
               .withValues(alpha: 0.1),
           body: SafeArea(
-            child: FadeTransition(
-              opacity: _fadeAnimation,
+            child: BlossomPageEntrance(
               child: Column(
                 children: [
                   OptimizedSearchBar(
@@ -197,8 +196,8 @@ class _SongLibraryState extends State<SongLibrary>
                       child: player.sortedSongs.isEmpty
                           ? UIHelpers.buildEmptyState(
                               context,
-                              icon:     Icons.music_note_outlined,
-                              title:    'No songs found',
+                              icon: Icons.music_note_outlined,
+                              title: 'No songs found',
                               subtitle: 'Add some music to get started',
                             )
                           : _buildSongList(player),
@@ -219,8 +218,8 @@ class _SongLibraryState extends State<SongLibrary>
       child: OrientationBuilder(
         builder: (context, orientation) {
           return SongListBuilder(
-            key:         _songListBuilderKey,
-            songs:       player.sortedSongs,
+            key: _songListBuilderKey,
+            songs: player.sortedSongs,
             orientation: orientation,
           );
         },
@@ -260,15 +259,14 @@ class _CloudSyncBadgeState extends State<_CloudSyncBadge>
   }
 
   void _onStatusChanged(SyncStatus status) {
-    final active = status == SyncStatus.syncing ||
-                   status == SyncStatus.checking;
+    final active =
+        status == SyncStatus.syncing || status == SyncStatus.checking;
     if (active && !_spinController.isAnimating) {
       _spinController.repeat();
     } else if (!active && _spinController.isAnimating) {
       _spinController.stop();
       _spinController.animateTo(0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut);
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     }
   }
 
@@ -301,14 +299,14 @@ class _CloudSyncBadgeState extends State<_CloudSyncBadge>
   }
 
   void _openSyncSheet(BuildContext context) {
-    showModalBottomSheet(
-      context:           context,
+    showBlossomSheet(
+      context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor:   Colors.transparent,
+      backgroundColor: Colors.transparent,
       // Keep the sheet alive even while syncing is in progress.
-      isDismissible:     true,
-      builder:           (_) => const _SyncStatusSheet(),
+      isDismissible: true,
+      builder: (_) => const _SyncStatusSheet(),
     );
   }
 
@@ -320,21 +318,21 @@ class _CloudSyncBadgeState extends State<_CloudSyncBadge>
 
         _onStatusChanged(nc.status);
 
-        final cs       = Theme.of(context).colorScheme;
-        final active   = nc.status == SyncStatus.syncing ||
-                         nc.status == SyncStatus.checking;
+        final cs = Theme.of(context).colorScheme;
+        final active =
+            nc.status == SyncStatus.syncing || nc.status == SyncStatus.checking;
         final dotColor = _dotColor(nc.status, cs);
-        final iconCol  = _iconColor(nc.status, cs);
+        final iconCol = _iconColor(nc.status, cs);
 
         return Tooltip(
           message: nc.statusMessage,
           child: GestureDetector(
             onTap: () => _openSyncSheet(context),
             child: SizedBox(
-              width:  36,
+              width: 36,
               height: 36,
               child: Stack(
-                alignment:    Alignment.center,
+                alignment: Alignment.center,
                 clipBehavior: Clip.none,
                 children: [
                   // Cloud icon — rotates smoothly while syncing.
@@ -343,11 +341,9 @@ class _CloudSyncBadgeState extends State<_CloudSyncBadge>
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 250),
                       child: Icon(
-                        active
-                            ? Icons.sync_rounded
-                            : Icons.cloud_rounded,
-                        key:   ValueKey(active),
-                        size:  22,
+                        active ? Icons.sync_rounded : Icons.cloud_rounded,
+                        key: ValueKey(active),
+                        size: 22,
                         color: iconCol,
                       ),
                     ),
@@ -355,15 +351,15 @@ class _CloudSyncBadgeState extends State<_CloudSyncBadge>
 
                   // Status dot (top-right).
                   Positioned(
-                    top:   2,
+                    top: 2,
                     right: 2,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
-                      width:    8,
-                      height:   8,
+                      width: 8,
+                      height: 8,
                       decoration: BoxDecoration(
-                        color:  dotColor,
-                        shape:  BoxShape.circle,
+                        color: dotColor,
+                        shape: BoxShape.circle,
                         border: Border.all(
                           color: Theme.of(context).colorScheme.surface,
                           width: 1.5,
@@ -371,8 +367,8 @@ class _CloudSyncBadgeState extends State<_CloudSyncBadge>
                         boxShadow: dotColor != Colors.transparent
                             ? [
                                 BoxShadow(
-                                  color:        dotColor.withValues(alpha: 0.5),
-                                  blurRadius:   4,
+                                  color: dotColor.withValues(alpha: 0.5),
+                                  blurRadius: 4,
                                   spreadRadius: 1,
                                 ),
                               ]
@@ -416,16 +412,18 @@ class _SyncSheetContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs    = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
 
     return Container(
       decoration: BoxDecoration(
-        color:        cs.surface,
+        color: cs.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(
-        20, 12, 20,
+        20,
+        12,
+        20,
         20 + MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Column(
@@ -435,10 +433,10 @@ class _SyncSheetContent extends StatelessWidget {
           // ── Drag handle ───────────────────────────────────────────────────
           Center(
             child: Container(
-              width:  40,
+              width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color:        cs.onSurfaceVariant.withValues(alpha: 0.3),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -476,13 +474,12 @@ class _SyncSheetContent extends StatelessWidget {
                     nc.cancelSync();
                     Navigator.of(context).pop();
                   },
-                  icon:  Icon(Icons.stop_circle_outlined,
-                              color: cs.error, size: 18),
-                  label: Text('Cancel',
-                              style: TextStyle(color: cs.error)),
+                  icon: Icon(Icons.stop_circle_outlined,
+                      color: cs.error, size: 18),
+                  label: Text('Cancel', style: TextStyle(color: cs.error)),
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   ),
                 ),
             ],
@@ -515,8 +512,7 @@ class _SyncSheetContent extends StatelessWidget {
           ],
 
           // ── Action buttons ────────────────────────────────────────────────
-          if (!_isBusy)
-            _ActionButtons(nc: nc, context: context),
+          if (!_isBusy) _ActionButtons(nc: nc, context: context),
 
           const SizedBox(height: 8),
         ],
@@ -525,11 +521,11 @@ class _SyncSheetContent extends StatelessWidget {
   }
 
   String _formatTime(DateTime t) {
-    final now  = DateTime.now();
+    final now = DateTime.now();
     final diff = now.difference(t);
-    if (diff.inSeconds < 60)  return 'just now';
-    if (diff.inMinutes < 60)  return '${diff.inMinutes}m ago';
-    if (diff.inHours   < 24)  return '${diff.inHours}h ago';
+    if (diff.inSeconds < 60) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
     return '${t.day}/${t.month}/${t.year}';
   }
 }
@@ -537,7 +533,7 @@ class _SyncSheetContent extends StatelessWidget {
 // ── Status icon with built-in spin animation ─────────────────────────────────
 
 class _StatusIcon extends StatefulWidget {
-  final SyncStatus  status;
+  final SyncStatus status;
   final ColorScheme cs;
   const _StatusIcon({required this.status, required this.cs});
 
@@ -548,7 +544,7 @@ class _StatusIcon extends StatefulWidget {
 class _StatusIconState extends State<_StatusIcon>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(
-    vsync:    this,
+    vsync: this,
     duration: const Duration(seconds: 2),
   );
 
@@ -566,7 +562,7 @@ class _StatusIconState extends State<_StatusIcon>
 
   void _sync() {
     final active = widget.status == SyncStatus.syncing ||
-                   widget.status == SyncStatus.checking;
+        widget.status == SyncStatus.checking;
     if (active && !_ctrl.isAnimating) {
       _ctrl.repeat();
     } else if (!active && _ctrl.isAnimating) {
@@ -586,11 +582,11 @@ class _StatusIconState extends State<_StatusIcon>
     return RotationTransition(
       turns: _ctrl,
       child: Container(
-        width:  40,
+        width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color:  color.withValues(alpha: 0.12),
-          shape:  BoxShape.circle,
+          color: color.withValues(alpha: 0.12),
+          shape: BoxShape.circle,
         ),
         child: Icon(icon, color: color, size: 22),
       ),
@@ -599,11 +595,14 @@ class _StatusIconState extends State<_StatusIcon>
 
   static (IconData, Color) _resolve(SyncStatus s, ColorScheme cs) =>
       switch (s) {
-        SyncStatus.checking => (Icons.sync_rounded,         cs.primary),
-        SyncStatus.syncing  => (Icons.sync_rounded,         cs.primary),
-        SyncStatus.success  => (Icons.cloud_done_outlined,  Colors.green),
-        SyncStatus.error    => (Icons.cloud_off_outlined,   cs.error),
-        SyncStatus.idle     => (Icons.cloud_outlined,       cs.onSurface.withValues(alpha: 0.5)),
+        SyncStatus.checking => (Icons.sync_rounded, cs.primary),
+        SyncStatus.syncing => (Icons.sync_rounded, cs.primary),
+        SyncStatus.success => (Icons.cloud_done_outlined, Colors.green),
+        SyncStatus.error => (Icons.cloud_off_outlined, cs.error),
+        SyncStatus.idle => (
+            Icons.cloud_outlined,
+            cs.onSurface.withValues(alpha: 0.5)
+          ),
       };
 }
 
@@ -611,8 +610,8 @@ class _StatusIconState extends State<_StatusIcon>
 
 class _ProgressSection extends StatelessWidget {
   final SyncProgress progress;
-  final ColorScheme  cs;
-  final ThemeData    theme;
+  final ColorScheme cs;
+  final ThemeData theme;
   const _ProgressSection({
     required this.progress,
     required this.cs,
@@ -628,10 +627,10 @@ class _ProgressSection extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(6),
           child: LinearProgressIndicator(
-            value:            progress.bytesFraction,
-            minHeight:        6,
-            backgroundColor:  cs.outline.withValues(alpha: 0.15),
-            valueColor:       AlwaysStoppedAnimation(cs.primary),
+            value: progress.bytesFraction,
+            minHeight: 6,
+            backgroundColor: cs.outline.withValues(alpha: 0.15),
+            valueColor: AlwaysStoppedAnimation(cs.primary),
           ),
         ),
         const SizedBox(height: 8),
@@ -642,7 +641,7 @@ class _ProgressSection extends StatelessWidget {
             Expanded(
               child: Text(
                 progress.currentFile,
-                style:    theme.textTheme.bodySmall,
+                style: theme.textTheme.bodySmall,
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
@@ -651,8 +650,8 @@ class _ProgressSection extends StatelessWidget {
             Text(
               '${progress.completed}/${progress.total}',
               style: theme.textTheme.bodySmall?.copyWith(
-                color:       cs.onSurface.withValues(alpha: 0.5),
-                fontWeight:  FontWeight.w600,
+                color: cs.onSurface.withValues(alpha: 0.5),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -663,16 +662,16 @@ class _ProgressSection extends StatelessWidget {
         Row(
           children: [
             _Chip(
-              icon:  Icons.speed_rounded,
+              icon: Icons.speed_rounded,
               label: progress.speedLabel,
-              cs:    cs,
+              cs: cs,
               theme: theme,
             ),
             const SizedBox(width: 12),
             _Chip(
-              icon:  Icons.timer_outlined,
+              icon: Icons.timer_outlined,
               label: progress.etaLabel,
-              cs:    cs,
+              cs: cs,
               theme: theme,
             ),
             const Spacer(),
@@ -692,18 +691,19 @@ class _ProgressSection extends StatelessWidget {
 
   static String _fmtBytes(int b) {
     if (b <= 0) return '0 B';
-    if (b < 1024)                return '$b B';
-    if (b < 1024 * 1024)         return '${(b / 1024).toStringAsFixed(0)} KB';
-    if (b < 1024 * 1024 * 1024)  return '${(b / 1024 / 1024).toStringAsFixed(1)} MB';
+    if (b < 1024) return '$b B';
+    if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(0)} KB';
+    if (b < 1024 * 1024 * 1024)
+      return '${(b / 1024 / 1024).toStringAsFixed(1)} MB';
     return '${(b / 1024 / 1024 / 1024).toStringAsFixed(2)} GB';
   }
 }
 
 class _Chip extends StatelessWidget {
-  final IconData    icon;
-  final String      label;
+  final IconData icon;
+  final String label;
   final ColorScheme cs;
-  final ThemeData   theme;
+  final ThemeData theme;
   const _Chip({
     required this.icon,
     required this.label,
@@ -733,7 +733,7 @@ class _Chip extends StatelessWidget {
 
 class _ActionButtons extends StatefulWidget {
   final NextcloudSync nc;
-  final BuildContext  context;
+  final BuildContext context;
   const _ActionButtons({required this.nc, required this.context});
 
   @override
@@ -772,7 +772,7 @@ class _ActionButtonsState extends State<_ActionButtons> {
                     Navigator.of(context).pop();
                   },
             style: OutlinedButton.styleFrom(
-              shape:   RoundedRectangleBorder(
+              shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
@@ -786,7 +786,8 @@ class _ActionButtonsState extends State<_ActionButtons> {
           child: ElevatedButton.icon(
             icon: _syncing
                 ? const SizedBox(
-                    width: 16, height: 16,
+                    width: 16,
+                    height: 16,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white),
                   )

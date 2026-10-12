@@ -11,26 +11,28 @@ class NextcloudPage extends StatefulWidget {
 }
 
 class _NextcloudPageState extends State<NextcloudPage> {
-  final _formKey   = GlobalKey<FormState>();
-  final _urlCtrl   = TextEditingController();
-  final _userCtrl  = TextEditingController();
-  final _passCtrl  = TextEditingController();
-  final _pathCtrl  = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _urlCtrl = TextEditingController();
+  final _userCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  final _pathCtrl = TextEditingController();
 
-  bool _obscurePass   = true;
-  bool _testingConn   = false;
-  bool _connOk        = false;
+  bool _obscurePass = true;
+  bool _testingConn = false;
+  bool _connOk = false;
   bool _uploadEnabled = true;
-  bool _dirty         = false;
+  bool _allowInsecureHttp = false;
+  bool _dirty = false;
 
   @override
   void initState() {
     super.initState();
     final nc = NextcloudSync();
-    _urlCtrl.text   = nc.serverUrl;
-    _userCtrl.text  = nc.username;
-    _pathCtrl.text  = nc.remotePath;
-    _uploadEnabled  = nc.uploadEnabled;
+    _urlCtrl.text = nc.serverUrl;
+    _userCtrl.text = nc.username;
+    _pathCtrl.text = nc.remotePath;
+    _uploadEnabled = nc.uploadEnabled;
+    _allowInsecureHttp = nc.allowInsecureHttp;
   }
 
   @override
@@ -48,17 +50,22 @@ class _NextcloudPageState extends State<NextcloudPage> {
     if (!_formKey.currentState!.validate()) return;
     final nc = NextcloudSync();
     await nc.saveConfig(
-      serverUrl:     _urlCtrl.text.trim(),
-      username:      _userCtrl.text.trim(),
-      password:      _passCtrl.text.isNotEmpty
+      serverUrl: _urlCtrl.text.trim(),
+      username: _userCtrl.text.trim(),
+      password: _passCtrl.text.isNotEmpty
           ? _passCtrl.text
           : nc.serverUrl == _urlCtrl.text.trim()
               ? await _loadSavedPassword()
               : _passCtrl.text,
-      remotePath:    _pathCtrl.text.trim(),
+      remotePath: _pathCtrl.text.trim(),
       uploadEnabled: _uploadEnabled,
+      allowInsecureHttp: _allowInsecureHttp,
     );
-    setState(() { _dirty = false; _connOk = false; });
+    if (!mounted) return;
+    setState(() {
+      _dirty = false;
+      _connOk = false;
+    });
     _snack('Configuration saved');
   }
 
@@ -70,19 +77,29 @@ class _NextcloudPageState extends State<NextcloudPage> {
 
   Future<void> _testConnection() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _testingConn = true; _connOk = false; });
+    setState(() {
+      _testingConn = true;
+      _connOk = false;
+    });
 
     final nc = NextcloudSync();
     await nc.saveConfig(
-      serverUrl:     _urlCtrl.text.trim(),
-      username:      _userCtrl.text.trim(),
-      password:      _passCtrl.text,
-      remotePath:    _pathCtrl.text.trim(),
+      serverUrl: _urlCtrl.text.trim(),
+      username: _userCtrl.text.trim(),
+      password: _passCtrl.text,
+      remotePath: _pathCtrl.text.trim(),
       uploadEnabled: _uploadEnabled,
+      allowInsecureHttp: _allowInsecureHttp,
     );
+    if (!mounted) return;
 
     final ok = await nc.testConnection();
-    setState(() { _testingConn = false; _connOk = ok; _dirty = false; });
+    if (!mounted) return;
+    setState(() {
+      _testingConn = false;
+      _connOk = ok;
+      _dirty = false;
+    });
     _snack(ok
         ? '✓ Connected to Nextcloud!'
         : '✗ Connection failed — check URL / credentials');
@@ -92,7 +109,7 @@ class _NextcloudPageState extends State<NextcloudPage> {
   //         that is definitely inside the MultiProvider scope, not the
   //         StatefulWidget's own context which may sit above it in the tree.
   Future<void> _manualSync(BuildContext ctx) async {
-    final nc     = NextcloudSync();
+    final nc = NextcloudSync();
     final player = Provider.of<NPlayer>(ctx, listen: false);
     await nc.manualSync(
       onReloadNeeded: () => player.reloadSongs(),
@@ -101,8 +118,7 @@ class _NextcloudPageState extends State<NextcloudPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -133,62 +149,76 @@ class _NextcloudPageState extends State<NextcloudPage> {
 
             _SectionHeader('Sync'),
             SwitchListTile(
-              title:       const Text('Enable Nextcloud Sync'),
-              subtitle:    Text(
+              title: const Text('Enable Nextcloud Sync'),
+              subtitle: Text(
                 nc.enabled
                     ? 'Blossom will check for changes on startup'
                     : 'Sync is disabled',
               ),
-              value:       nc.enabled,
+              value: nc.enabled,
               activeColor: colors.secondary,
-              onChanged:   nc.isConfigured
-                  ? (v) => nc.setEnabled(v)
-                  : null,
+              onChanged: nc.isConfigured ? (v) => nc.setEnabled(v) : null,
             ),
             SwitchListTile(
-              title:       const Text('Upload local songs'),
-              subtitle:    const Text(
+              title: const Text('Upload local songs'),
+              subtitle: const Text(
                   'Send songs that are on this device but not on Nextcloud'),
-              value:       _uploadEnabled,
+              value: _uploadEnabled,
               activeColor: colors.secondary,
               onChanged: (v) {
-                setState(() { _uploadEnabled = v; _dirty = true; });
+                setState(() {
+                  _uploadEnabled = v;
+                  _dirty = true;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: const Text('Allow insecure HTTP'),
+              subtitle: const Text(
+                  'Only use for a trusted local network. Your password is sent without transport encryption.'),
+              value: _allowInsecureHttp,
+              activeColor: colors.error,
+              onChanged: (value) {
+                setState(() {
+                  _allowInsecureHttp = value;
+                  _dirty = true;
+                });
               },
             ),
             const Divider(height: 32),
 
             _SectionHeader('Server'),
             Form(
-              key:       _formKey,
+              key: _formKey,
               onChanged: _markDirty,
               child: Column(
                 children: [
                   _Field(
                     controller: _urlCtrl,
-                    label:      'Server URL',
-                    hint:       'http://100.98.86.86:8080',
-                    icon:       Icons.dns_outlined,
-                    validator:  (v) => (v == null || v.isEmpty)
+                    label: 'Server URL',
+                    hint: 'http://100.98.86.86:8080',
+                    icon: Icons.dns_outlined,
+                    validator: (v) => (v == null || v.isEmpty)
                         ? 'Enter the server URL'
                         : null,
                   ),
                   const SizedBox(height: 12),
                   _Field(
                     controller: _userCtrl,
-                    label:      'Username',
-                    hint:       'your_nextcloud_user',
-                    icon:       Icons.person_outlined,
-                    validator:  (v) => (v == null || v.isEmpty)
-                        ? 'Enter your username'
-                        : null,
+                    label: 'Username',
+                    hint: 'your_nextcloud_user',
+                    icon: Icons.person_outlined,
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Enter your username' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller:  _passCtrl,
+                    controller: _passCtrl,
                     obscureText: _obscurePass,
                     decoration: InputDecoration(
-                      labelText:  'Password',
-                      hintText:   nc.isConfigured ? '(unchanged)' : 'your_password',
+                      labelText: 'Password',
+                      hintText:
+                          nc.isConfigured ? '(unchanged)' : 'your_password',
                       prefixIcon: const Icon(Icons.lock_outlined),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -211,10 +241,10 @@ class _NextcloudPageState extends State<NextcloudPage> {
                   const SizedBox(height: 12),
                   _Field(
                     controller: _pathCtrl,
-                    label:      'Remote Music Folder',
-                    hint:       '/Music',
-                    icon:       Icons.folder_outlined,
-                    validator:  (v) => (v == null || v.isEmpty)
+                    label: 'Remote Music Folder',
+                    hint: '/Music',
+                    icon: Icons.folder_outlined,
+                    validator: (v) => (v == null || v.isEmpty)
                         ? 'Enter the remote folder path'
                         : null,
                   ),
@@ -223,8 +253,8 @@ class _NextcloudPageState extends State<NextcloudPage> {
                     'Path inside Nextcloud where your music lives.\n'
                     'Files sync to/from your primary Blossom music directory.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.onSurface.withValues(alpha: 0.5),
-                    ),
+                          color: colors.onSurface.withValues(alpha: 0.5),
+                        ),
                   ),
                 ],
               ),
@@ -238,7 +268,8 @@ class _NextcloudPageState extends State<NextcloudPage> {
                   child: OutlinedButton.icon(
                     icon: _testingConn
                         ? const SizedBox(
-                            width: 16, height: 16,
+                            width: 16,
+                            height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Icon(_connOk
@@ -251,7 +282,7 @@ class _NextcloudPageState extends State<NextcloudPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    icon:  const Icon(Icons.save_outlined),
+                    icon: const Icon(Icons.save_outlined),
                     label: const Text('Save'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: colors.secondary,
@@ -272,7 +303,7 @@ class _NextcloudPageState extends State<NextcloudPage> {
             //         a descendant of the root MultiProvider.
             if (nc.isConfigured)
               _ManualSyncButton(
-                nc:     nc,
+                nc: nc,
                 onSync: () => _manualSync(context),
               ),
 
@@ -280,7 +311,7 @@ class _NextcloudPageState extends State<NextcloudPage> {
 
             _SectionHeader('How it works'),
             _InfoCard(
-              icon:  Icons.info_outline,
+              icon: Icons.info_outline,
               color: colors.secondary,
               text:
                   'When the app starts, Blossom quickly compares your local music '
@@ -308,11 +339,14 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final (icon, color) = switch (nc.status) {
-      SyncStatus.syncing  => (Icons.sync,           colors.primary),
-      SyncStatus.checking => (Icons.search,          colors.primary),
-      SyncStatus.success  => (Icons.check_circle,    Colors.green),
-      SyncStatus.error    => (Icons.error_outline,   colors.error),
-      SyncStatus.idle     => (Icons.cloud_outlined,  colors.onSurface.withValues(alpha: 0.4)),
+      SyncStatus.syncing => (Icons.sync, colors.primary),
+      SyncStatus.checking => (Icons.search, colors.primary),
+      SyncStatus.success => (Icons.check_circle, Colors.green),
+      SyncStatus.error => (Icons.error_outline, colors.error),
+      SyncStatus.idle => (
+          Icons.cloud_outlined,
+          colors.onSurface.withValues(alpha: 0.4)
+        ),
     };
 
     return Card(
@@ -328,9 +362,11 @@ class _StatusCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                nc.status == SyncStatus.syncing || nc.status == SyncStatus.checking
+                nc.status == SyncStatus.syncing ||
+                        nc.status == SyncStatus.checking
                     ? SizedBox(
-                        width: 20, height: 20,
+                        width: 20,
+                        height: 20,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: color),
                       )
@@ -346,80 +382,82 @@ class _StatusCard extends StatelessWidget {
             ),
 // Replace the progress section inside _StatusCard.build()
 
-if (nc.progress != null) ...[
-  const SizedBox(height: 10),
-  // Byte-level progress bar (more accurate than file count)
-  LinearProgressIndicator(
-    value:           nc.progress!.bytesFraction,
-    backgroundColor: colors.outline.withValues(alpha: 0.15),
-    valueColor:      AlwaysStoppedAnimation(colors.secondary),
-    borderRadius:    BorderRadius.circular(4),
-  ),
-  const SizedBox(height: 6),
-  Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      // Current file + file count
-      Expanded(
-        child: Text(
-          '${nc.progress!.currentFile}',
-          style:    Theme.of(context).textTheme.bodySmall,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-      const SizedBox(width: 8),
-      // File count
-      Text(
-        '${nc.progress!.completed}/${nc.progress!.total}',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: colors.onSurface.withValues(alpha: 0.5),
-        ),
-      ),
-    ],
-  ),
-  const SizedBox(height: 4),
-  Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      // Speed
-      Row(
-        children: [
-          Icon(Icons.speed, size: 12,
-              color: colors.onSurface.withValues(alpha: 0.4)),
-          const SizedBox(width: 4),
-          Text(
-            nc.progress!.speedLabel,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colors.onSurface.withValues(alpha: 0.5),
-              fontFeatures: [const FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
-      // ETA
-      Row(
-        children: [
-          Icon(Icons.timer_outlined, size: 12,
-              color: colors.onSurface.withValues(alpha: 0.4)),
-          const SizedBox(width: 4),
-          Text(
-            nc.progress!.etaLabel,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colors.onSurface.withValues(alpha: 0.5),
-            ),
-          ),
-        ],
-      ),
-    ],
-  ),
-],
+            if (nc.progress != null) ...[
+              const SizedBox(height: 10),
+              // Byte-level progress bar (more accurate than file count)
+              LinearProgressIndicator(
+                value: nc.progress!.bytesFraction,
+                backgroundColor: colors.outline.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation(colors.secondary),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Current file + file count
+                  Expanded(
+                    child: Text(
+                      '${nc.progress!.currentFile}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // File count
+                  Text(
+                    '${nc.progress!.completed}/${nc.progress!.total}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.onSurface.withValues(alpha: 0.5),
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Speed
+                  Row(
+                    children: [
+                      Icon(Icons.speed,
+                          size: 12,
+                          color: colors.onSurface.withValues(alpha: 0.4)),
+                      const SizedBox(width: 4),
+                      Text(
+                        nc.progress!.speedLabel,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.onSurface.withValues(alpha: 0.5),
+                          fontFeatures: [const FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                  // ETA
+                  Row(
+                    children: [
+                      Icon(Icons.timer_outlined,
+                          size: 12,
+                          color: colors.onSurface.withValues(alpha: 0.4)),
+                      const SizedBox(width: 4),
+                      Text(
+                        nc.progress!.etaLabel,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colors.onSurface.withValues(alpha: 0.5),
+                            ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
             if (nc.lastSyncTime != null) ...[
               const SizedBox(height: 8),
               Text(
                 'Last synced: ${_formatTime(nc.lastSyncTime!)}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.onSurface.withValues(alpha: 0.5),
-                ),
+                      color: colors.onSurface.withValues(alpha: 0.5),
+                    ),
               ),
             ],
           ],
@@ -431,35 +469,36 @@ if (nc.progress != null) ...[
   String _formatTime(DateTime dt) {
     final diff = DateTime.now().difference(dt);
     if (diff.inMinutes < 1) return 'just now';
-    if (diff.inHours   < 1) return '${diff.inMinutes}m ago';
-    if (diff.inDays    < 1) return '${diff.inHours}h ago';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
     return '${dt.day}/${dt.month}/${dt.year}';
   }
 }
 
 class _ManualSyncButton extends StatelessWidget {
   final NextcloudSync nc;
-  final VoidCallback  onSync;
+  final VoidCallback onSync;
   const _ManualSyncButton({required this.nc, required this.onSync});
 
   @override
   Widget build(BuildContext context) {
-    final busy = nc.status == SyncStatus.syncing ||
-        nc.status == SyncStatus.checking;
+    final busy =
+        nc.status == SyncStatus.syncing || nc.status == SyncStatus.checking;
     final colors = Theme.of(context).colorScheme;
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        icon:  busy
+        icon: busy
             ? const SizedBox(
-                width: 16, height: 16,
+                width: 16,
+                height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2))
             : const Icon(Icons.sync),
         label: Text(busy ? 'Syncing…' : 'Sync Now'),
         onPressed: busy ? null : onSync,
         style: OutlinedButton.styleFrom(
           foregroundColor: colors.secondary,
-          side:  BorderSide(color: colors.secondary.withValues(alpha: 0.5)),
+          side: BorderSide(color: colors.secondary.withValues(alpha: 0.5)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(vertical: 12),
         ),
@@ -474,16 +513,16 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8, top: 4),
-    child: Text(
-      text,
-      style: TextStyle(
-        fontSize:   16,
-        fontWeight: FontWeight.bold,
-        color:      Theme.of(context).colorScheme.secondary,
-      ),
-    ),
-  );
+        padding: const EdgeInsets.only(bottom: 8, top: 4),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.secondary,
+          ),
+        ),
+      );
 }
 
 class _Field extends StatelessWidget {
@@ -502,46 +541,48 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TextFormField(
-    controller: controller,
-    validator:  validator,
-    decoration: InputDecoration(
-      labelText:  label,
-      hintText:   hint,
-      prefixIcon: Icon(icon),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-    ),
-  );
+        controller: controller,
+        validator: validator,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          prefixIcon: Icon(icon),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
 }
 
 class _InfoCard extends StatelessWidget {
   final IconData icon;
-  final Color    color;
-  final String   text;
-  const _InfoCard({required this.icon, required this.color, required this.text});
+  final Color color;
+  final String text;
+  const _InfoCard(
+      {required this.icon, required this.color, required this.text});
 
   @override
   Widget build(BuildContext context) => Card(
-    elevation: 0,
-    color: Theme.of(context).colorScheme.surfaceVariant.withValues(alpha: 0.4),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    child: Padding(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(height: 1.5),
-            ),
+        elevation: 0,
+        color:
+            Theme.of(context).colorScheme.surfaceVariant.withValues(alpha: 0.4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  text,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(height: 1.5),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }

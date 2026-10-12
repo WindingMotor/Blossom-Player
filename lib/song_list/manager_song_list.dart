@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
 import 'dart:typed_data';
@@ -36,7 +37,8 @@ class _AlbumArt extends StatelessWidget {
             ? Image.memory(picture!, fit: BoxFit.cover)
             : Container(
                 color: theme.colorScheme.surface,
-                child: Icon(Icons.music_note, color: theme.colorScheme.onSurface),
+                child:
+                    Icon(Icons.music_note, color: theme.colorScheme.onSurface),
               ),
       ),
     );
@@ -46,7 +48,7 @@ class _AlbumArt extends StatelessWidget {
 class ManagerSongListState extends State<ManagerSongList> {
   Set<Music> selectedSongs = {};
   ScrollController scrollController = ScrollController();
-  
+
   @override
   void dispose() {
     scrollController.dispose();
@@ -54,7 +56,7 @@ class ManagerSongListState extends State<ManagerSongList> {
   }
 
   void _editSongMetadata(Music song) {
-    showModalBottomSheet(
+    showBlossomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -122,8 +124,11 @@ class ManagerSongListState extends State<ManagerSongList> {
                 Text(
                   Utils.formatMilliseconds(song.duration),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.6),
+                      ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(

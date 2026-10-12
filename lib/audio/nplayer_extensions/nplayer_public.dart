@@ -1,5 +1,18 @@
 part of '../nplayer.dart';
 
+String? _compressPublicAlbumArt(Uint8List bytes) {
+  final image = img.decodeImage(bytes);
+  if (image == null) return null;
+  final resized = img.copyResize(image, width: 300, height: 300);
+  var quality = 85;
+  var compressed = img.encodeJpg(resized, quality: quality);
+  while (compressed.length > 100000 && quality > 30) {
+    quality -= 10;
+    compressed = img.encodeJpg(resized, quality: quality);
+  }
+  return base64Encode(compressed);
+}
+
 /// UUID Validator - matches server-side validation
 class Validator {
   static bool isValidUuid(String? uuid) {
@@ -23,16 +36,16 @@ class Validator {
   }
 }
 
-
 /// Extension for public music sharing features
 extension NPlayerPublic on NPlayer {
-  static const String _serverUrl = 'https://blossom-server-production.up.railway.app';
-  
+  static const String _serverUrl =
+      'https://blossom-server-production.up.railway.app';
+
   // Public getters
   String get userUuid => Settings.uuid;
   String? get publicUsername => Settings.publicUsername;
   bool get isSharingEnabled => Settings.isPublicSharingEnabled;
-  
+
   /// Initialize public sharing (call this in NPlayer._initialize)
   Future<void> _initializePublicSharing() async {
     Log.d(LogTag.social, 'Initializing public sharing...');
@@ -48,9 +61,10 @@ extension NPlayerPublic on NPlayer {
     }
 
     _startHeartbeatTimer();
-    Log.i(LogTag.social, 'Public sharing initialized — enabled: ${Settings.isPublicSharingEnabled}');
+    Log.i(LogTag.social,
+        'Public sharing initialized — enabled: ${Settings.isPublicSharingEnabled}');
   }
-  
+
   /// Start periodic heartbeat when enabled
   void _startHeartbeatTimer() {
     _heartbeatTimer?.cancel();
@@ -61,7 +75,6 @@ extension NPlayerPublic on NPlayer {
     });
   }
 
-
   /// Update public status on server
   Future<void> updatePublicStatus() async {
     if (!Settings.isPublicSharingEnabled) return;
@@ -69,57 +82,53 @@ extension NPlayerPublic on NPlayer {
     final currentSong = getCurrentSong();
     if (currentSong == null) return;
 
-    Log.d(LogTag.social, 'Updating status: ${currentSong.title} — ${currentSong.artist}');
+    Log.d(LogTag.social,
+        'Updating status: ${currentSong.title} — ${currentSong.artist}');
 
     try {
       String? albumArtBase64;
       if (currentSong.picture != null && currentSong.picture!.isNotEmpty) {
         try {
-          img.Image? image = img.decodeImage(currentSong.picture!);
-          if (image != null) {
-            img.Image resized = img.copyResize(image, width: 300, height: 300);
-            int quality = 85;
-            List<int> compressed = img.encodeJpg(resized, quality: quality);
-            while (compressed.length > 100000 && quality > 30) {
-              quality -= 10;
-              compressed = img.encodeJpg(resized, quality: quality);
-            }
-            albumArtBase64 = base64Encode(compressed);
-            Log.v(LogTag.social, 'Album art compressed: ${compressed.length}B (q$quality)');
-          }
+          albumArtBase64 =
+              await compute(_compressPublicAlbumArt, currentSong.picture!);
         } catch (e) {
           Log.w(LogTag.social, 'Failed to compress album art: $e');
         }
       }
 
-      final response = await http.post(
-        Uri.parse('$_serverUrl/user/update'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'uuid': Settings.uuid,
-          'username': Settings.publicUsername ?? 'Music Lover',
-          'currentSong': currentSong.title,
-          'currentArtist': currentSong.artist,
-          'albumArt': albumArtBase64,
-        }),
-      ).timeout(
-        Duration(seconds: 10),
-        onTimeout: () => throw TimeoutException('Server request timed out'),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$_serverUrl/user/update'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'uuid': Settings.uuid,
+              'username': Settings.publicUsername ?? 'Music Lover',
+              'currentSong': currentSong.title,
+              'currentArtist': currentSong.artist,
+              'albumArt': albumArtBase64,
+            }),
+          )
+          .timeout(
+            Duration(seconds: 10),
+            onTimeout: () => throw TimeoutException('Server request timed out'),
+          );
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
-        if (jsonResponse is Map<String, dynamic> && jsonResponse['success'] != true) {
-          Log.w(LogTag.social, 'Server returned success=false: ${jsonResponse['error']}');
+        if (jsonResponse is Map<String, dynamic> &&
+            jsonResponse['success'] != true) {
+          Log.w(LogTag.social,
+              'Server returned success=false: ${jsonResponse['error']}');
         }
       } else {
-        Log.w(LogTag.social, 'Server error ${response.statusCode}: ${response.body}');
+        Log.w(LogTag.social,
+            'Server error ${response.statusCode}: ${response.body}');
       }
     } catch (e, stackTrace) {
       Log.e(LogTag.social, 'Exception during status update: $e', stackTrace);
     }
   }
-  
+
   /// Fetch another user's current status
   Future<PublicUserStatus?> fetchUserStatus(String uuid) async {
     if (!Validator.isValidUuid(uuid)) return null;
@@ -140,7 +149,8 @@ extension NPlayerPublic on NPlayer {
           return null;
         }
 
-        if (jsonResponse.containsKey('success') && jsonResponse['success'] == true) {
+        if (jsonResponse.containsKey('success') &&
+            jsonResponse['success'] == true) {
           final data = jsonResponse['data'];
           if (data == null) return null;
           return PublicUserStatus.fromJson(data);
@@ -161,16 +171,18 @@ extension NPlayerPublic on NPlayer {
       return null;
     }
   }
-  
+
   /// Send heartbeat to keep status alive
   Future<void> _sendHeartbeat() async {
     if (!Settings.isPublicSharingEnabled) return;
     try {
-      final response = await http.post(
-        Uri.parse('$_serverUrl/user/heartbeat'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'uuid': Settings.uuid}),
-      ).timeout(Duration(seconds: 5));
+      final response = await http
+          .post(
+            Uri.parse('$_serverUrl/user/heartbeat'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'uuid': Settings.uuid}),
+          )
+          .timeout(Duration(seconds: 5));
       if (response.statusCode != 200) {
         Log.w(LogTag.social, 'Heartbeat failed: ${response.statusCode}');
       }
@@ -178,7 +190,7 @@ extension NPlayerPublic on NPlayer {
       Log.w(LogTag.social, 'Heartbeat error: $e');
     }
   }
-  
+
   /// Toggle public sharing on/off
   Future<void> togglePublicSharing(bool enabled) async {
     await Settings.setPublicSharingEnabled(enabled);
@@ -198,14 +210,14 @@ extension NPlayerPublic on NPlayer {
   Future<void> setPublicUsername(String username) async {
     await Settings.setPublicUsername(username);
     Log.d(LogTag.social, 'Username saved: ${Settings.publicUsername}');
-    if (Settings.isPublicSharingEnabled && _isPlaying) await updatePublicStatus();
+    if (Settings.isPublicSharingEnabled && _isPlaying)
+      await updatePublicStatus();
     _internalNotifyListeners();
   }
 
   /// Get shareable UUID for friends
   String getShareableId() => Settings.uuid;
 }
-
 
 /// Public user status data class
 class PublicUserStatus {
@@ -256,11 +268,11 @@ class PublicUserStatus {
     if (currentSong == null || currentSong!.isEmpty) return 'Online';
     return 'Listening to $currentSong';
   }
-  
+
   String get lastSeenAgo {
     final now = DateTime.now();
     final difference = now.difference(lastSeen);
-    
+
     if (difference.inSeconds < 60) return 'Just now';
     if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
     if (difference.inHours < 24) return '${difference.inHours}h ago';

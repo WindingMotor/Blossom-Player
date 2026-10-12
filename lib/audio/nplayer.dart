@@ -173,8 +173,15 @@ class NPlayer extends ChangeNotifier {
   // Pre-shuffle queue snapshot for the 'reversible' shuffle behavior.
   List<Music>? _preShuffleQueue;
 
+  // Playback source changes are serialized so rapid taps cannot interleave
+  // queue, media-session, player, and persistence updates.
+  Future<void> _playbackTransition = Future<void>.value();
+  int _playbackRequestId = 0;
+  Future<void>? _reloadFuture;
+
   Map<String, List<Music>> _albumMap = {};
   Map<String, List<Music>> _folderMap = {};
+  int _libraryRevision = 0;
   PlaybackSource _playbackSource =
       const PlaybackSource(PlaybackSourceType.library);
 
@@ -197,6 +204,7 @@ class NPlayer extends ChangeNotifier {
   Duration? get remainingTime => _remainingTime;
   Map<String, List<Music>> get albumMap => _albumMap;
   Map<String, List<Music>> get folderMap => _folderMap;
+  int get libraryRevision => _libraryRevision;
   PlaybackSource get playbackSource => _playbackSource;
 
   /// True when the queue is shuffled and the original order can be restored
@@ -209,6 +217,14 @@ class NPlayer extends ChangeNotifier {
   bool _isDisposed = false;
   Completer<void>? _initializationCompleter;
   final List<StreamSubscription> _audioPlayerSubscriptions = [];
+
+  bool get isInitialized => _isInitialized;
+
+  Future<void> get initialized async {
+    if (_isInitialized) return;
+    final completer = _initializationCompleter;
+    if (completer != null) await completer.future;
+  }
 
   Duration get duration {
     final song = getCurrentSong();
@@ -227,7 +243,11 @@ class NPlayer extends ChangeNotifier {
   // MARK: Constructor and Initialization
   // Helper to allow extensions to trigger notifyListeners correctly
   void _internalNotifyListeners() {
-    notifyListeners();
+    if (!_isDisposed) notifyListeners();
+  }
+
+  void _bumpLibraryRevision() {
+    _libraryRevision++;
   }
 
   NPlayer() {
@@ -426,13 +446,20 @@ class NPlayer extends ChangeNotifier {
       sub.cancel();
     }
     _audioPlayerSubscriptions.clear();
-    _audioPlayer.dispose();
     positionNotifier.dispose();
     _debounceTimer?.cancel();
     _headsetDebounce?.cancel();
     _sleepTimer?.cancel();
     _fadeTimer?.cancel();
     _heartbeatTimer?.cancel();
+    unawaited(_disposeAsyncResources());
     super.dispose();
+  }
+
+  Future<void> _disposeAsyncResources() async {
+    await _audioHandler?.dispose();
+    await _server?.stop();
+    await _songCache.close();
+    await _audioPlayer.dispose();
   }
 }

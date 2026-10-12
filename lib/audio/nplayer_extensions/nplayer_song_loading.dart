@@ -13,11 +13,36 @@ extension NPlayerSongLoading on NPlayer {
   /// Clears all existing songs and rescans directories.
   /// Cache is still used for unchanged files.
   Future<void> reloadSongs() async {
+    final inProgress = _reloadFuture;
+    if (inProgress != null) return inProgress;
+
+    final reload = _reloadSongsPreservingPlayback();
+    _reloadFuture = reload;
+    try {
+      await reload;
+    } finally {
+      if (identical(_reloadFuture, reload)) _reloadFuture = null;
+    }
+  }
+
+  Future<void> _reloadSongsPreservingPlayback() async {
     Log.i(LogTag.songLoading, 'Reloading songs from disk');
+    final oldQueue = List<Music>.from(_playingSongs);
+    final oldCurrentIndex = _currentSongIndex;
     _allSongs.clear();
-    _playingSongs.clear();
-    _currentSongIndex = null;
     await _loadSongs();
+
+    // Replace queued objects with freshly scanned metadata while retaining
+    // external/missing tracks and the active source until playback finishes.
+    final refreshedByPath = {for (final song in _allSongs) song.path: song};
+    _playingSongs = [
+      for (final queued in oldQueue) refreshedByPath[queued.path] ?? queued,
+    ];
+    _currentSongIndex = oldCurrentIndex != null &&
+            oldCurrentIndex >= 0 &&
+            oldCurrentIndex < _playingSongs.length
+        ? oldCurrentIndex
+        : null;
     buildAlbumMaps();
     sortSongs();
     _internalNotifyListeners();
@@ -129,42 +154,26 @@ extension NPlayerSongLoading on NPlayer {
 
       Log.d(LogTag.songLoading, 'Scanning ${directories.length} directories');
 
-      // 3. Process Directories with TIMEOUT safety
+      // 3. Process every directory. Large libraries and slow/network-backed
+      // storage are allowed to take as long as needed; returning a partial
+      // library is worse than keeping the loading screen visible.
       final Set<String> validPaths = {};
       final Set<String> loadedPaths = {};
       int cacheHits = 0;
       int cacheMisses = 0;
 
-      // SAFETY: Limit total scan time to avoid freezing on huge/slow storage
-      final scanDeadline = DateTime.now().add(const Duration(seconds: 15));
-      bool scanTimedOut = false;
-
       for (var dir in directories) {
-        if (DateTime.now().isAfter(scanDeadline)) {
-          scanTimedOut = true;
-          break;
-        }
-
-        final result = await _processDirectoryFast(
-            dir, validPaths, loadedPaths, cacheMap, scanDeadline);
+        final result =
+            await _processDirectoryFast(dir, validPaths, loadedPaths, cacheMap);
         cacheHits += result['hits'] as int;
         cacheMisses += result['misses'] as int;
-        if (result['timedOut'] == 1) scanTimedOut = true;
-      }
-
-      if (scanTimedOut) {
-        Log.w(LogTag.songLoading,
-            'Scan timed out after 15s — library may be incomplete (${_allSongs.length} songs loaded so far)');
       }
 
       Log.d(LogTag.songLoading, 'Cache: $cacheHits hits, $cacheMisses misses');
 
-      // 4. Clean Cache — but never against a partial scan, or entries for
-      // files we simply didn't reach would be evicted.
-      if (validPaths.isNotEmpty && !scanTimedOut) {
+      // 4. Clean Cache only after the complete scan has finished.
+      if (validPaths.isNotEmpty) {
         await _songCache.cleanInvalidEntries(validPaths);
-        await _songCache.save();
-      } else if (validPaths.isNotEmpty) {
         await _songCache.save();
       }
 
@@ -177,6 +186,7 @@ extension NPlayerSongLoading on NPlayer {
       await _loadFavorites();
       _filterAndSortSongs();
       buildAlbumMaps();
+      _bumpLibraryRevision();
 
       _internalNotifyListeners(); // CRITICAL: Updates the UI to remove loading spinner!
     } catch (e, stack) {
@@ -186,28 +196,20 @@ extension NPlayerSongLoading on NPlayer {
   }
 
   /// Fast directory processing with in-memory cache.
-  /// Honors [deadline] at every level of the recursion so the 15s scan cap
-  /// works even when everything lives under a single deep directory tree.
   Future<Map<String, int>> _processDirectoryFast(
     Directory directory,
     Set<String> validPaths,
     Set<String> loadedPaths,
     Map<String, CachedSongEntry> cacheMap,
-    DateTime deadline,
   ) async {
     int hits = 0;
     int misses = 0;
-    int timedOut = 0;
 
     try {
       List<FileSystemEntity> entities =
           await directory.list(recursive: false).toList();
 
       for (final entity in entities) {
-        if (DateTime.now().isAfter(deadline)) {
-          timedOut = 1;
-          break;
-        }
         if (entity is File) {
           final extension = path.extension(entity.path).toLowerCase();
           if (_isSupportedAudioFormat(extension)) {
@@ -221,13 +223,9 @@ extension NPlayerSongLoading on NPlayer {
         } else if (entity is Directory) {
           // Recursively process subdirectories
           final result = await _processDirectoryFast(
-              entity, validPaths, loadedPaths, cacheMap, deadline);
+              entity, validPaths, loadedPaths, cacheMap);
           hits += result['hits'] as int;
           misses += result['misses'] as int;
-          if (result['timedOut'] == 1) {
-            timedOut = 1;
-            break;
-          }
         }
       }
     } catch (e) {
@@ -235,7 +233,7 @@ extension NPlayerSongLoading on NPlayer {
           'Error processing directory ${directory.path}: $e');
     }
 
-    return {'hits': hits, 'misses': misses, 'timedOut': timedOut};
+    return {'hits': hits, 'misses': misses};
   }
 
   /// Fast file processing with in-memory cache lookup

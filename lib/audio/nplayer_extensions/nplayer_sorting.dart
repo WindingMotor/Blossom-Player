@@ -24,21 +24,26 @@ extension NPlayerSorting on NPlayer {
 
   List<Music> _performSmartSearch(String query) {
     final searchTerms = _parseSearchQuery(query);
-    
+
     // Multi-stage search approach
     List<Music> results = [];
-    
+
     // Stage 1: Exact matches (highest priority)
     results.addAll(_findExactMatches(searchTerms));
-    
+    final matched = results.map((song) => song.path).toSet();
+
     // Stage 2: Prefix matches
-    final remainingSongs = _allSongs.where((song) => !results.contains(song)).toList();
-    results.addAll(_findPrefixMatches(remainingSongs, searchTerms));
-    
+    final remainingSongs =
+        _allSongs.where((song) => !matched.contains(song.path)).toList();
+    final prefixMatches = _findPrefixMatches(remainingSongs, searchTerms);
+    results.addAll(prefixMatches);
+    matched.addAll(prefixMatches.map((song) => song.path));
+
     // Stage 3: Fuzzy search for remaining songs
-    final stillRemaining = _allSongs.where((song) => !results.contains(song)).toList();
+    final stillRemaining =
+        _allSongs.where((song) => !matched.contains(song.path)).toList();
     results.addAll(_performFuzzySearch(stillRemaining, query));
-    
+
     return results;
   }
 
@@ -47,10 +52,10 @@ extension NPlayerSorting on NPlayer {
     final artistFilter = <String>[];
     final albumFilter = <String>[];
     final yearFilter = <String>[];
-    
+
     // Parse special search operators
     final words = query.split(' ');
-    
+
     for (final word in words) {
       if (word.startsWith('artist:')) {
         final value = word.substring(7).toLowerCase();
@@ -65,7 +70,7 @@ extension NPlayerSorting on NPlayer {
         terms.add(word);
       }
     }
-    
+
     return SearchTerms(
       generalTerms: terms,
       artistFilter: artistFilter,
@@ -77,98 +82,104 @@ extension NPlayerSorting on NPlayer {
   List<Music> _findExactMatches(SearchTerms searchTerms) {
     final results = <Music>[];
     final queryString = searchTerms.generalTerms.join(' ');
-    
+
     for (final song in _allSongs) {
       bool matches = true;
-      
+
       // Check filters first
       if (searchTerms.artistFilter.isNotEmpty) {
-        matches = searchTerms.artistFilter.any((filter) => 
-          song.artist.toLowerCase().contains(filter));
+        matches = searchTerms.artistFilter
+            .any((filter) => song.artist.toLowerCase().contains(filter));
       }
-      
+
       if (matches && searchTerms.albumFilter.isNotEmpty) {
-        matches = searchTerms.albumFilter.any((filter) => 
-          song.album.toLowerCase().contains(filter));
+        matches = searchTerms.albumFilter
+            .any((filter) => song.album.toLowerCase().contains(filter));
       }
-      
+
       if (matches && searchTerms.yearFilter.isNotEmpty) {
-        matches = searchTerms.yearFilter.any((filter) => 
-          song.year.contains(filter));
+        matches =
+            searchTerms.yearFilter.any((filter) => song.year.contains(filter));
       }
-      
+
       // Check general terms
       if (matches && searchTerms.generalTerms.isNotEmpty) {
         final titleLower = song.title.toLowerCase();
         final artistLower = song.artist.toLowerCase();
         final albumLower = song.album.toLowerCase();
-        
+
         // Exact title match (highest priority)
         if (titleLower == queryString) {
           results.insert(0, song);
           continue;
         }
-        
+
         // All terms must be found somewhere
         matches = searchTerms.generalTerms.every((term) =>
-          titleLower.contains(term) ||
-          artistLower.contains(term) ||
-          albumLower.contains(term)
-        );
+            titleLower.contains(term) ||
+            artistLower.contains(term) ||
+            albumLower.contains(term));
       }
-      
-      if (matches && !results.contains(song)) {
+
+      // Each library song is visited once, so no duplicate membership scan is
+      // needed here (that scan made broad searches quadratic).
+      if (matches) {
         results.add(song);
       }
     }
-    
+
     return results;
   }
 
   List<Music> _findPrefixMatches(List<Music> songs, SearchTerms searchTerms) {
     final results = <Music>[];
-    
+
     if (searchTerms.generalTerms.isEmpty) return results;
-    
+
     final queryString = searchTerms.generalTerms.join(' ');
-    
+
     for (final song in songs) {
       final titleLower = song.title.toLowerCase();
       final artistLower = song.artist.toLowerCase();
-      
+
       // Title starts with query
       if (titleLower.startsWith(queryString)) {
         results.insert(0, song);
         continue;
       }
-      
+
       // Artist starts with query
       if (artistLower.startsWith(queryString)) {
         results.add(song);
         continue;
       }
-      
+
       // Any word in title starts with first search term
       final titleWords = titleLower.split(' ');
-      if (titleWords.any((word) => word.startsWith(searchTerms.generalTerms.first))) {
+      if (titleWords
+          .any((word) => word.startsWith(searchTerms.generalTerms.first))) {
         results.add(song);
       }
     }
-    
+
     return results;
   }
 
   List<Music> _performFuzzySearch(List<Music> songs, String query) {
     if (songs.isEmpty) return [];
-    
+
     final fuse = Fuzzy(
       songs,
       options: FuzzyOptions(
         keys: [
           WeightedKey(name: 'title', getter: (Music s) => s.title, weight: 100),
-          WeightedKey(name: 'artist', getter: (Music s) => s.artist, weight: 80),
+          WeightedKey(
+              name: 'artist', getter: (Music s) => s.artist, weight: 80),
           WeightedKey(name: 'album', getter: (Music s) => s.album, weight: 60),
-          WeightedKey(name: 'folderName', getter: (Music s) => s.folderName, weight: 30),
+          WeightedKey(
+              name: 'folderName',
+              getter: (Music s) => s.folderName,
+              weight: 30),
         ],
         threshold: 0.35, // Slightly more permissive
         distance: 100,
@@ -176,9 +187,9 @@ extension NPlayerSorting on NPlayer {
         shouldSort: true,
       ),
     );
-    
+
     final fuzzyResults = fuse.search(query);
-    
+
     // Filter and sort by relevance score
     return fuzzyResults
         .where((result) => result.score < 0.6) // Only good matches
@@ -193,39 +204,42 @@ extension NPlayerSorting on NPlayer {
       if (_searchQuery.isNotEmpty) {
         final aRelevance = _calculateSearchRelevance(a, _searchQuery);
         final bRelevance = _calculateSearchRelevance(b, _searchQuery);
-        
+
         // If relevance is significantly different, use that
         if ((aRelevance - bRelevance).abs() > 10) {
           return bRelevance.compareTo(aRelevance); // Higher relevance first
         }
       }
-      
+
       // Apply normal sorting
       int comparison;
       switch (_sortBy) {
-        case 'title': 
-          comparison = a.title.toLowerCase().compareTo(b.title.toLowerCase()); 
+        case 'title':
+          comparison = a.title.toLowerCase().compareTo(b.title.toLowerCase());
           break;
-        case 'artist': 
-          comparison = a.artist.toLowerCase().compareTo(b.artist.toLowerCase()); 
+        case 'artist':
+          comparison = a.artist.toLowerCase().compareTo(b.artist.toLowerCase());
           break;
-        case 'album': 
-          comparison = a.album.toLowerCase().compareTo(b.album.toLowerCase()); 
+        case 'album':
+          comparison = a.album.toLowerCase().compareTo(b.album.toLowerCase());
           break;
-        case 'duration': 
-          comparison = a.duration.compareTo(b.duration); 
+        case 'duration':
+          comparison = a.duration.compareTo(b.duration);
           break;
-        case 'folder': 
-          comparison = a.folderName.toLowerCase().compareTo(b.folderName.toLowerCase()); 
+        case 'folder':
+          comparison =
+              a.folderName.toLowerCase().compareTo(b.folderName.toLowerCase());
           break;
         case 'modified':
           comparison = a.lastModified.compareTo(b.lastModified);
           break;
         case 'year':
-          comparison = (int.tryParse(a.year) ?? 0).compareTo(int.tryParse(b.year) ?? 0);
+          comparison =
+              (int.tryParse(a.year) ?? 0).compareTo(int.tryParse(b.year) ?? 0);
           break;
         case 'plays':
-          comparison = SongData.getPlayCount(a.path).compareTo(SongData.getPlayCount(b.path));
+          comparison = SongData.getPlayCount(a.path)
+              .compareTo(SongData.getPlayCount(b.path));
           break;
         case 'favorite':
           comparison = (a.isFavorite ? 1 : 0).compareTo(b.isFavorite ? 1 : 0);
@@ -241,7 +255,7 @@ extension NPlayerSorting on NPlayer {
             comparison = a.title.toLowerCase().compareTo(b.title.toLowerCase());
           }
           break;
-        default: 
+        default:
           comparison = a.title.toLowerCase().compareTo(b.title.toLowerCase());
       }
       return _sortAscending ? comparison : -comparison;
@@ -253,47 +267,47 @@ extension NPlayerSorting on NPlayer {
     final titleLower = song.title.toLowerCase();
     final artistLower = song.artist.toLowerCase();
     final albumLower = song.album.toLowerCase();
-    
+
     int score = 0;
-    
+
     // Exact title match - highest score
     if (titleLower == queryLower) score += 1000;
-    
+
     // Title starts with query
     if (titleLower.startsWith(queryLower)) score += 800;
-    
+
     // Title contains query
     if (titleLower.contains(queryLower)) score += 600;
-    
+
     // Artist exact match
     if (artistLower == queryLower) score += 700;
-    
+
     // Artist starts with query
     if (artistLower.startsWith(queryLower)) score += 500;
-    
+
     // Artist contains query
     if (artistLower.contains(queryLower)) score += 300;
-    
+
     // Album matches
     if (albumLower.contains(queryLower)) score += 200;
-    
+
     // Word boundary matches (whole words)
     final queryWords = queryLower.split(' ');
     final titleWords = titleLower.split(' ');
     final artistWords = artistLower.split(' ');
-    
+
     for (final queryWord in queryWords) {
       if (titleWords.any((word) => word.startsWith(queryWord))) score += 400;
       if (artistWords.any((word) => word.startsWith(queryWord))) score += 200;
     }
-    
+
     // Bonus for favorite songs
     if (song.isFavorite) score += 50;
-    
+
     // Bonus for frequently played songs
     final playCount = SongData.getPlayCount(song.path);
     score += (playCount * 2).clamp(0, 100);
-    
+
     return score;
   }
 
@@ -301,7 +315,8 @@ extension NPlayerSorting on NPlayer {
     _sortBy = sortBy ?? _sortBy;
     _sortAscending = ascending ?? _sortAscending;
     _filterAndSortSongs();
-    Settings.setLibrarySongSort(_sortBy, _sortAscending); // fire-and-forget is acceptable here
+    Settings.setLibrarySongSort(
+        _sortBy, _sortAscending); // fire-and-forget is acceptable here
   }
 
   Future<void> loadSortSettings() async {
@@ -316,7 +331,7 @@ class SearchTerms {
   final List<String> artistFilter;
   final List<String> albumFilter;
   final List<String> yearFilter;
-  
+
   SearchTerms({
     required this.generalTerms,
     required this.artistFilter,

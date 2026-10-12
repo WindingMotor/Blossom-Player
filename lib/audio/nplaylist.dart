@@ -10,6 +10,7 @@ class PlaylistManager {
   static late String _playlistArtDir;
   static late String _playlistDir;
   static bool _isInitialized = false;
+  static Future<void> _saveTail = Future<void>.value();
 
   /// Initialize the PlaylistManager - must be called before using any other methods
   static Future<void> initialize() async {
@@ -124,7 +125,23 @@ class PlaylistManager {
   static Future<void> save() async {
     await _ensureInitialized();
 
+    final saveOperation = _saveTail.catchError((_) {}).then((_) => _saveNow());
+    _saveTail = saveOperation;
+    await saveOperation;
+  }
+
+  static Future<void> _saveNow() async {
     try {
+      // Capture a deep-enough snapshot synchronously before the first await so
+      // later mutations cannot alter this write or invalidate map iteration.
+      final snapshot = <String, Map<String, dynamic>>{
+        for (final entry in _playlists.entries)
+          entry.key: {
+            ...entry.value,
+            if (entry.value['songs'] is List)
+              'songs': List<dynamic>.from(entry.value['songs'] as List),
+          },
+      };
       final file = File(path.join(_playlistDir, _playlistFileName));
 
       // Ensure the parent directory exists
@@ -132,7 +149,7 @@ class PlaylistManager {
 
       // Validate data before saving
       final validatedPlaylists = <String, Map<String, dynamic>>{};
-      for (final entry in _playlists.entries) {
+      for (final entry in snapshot.entries) {
         final playlist = Map<String, dynamic>.from(entry.value);
 
         // Ensure songs is a valid list
@@ -154,9 +171,9 @@ class PlaylistManager {
         validatedPlaylists[entry.key] = playlist;
       }
 
-      _playlists = validatedPlaylists;
-
-      final jsonString = jsonEncode(_playlists);
+      // Serialize the validated snapshot without replacing live state: another
+      // mutation may have arrived while asynchronous file checks were running.
+      final jsonString = jsonEncode(validatedPlaylists);
       final tempFile = File('${file.path}.tmp');
       await tempFile.writeAsString(jsonString, flush: true);
       if (await file.exists()) {
@@ -312,6 +329,36 @@ class PlaylistManager {
     } else {
       Log.v(LogTag.playlist, '"$songId" was not in "$playlistName"');
     }
+  }
+
+  /// Applies a multi-song add/remove as one in-memory mutation and one disk
+  /// write. This avoids colliding temp-file saves from selection UIs.
+  static Future<void> updateSongsInPlaylist(
+    String playlistName,
+    Iterable<String> songIds, {
+    required bool add,
+  }) async {
+    await _ensureInitialized();
+    if (!_playlists.containsKey(playlistName)) {
+      if (!add) return;
+      _playlists[playlistName] = {
+        'songs': <String>[],
+        'imagePath': null,
+        'created': DateTime.now().toIso8601String(),
+      };
+    }
+
+    final songs = List<String>.from(_playlists[playlistName]!['songs']);
+    final requestedIds = songIds.where((id) => id.trim().isNotEmpty).toSet();
+    if (add) {
+      final existing = songs.toSet();
+      songs.addAll(requestedIds.where(existing.add));
+    } else {
+      songs.removeWhere(requestedIds.contains);
+    }
+    _playlists[playlistName]!['songs'] = songs;
+    _playlists[playlistName]!['modified'] = DateTime.now().toIso8601String();
+    await save();
   }
 
   static Future<void> reorderSongs(

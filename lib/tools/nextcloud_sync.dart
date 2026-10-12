@@ -20,6 +20,7 @@ enum SyncStatus { idle, checking, syncing, success, error }
 
 class RemoteFile {
   final String path;
+  final String relativePath;
   final String name;
   final int size;
   final DateTime modified;
@@ -27,6 +28,7 @@ class RemoteFile {
 
   const RemoteFile({
     required this.path,
+    required this.relativePath,
     required this.name,
     required this.size,
     required this.modified,
@@ -34,9 +36,16 @@ class RemoteFile {
   });
 }
 
+class LocalSyncFile {
+  final File file;
+  final String relativePath;
+
+  const LocalSyncFile({required this.file, required this.relativePath});
+}
+
 class SyncDiff {
   final List<RemoteFile> toDownload;
-  final List<File> toUpload;
+  final List<LocalSyncFile> toUpload;
   final int unchangedCount;
 
   const SyncDiff({
@@ -104,6 +113,7 @@ class NextcloudKeys {
   static const String enabled = 'nc_enabled';
   static const String lastSyncTime = 'nc_last_sync_time';
   static const String uploadEnabled = 'nc_upload_enabled';
+  static const String allowInsecureHttp = 'nc_allow_insecure_http';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -122,12 +132,14 @@ class NextcloudSync extends ChangeNotifier {
   String _remotePath = '/Music';
   bool _enabled = false;
   bool _uploadEnabled = true;
+  bool _allowInsecureHttp = false;
 
   String get serverUrl => _serverUrl;
   String get username => _username;
   String get remotePath => _remotePath;
   bool get enabled => _enabled;
   bool get uploadEnabled => _uploadEnabled;
+  bool get allowInsecureHttp => _allowInsecureHttp;
   bool get isConfigured =>
       _serverUrl.isNotEmpty && _username.isNotEmpty && _password.isNotEmpty;
 
@@ -169,6 +181,7 @@ class NextcloudSync extends ChangeNotifier {
 
   // ── Cancellation ────────────────────────────────────────────────────────
   bool _cancelled = false;
+  bool _operationActive = false;
   bool get isCancelled => _cancelled;
 
   // Active dio CancelTokens so in-flight requests are aborted on cancel.
@@ -178,7 +191,7 @@ class NextcloudSync extends ChangeNotifier {
   void cancelSync() {
     if (_status != SyncStatus.syncing && _status != SyncStatus.checking) return;
     _cancelled = true;
-    for (final token in _activeCancelTokens) {
+    for (final token in _activeCancelTokens.toList()) {
       token.cancel('Sync cancelled by user');
     }
     _activeCancelTokens.clear();
@@ -245,6 +258,8 @@ class NextcloudSync extends ChangeNotifier {
 
     if (Log.enabled) {
       dio.interceptors.add(LogInterceptor(
+        requestHeader: false,
+        responseHeader: false,
         requestBody: false,
         responseBody: false,
         logPrint: (obj) => Log.v(LogTag.nextcloud, obj.toString()),
@@ -266,6 +281,8 @@ class NextcloudSync extends ChangeNotifier {
     _remotePath = prefs.getString(NextcloudKeys.remotePath) ?? '/Music';
     _enabled = prefs.getBool(NextcloudKeys.enabled) ?? false;
     _uploadEnabled = prefs.getBool(NextcloudKeys.uploadEnabled) ?? true;
+    _allowInsecureHttp = prefs.getBool(NextcloudKeys.allowInsecureHttp) ??
+        Uri.tryParse(_serverUrl)?.scheme == 'http';
 
     final lastSyncMs = prefs.getInt(NextcloudKeys.lastSyncTime);
     if (lastSyncMs != null) {
@@ -290,13 +307,32 @@ class NextcloudSync extends ChangeNotifier {
     required String password,
     required String remotePath,
     required bool uploadEnabled,
+    bool? allowInsecureHttp,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final existingPassword = _password.isNotEmpty
         ? _password
         : prefs.getString(NextcloudKeys.password) ?? '';
 
-    _serverUrl = serverUrl.trimRight().replaceAll(RegExp(r'/$'), '');
+    final normalizedServerUrl =
+        serverUrl.trimRight().replaceAll(RegExp(r'/$'), '');
+    final uri = Uri.tryParse(normalizedServerUrl);
+    if (uri == null ||
+        !uri.hasAuthority ||
+        (uri.scheme != 'https' && uri.scheme != 'http')) {
+      throw const FormatException('Nextcloud URL must be an HTTP(S) URL');
+    }
+    final permitHttp = allowInsecureHttp ?? _allowInsecureHttp;
+    if (uri.scheme != 'https' && !permitHttp) {
+      throw const FormatException(
+          'HTTP exposes your Nextcloud password. Use HTTPS or explicitly allow insecure HTTP.');
+    }
+    if (uri.scheme == 'http') {
+      Log.w(LogTag.nextcloud,
+          'Nextcloud is configured over HTTP; credentials are not encrypted in transit');
+    }
+    _serverUrl = normalizedServerUrl;
+    _allowInsecureHttp = permitHttp;
     _username = username.trim();
     _password = password.isNotEmpty ? password : existingPassword;
     _remotePath = remotePath.trim().startsWith('/')
@@ -309,6 +345,7 @@ class NextcloudSync extends ChangeNotifier {
     await prefs.setString(NextcloudKeys.password, _password);
     await prefs.setString(NextcloudKeys.remotePath, _remotePath);
     await prefs.setBool(NextcloudKeys.uploadEnabled, _uploadEnabled);
+    await prefs.setBool(NextcloudKeys.allowInsecureHttp, _allowInsecureHttp);
 
     if (isConfigured) {
       _client = _buildClient();
@@ -337,6 +374,9 @@ class NextcloudSync extends ChangeNotifier {
 
   Future<bool> testConnection() async {
     if (!isConfigured) return false;
+    if (Uri.tryParse(_serverUrl)?.scheme != 'https' && !_allowInsecureHttp) {
+      return false;
+    }
     try {
       await _buildClient().ping();
       return true;
@@ -373,6 +413,11 @@ class NextcloudSync extends ChangeNotifier {
       return null;
     }
 
+    if (_operationActive) {
+      Log.w(LogTag.nextcloud, 'Ignoring overlapping sync check');
+      return null;
+    }
+    _operationActive = true;
     _cancelled = false;
     _setStatus(SyncStatus.checking, 'Checking Nextcloud…');
 
@@ -398,16 +443,19 @@ class NextcloudSync extends ChangeNotifier {
       // folders) are logged and the extra copies skipped — with a flat key
       // space they cannot be represented and silently collapsing them made
       // the diff wrong.
-      final Map<String, File> localMap = {};
+      final localDir = await _localMusicDir();
+      final Map<String, LocalSyncFile> localMap = {};
 
       void addLocal(String filePath) {
-        final name = p.basename(filePath);
-        if (localMap.containsKey(name)) {
+        final file = File(filePath);
+        final relativePath = _relativeLocalPath(localDir.path, filePath);
+        final key = _pathKey(relativePath);
+        if (localMap.containsKey(key)) {
           Log.w(LogTag.nextcloud,
-              'Duplicate local filename "$name" — keeping ${localMap[name]!.path}, ignoring $filePath for sync');
+              'Duplicate local path "$relativePath" — ignoring $filePath for sync');
           return;
         }
-        localMap[name] = File(filePath);
+        localMap[key] = LocalSyncFile(file: file, relativePath: relativePath);
       }
 
       if (localMusic != null && localMusic.isNotEmpty) {
@@ -418,7 +466,6 @@ class NextcloudSync extends ChangeNotifier {
         Log.d(LogTag.nextcloud,
             'Snapshot of NPlayer songs: ${localMap.length} files');
       } else {
-        final localDir = await _localMusicDir();
         final files = await _listLocalAudioFiles(localDir);
         for (final f in files) {
           addLocal(f.path);
@@ -432,16 +479,19 @@ class NextcloudSync extends ChangeNotifier {
         final name = f.name ?? '';
         if (name.isEmpty || f.isDir == true || !_isSupportedAudio(name))
           continue;
-        if (remoteMap.containsKey(name)) {
+        final relativePath =
+            _remoteRelativePath(f.path ?? '$_remotePath/$name');
+        final key = _pathKey(relativePath);
+        if (remoteMap.containsKey(key)) {
           Log.w(LogTag.nextcloud,
-              'Duplicate remote filename "$name" — keeping ${remoteMap[name]!.path}, ignoring ${f.path}');
+              'Duplicate remote path "$relativePath" — ignoring ${f.path}');
           continue;
         }
-        remoteMap[name] = f;
+        remoteMap[key] = f;
       }
 
       final toDownload = <RemoteFile>[];
-      final toUpload = <File>[];
+      final toUpload = <LocalSyncFile>[];
       int unchanged = 0;
 
       // ── Remote → local ───────────────────────────────────────────────────
@@ -455,29 +505,37 @@ class NextcloudSync extends ChangeNotifier {
         } else {
           final remoteSize = remote.size?.toInt() ?? -1;
           if (remoteSize > 0) {
-            final localSize = FileStat.statSync(local.path).size;
+            final localSize = FileStat.statSync(local.file.path).size;
             if (localSize == remoteSize) {
               unchanged++;
             } else if (localSize < 0) {
               toDownload.add(_toRemoteFile(remote));
             } else {
               final remoteModified = remote.mTime ?? DateTime.now();
-              final localModified = FileStat.statSync(local.path).modified;
+              final localModified = FileStat.statSync(local.file.path).modified;
               if (remoteModified
                   .isAfter(localModified.add(const Duration(seconds: 60)))) {
                 toDownload.add(_toRemoteFile(remote));
               } else {
-                unchanged++;
+                if (_uploadEnabled) {
+                  toUpload.add(local);
+                } else {
+                  unchanged++;
+                }
               }
             }
           } else {
             final remoteModified = remote.mTime ?? DateTime.now();
-            final localModified = FileStat.statSync(local.path).modified;
+            final localModified = FileStat.statSync(local.file.path).modified;
             if (remoteModified
                 .isAfter(localModified.add(const Duration(seconds: 60)))) {
               toDownload.add(_toRemoteFile(remote));
             } else {
-              unchanged++;
+              if (_uploadEnabled && localModified.isAfter(remoteModified)) {
+                toUpload.add(local);
+              } else {
+                unchanged++;
+              }
             }
           }
         }
@@ -521,6 +579,8 @@ class NextcloudSync extends ChangeNotifier {
       _setStatus(SyncStatus.error, 'Check failed: $e');
       Log.e(LogTag.nextcloud, 'checkForChanges error: $e', stack);
       return null;
+    } finally {
+      _operationActive = false;
     }
   }
 
@@ -529,6 +589,19 @@ class NextcloudSync extends ChangeNotifier {
   // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> applySync({VoidCallback? onReloadNeeded}) async {
+    if (_operationActive) {
+      Log.w(LogTag.nextcloud, 'Ignoring overlapping sync apply');
+      return;
+    }
+    _operationActive = true;
+    try {
+      await _applySyncImpl(onReloadNeeded: onReloadNeeded);
+    } finally {
+      _operationActive = false;
+    }
+  }
+
+  Future<void> _applySyncImpl({VoidCallback? onReloadNeeded}) async {
     final diff = _pendingDiff;
     if (diff == null || !diff.hasChanges) return;
 
@@ -540,7 +613,7 @@ class NextcloudSync extends ChangeNotifier {
     for (final r in diff.toDownload) totalBytes += r.size;
     for (final f in diff.toUpload) {
       try {
-        totalBytes += FileStat.statSync(f.path).size.clamp(0, 1 << 40);
+        totalBytes += FileStat.statSync(f.file.path).size.clamp(0, 1 << 40);
       } catch (_) {}
     }
 
@@ -579,7 +652,8 @@ class NextcloudSync extends ChangeNotifier {
           );
 
           try {
-            final localPath = p.join(localDir.path, remote.name);
+            final localPath =
+                _safeLocalDestination(localDir.path, remote.relativePath);
             final existingSize = FileStat.statSync(localPath).size;
             if (existingSize == remote.size && remote.size > 0) {
               Log.v(
@@ -591,23 +665,40 @@ class NextcloudSync extends ChangeNotifier {
 
             int fileTransferred = 0;
 
-            await client.read2File(
-              _encodePath(remote.path),
-              localPath,
-              onProgress: (received, total) {
-                if (_cancelled) return;
-                final delta = received - fileTransferred;
-                fileTransferred = received;
-                _transferredBytes += delta;
-                _throttledNotify();
-              },
-            );
+            final partialPath = '$localPath.blossom-part-'
+                '${DateTime.now().microsecondsSinceEpoch}';
+            final partialFile = File(partialPath);
+            final cancelToken = CancelToken();
+            _activeCancelTokens.add(cancelToken);
+            await Directory(p.dirname(localPath)).create(recursive: true);
+            try {
+              await client.read2File(
+                _encodePath(remote.path),
+                partialPath,
+                cancelToken: cancelToken,
+                onProgress: (received, total) {
+                  if (_cancelled) return;
+                  final delta = received - fileTransferred;
+                  fileTransferred = received;
+                  _transferredBytes += delta;
+                  _throttledNotify();
+                },
+              );
+              final written = await partialFile.length();
+              if (written <= 0 || (remote.size > 0 && written != remote.size)) {
+                throw Exception(
+                    'Incomplete download: expected ${remote.size}, got $written');
+              }
+              await _replaceFileAtomically(partialFile, File(localPath));
+              if (remote.modified.millisecondsSinceEpoch > 0) {
+                await File(localPath).setLastModified(remote.modified);
+              }
+            } finally {
+              _activeCancelTokens.remove(cancelToken);
+              if (await partialFile.exists()) await partialFile.delete();
+            }
 
             final written = FileStat.statSync(localPath).size;
-            if (written <= 0) {
-              await File(localPath).delete();
-              throw Exception('Downloaded file is empty');
-            }
 
             // Reconcile byte counter to exact file size.
             final shortfall = remote.size - fileTransferred;
@@ -635,6 +726,7 @@ class NextcloudSync extends ChangeNotifier {
     if (_cancelled) {
       _progress = null;
       _setStatus(SyncStatus.idle, 'Sync cancelled');
+      _operationActive = false;
       return;
     }
 
@@ -647,15 +739,32 @@ class NextcloudSync extends ChangeNotifier {
     //     This matches what the official Nextcloud app does and saturates the
     //     uplink far better than a single-stream PUT.
     if (_uploadEnabled && diff.toUpload.isNotEmpty) {
+      final remoteParents = <String>{};
+      for (final entry in diff.toUpload) {
+        final relativeParent = p.posix.dirname(entry.relativePath);
+        if (relativeParent == '.') continue;
+        var current = _remotePath;
+        for (final segment in relativeParent.split('/')) {
+          if (segment.isEmpty || segment == '.') continue;
+          current = p.posix.join(current, segment);
+          remoteParents.add(current);
+        }
+      }
+      final orderedRemoteParents = remoteParents.toList()
+        ..sort((a, b) => a.length.compareTo(b.length));
+      for (final parent in orderedRemoteParents) {
+        await _ensureRemoteDirExists(client, parent);
+      }
       await _runParallel(
         items: diff.toUpload,
         concurrency: _uploadConcurrency,
-        task: (File local) async {
+        task: (LocalSyncFile localEntry) async {
           if (_cancelled) return;
 
-          final name = p.basename(local.path);
+          final local = localEntry.file;
+          final name = localEntry.relativePath;
           final fileSize = FileStat.statSync(local.path).size;
-          final remoteDest = '$_remotePath/$name';
+          final remoteDest = p.posix.join(_remotePath, localEntry.relativePath);
 
           _updateProgress(
             total: diff.totalChanges,
@@ -712,6 +821,7 @@ class NextcloudSync extends ChangeNotifier {
     if (_cancelled) {
       _progress = null;
       _setStatus(SyncStatus.idle, 'Sync cancelled');
+      _operationActive = false;
       return;
     }
 
@@ -736,6 +846,7 @@ class NextcloudSync extends ChangeNotifier {
     if (diff.toDownload.isNotEmpty && onReloadNeeded != null) {
       onReloadNeeded();
     }
+    _operationActive = false;
   }
 
   void dismissPendingDiff() {
@@ -821,8 +932,8 @@ class NextcloudSync extends ChangeNotifier {
     final uploadBase = '$base/remote.php/dav/uploads/$_username/$uploadId';
 
     // Absolute destination for the Destination header.
-    final absDestination =
-        '$base/remote.php/dav/files/$_username${Uri.encodeFull(remoteDest)}';
+    final absDestination = '$base/remote.php/dav/files/'
+        '${Uri.encodeComponent(_username)}${_encodePath(remoteDest)}';
 
     Log.d(LogTag.nextcloud,
         'Chunked upload start: ${p.basename(file.path)} (${(fileSize / 1024 / 1024).toStringAsFixed(1)} MB) → $uploadId');
@@ -943,9 +1054,9 @@ class NextcloudSync extends ChangeNotifier {
     }
   }
 
-  /// Throws a descriptive exception for non-2xx/non-3xx status codes.
+  /// Throws a descriptive exception for anything except a completed 2xx.
   void _assertSuccessStatus(int? statusCode, String context) {
-    if (statusCode == null || (statusCode >= 400)) {
+    if (statusCode == null || statusCode < 200 || statusCode >= 300) {
       throw Exception('HTTP $statusCode for $context');
     }
   }
@@ -1045,10 +1156,7 @@ class NextcloudSync extends ChangeNotifier {
       Log.d(LogTag.nextcloud, 'Created remote directory: $path');
     } catch (e) {
       final msg = e.toString();
-      if (msg.contains('405') ||
-          msg.contains('301') ||
-          msg.contains('302') ||
-          msg.contains('already exists')) {
+      if (msg.contains('405') || msg.contains('already exists')) {
         Log.v(LogTag.nextcloud, 'Remote directory already exists: $path');
       } else if (e is SocketException || msg.contains('connection')) {
         rethrow;
@@ -1081,7 +1189,8 @@ class NextcloudSync extends ChangeNotifier {
       return [];
     }
     try {
-      final entities = await dir.list(recursive: false).toList();
+      final entities =
+          await dir.list(recursive: true, followLinks: false).toList();
       return entities
           .whereType<File>()
           .where((f) => _isSupportedAudio(p.basename(f.path)))
@@ -1102,6 +1211,7 @@ class NextcloudSync extends ChangeNotifier {
     final name = f.name ?? '';
     return RemoteFile(
       path: f.path ?? '$_remotePath/$name',
+      relativePath: _remoteRelativePath(f.path ?? '$_remotePath/$name'),
       name: name,
       size: f.size?.toInt() ?? 0,
       modified: f.mTime ?? DateTime.now(),
@@ -1125,6 +1235,69 @@ class NextcloudSync extends ChangeNotifier {
     final trimmed =
         remoteDest.startsWith('/') ? remoteDest.substring(1) : remoteDest;
     return trimmed.split('/').map(Uri.encodeComponent).join('/');
+  }
+
+  String _pathKey(String path) => p.posix.normalize(path.replaceAll('\\', '/'));
+
+  String _remoteRelativePath(String remotePath) {
+    final normalizedRoot = p.posix.normalize(_remotePath);
+    final normalizedPath = p.posix.normalize(remotePath);
+    final relative = p.posix.relative(normalizedPath, from: normalizedRoot);
+    if (relative == '.' || relative == '..' || relative.startsWith('../')) {
+      throw FormatException(
+          'Remote path is outside configured folder: $remotePath');
+    }
+    return relative;
+  }
+
+  String _relativeLocalPath(String localRoot, String filePath) {
+    final relative =
+        p.relative(p.absolute(filePath), from: p.absolute(localRoot));
+    if (relative == '..' ||
+        relative.startsWith('${p.separator}..') ||
+        p.isAbsolute(relative)) {
+      // Songs outside the configured library root cannot preserve a hierarchy.
+      return p.basename(filePath);
+    }
+    return relative.replaceAll('\\', '/');
+  }
+
+  String _safeLocalDestination(String localRoot, String relativePath) {
+    final segments = p.posix
+        .normalize(relativePath)
+        .split('/')
+        .where((segment) => segment.isNotEmpty && segment != '.')
+        .toList();
+    if (segments.isEmpty || segments.any((segment) => segment == '..')) {
+      throw FormatException('Unsafe remote path: $relativePath');
+    }
+    final destination = p.normalize(p.joinAll([localRoot, ...segments]));
+    if (!p.isWithin(p.absolute(localRoot), p.absolute(destination))) {
+      throw FormatException(
+          'Remote path escapes music directory: $relativePath');
+    }
+    return destination;
+  }
+
+  Future<void> _replaceFileAtomically(File partial, File destination) async {
+    final backup = File('${destination.path}.blossom-backup');
+    var movedExisting = false;
+    try {
+      if (await backup.exists()) await backup.delete();
+      if (await destination.exists()) {
+        await destination.rename(backup.path);
+        movedExisting = true;
+      }
+      await partial.rename(destination.path);
+      if (movedExisting && await backup.exists()) await backup.delete();
+    } catch (_) {
+      if (!await destination.exists() &&
+          movedExisting &&
+          await backup.exists()) {
+        await backup.rename(destination.path);
+      }
+      rethrow;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────

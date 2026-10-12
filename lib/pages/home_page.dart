@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:blossom/audio/nplayer.dart';
 import 'package:blossom/audio/song_data.dart';
+import 'package:blossom/custom/page_entrance.dart';
 import 'package:blossom/sheets/library_stats_sheet.dart';
 import 'package:blossom/sheets/song_actions_sheet.dart';
 import 'package:blossom/song_list/song_list_tile.dart';
@@ -34,7 +35,6 @@ class _HomePageState extends State<HomePage>
   List<Music> _rediscover = const [];
   List<List<Music>> _albumPicks = const [];
   LibraryStats? _stats;
-
   String get _greeting {
     final hour = DateTime.now().hour;
     if (hour < 5) return 'Up late?';
@@ -45,8 +45,7 @@ class _HomePageState extends State<HomePage>
 
   void _refreshDerivedData(NPlayer player) {
     final songs = player.allSongs;
-    final signature =
-        Object.hash(songs.length, songs.where((s) => s.isFavorite).length);
+    final signature = player.libraryRevision;
     if (signature == _librarySignature) return;
     _librarySignature = signature;
 
@@ -102,98 +101,95 @@ class _HomePageState extends State<HomePage>
     final topInset = MediaQuery.of(context).padding.top;
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Consumer<NPlayer>(
-      builder: (context, player, _) {
+    return Selector<NPlayer, int>(
+      selector: (_, player) => player.libraryRevision,
+      builder: (context, _, __) {
+        final player = context.read<NPlayer>();
         _refreshDerivedData(player);
 
-        return ListView(
-          // Top: clear the status bar (mobile has no app bar).
-          // Bottom: clear the floating NPlayer widget + nav bar.
-          padding: EdgeInsets.only(
-            top: topInset + 12,
-            bottom: 210 + bottomInset,
-          ),
-          children: [
-            _HeroHeader(greeting: _greeting, player: player),
-
-            if (_recent.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              const _SectionTitle('Recently added'),
-              _SongShelf(
-                songs: _recent,
-                onTap: (song) => _playSongFromLibrary(player, song),
-              ),
-            ],
-
-            if (_albumPicks.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              const _SectionTitle('Albums for today'),
-              _AlbumShelf(albums: _albumPicks),
-            ],
-
-            if (_mostPlayed.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              const _SectionTitle('Most played'),
-              _SongShelf(
-                songs: _mostPlayed.map((p) => p.$1).toList(),
-                badges: {for (final p in _mostPlayed) p.$1.path: '${p.$2}×'},
-                onTap: (song) => _playSongFromLibrary(player, song),
-              ),
-            ],
-
-            if (_favorites.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              const _SectionTitle('Favorites'),
-              _SongShelf(
-                songs: _favorites,
-                onTap: (song) => _playSongFromLibrary(player, song),
-              ),
-            ],
-
-            if (_rediscover.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              const _SectionTitle('Rediscover — never played'),
-              _SongShelf(
-                songs: _rediscover,
-                onTap: (song) => _playSongFromLibrary(player, song),
-              ),
-            ],
-
-            if (_stats != null && _stats!.totalSongs > 0) ...[
-              const SizedBox(height: 28),
-              const _SectionTitle('Library insights'),
-              _InsightsPager(stats: _stats!),
-            ],
-
-            if (player.allSongs.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 80),
-                child: Column(
-                  children: [
-                    Icon(Icons.library_music_outlined,
-                        size: 56,
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.4)),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Your library is empty',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Add music to your device to get started',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
+        return BlossomPageEntrance(
+          child: ListView(
+            // Top: clear the status bar (mobile has no app bar).
+            // Bottom: clear the floating NPlayer widget + nav bar.
+            padding: EdgeInsets.only(
+              top: topInset + 12,
+              bottom: 210 + bottomInset,
+            ),
+            children: [
+              _HeroHeader(greeting: _greeting, player: player),
+              if (_recent.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                const _SectionTitle('Recently added'),
+                _SongShelf(
+                  songs: _recent,
+                  onTap: (song) => _playSongFromLibrary(player, song),
                 ),
-              ),
-          ],
+              ],
+              if (_albumPicks.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                const _SectionTitle('Albums for today'),
+                _AlbumShelf(albums: _albumPicks),
+              ],
+              if (_mostPlayed.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                const _SectionTitle('Most played'),
+                _SongShelf(
+                  songs: _mostPlayed.map((p) => p.$1).toList(),
+                  badges: {for (final p in _mostPlayed) p.$1.path: '${p.$2}×'},
+                  onTap: (song) => _playSongFromLibrary(player, song),
+                ),
+              ],
+              if (_favorites.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                const _SectionTitle('Favorites'),
+                _SongShelf(
+                  songs: _favorites,
+                  onTap: (song) => _playSongFromLibrary(player, song),
+                ),
+              ],
+              if (_rediscover.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                const _SectionTitle('Rediscover — never played'),
+                _SongShelf(
+                  songs: _rediscover,
+                  onTap: (song) => _playSongFromLibrary(player, song),
+                ),
+              ],
+              if (_stats != null && _stats!.totalSongs > 0) ...[
+                const SizedBox(height: 28),
+                const _SectionTitle('Library insights'),
+                _InsightsPager(stats: _stats!),
+              ],
+              if (player.allSongs.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 80),
+                  child: Column(
+                    children: [
+                      Icon(Icons.library_music_outlined,
+                          size: 56,
+                          color: theme.colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.4)),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Your library is empty',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.6),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Add music to your device to get started',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );

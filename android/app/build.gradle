@@ -9,6 +9,15 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def releaseSigningKeys = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword']
+def hasReleaseSigningProperties = releaseSigningKeys.every {
+    keystoreProperties[it] != null && !keystoreProperties[it].toString().trim().isEmpty()
+}
+def releaseKeystoreFile = hasReleaseSigningProperties
+        ? file(keystoreProperties['storeFile'])
+        : null
+def hasReleaseSigning = releaseKeystoreFile != null && releaseKeystoreFile.exists()
+
 android {
     namespace = "com.wmstudios.blossom"
     compileSdk = flutter.compileSdkVersion
@@ -31,17 +40,24 @@ android {
     }
 
     signingConfigs {
-        release {
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-            storePassword keystoreProperties['storePassword']
+        if (hasReleaseSigning) {
+            release {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile releaseKeystoreFile
+                storePassword keystoreProperties['storePassword']
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            // Local release-mode runs should not require access to the private
+            // publishing key. Use it when configured; otherwise use Android's
+            // debug key so `flutter run --release` remains installable.
+            signingConfig hasReleaseSigning
+                    ? signingConfigs.release
+                    : signingConfigs.debug
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

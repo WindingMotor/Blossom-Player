@@ -56,16 +56,23 @@ class _LoadingPageState extends State<LoadingPage>
 
   void _monitorLoadingProgress() async {
     final nPlayer = Provider.of<NPlayer>(context, listen: false);
+    Object? initializationError;
+    var initializationFinished = false;
+    final initialization = nPlayer.initialized.then<void>(
+      (_) => initializationFinished = true,
+      onError: (Object error, StackTrace stackTrace) {
+        initializationError = error;
+        initializationFinished = true;
+      },
+    );
 
     await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
 
-    int lastSongCount = -1;
-    int stableCount = 0;
     int lastUpdateCount = 0;
     final loadStartTime = DateTime.now();
 
-    while (mounted && !_isInitialized) {
+    while (mounted && !initializationFinished) {
       await Future.delayed(const Duration(milliseconds: 200));
       if (!mounted) break;
 
@@ -119,43 +126,21 @@ class _LoadingPageState extends State<LoadingPage>
           _detailStatus = '$currentSongCount tracks • Elapsed: $time$rate';
         }
       });
-
-      // --- FIXED STABILITY LOGIC ---
-
-      // Case 1: Empty Library (0 songs)
-      // If 0 songs found after 3 seconds, we assume the device is empty and proceed.
-      if (currentSongCount == 0 && elapsed >= 3) {
-        Log.w(LogTag.ui, 'Empty library detected (3s elapsed) — proceeding');
-        _isInitialized = true;
-        break;
-      }
-
-      // Case 2: Normal Loading Stability Check
-      // If count hasn't changed since last check...
-      if (currentSongCount > 0 && currentSongCount == lastSongCount) {
-        stableCount++;
-        // Wait for 3 stable checks (approx 600ms) before finishing
-        final requiredStable = currentSongCount > 1000 ? 5 : 3;
-
-        if (stableCount >= requiredStable) {
-          Log.i(LogTag.ui,
-              'Library stable at $currentSongCount songs — proceeding');
-          _isInitialized = true;
-          break;
-        }
-      } else {
-        // Count changed, reset stability counter
-        if (currentSongCount != lastSongCount) {
-          stableCount = 0;
-        }
-      }
-
-      lastSongCount = currentSongCount;
     }
+
+    if (!mounted) return;
+    await initialization;
+    if (initializationError != null) {
+      Log.w(LogTag.ui,
+          'Player initialization completed with an error: $initializationError');
+    }
+    if (!mounted) return;
+    _isInitialized = true;
 
     // Complete and Transition
     if (mounted) {
       setState(() {
+        _songsLoaded = nPlayer.allSongs.length;
         _loadingStatus = 'Library ready!';
         _detailStatus =
             _songsLoaded > 0 ? '$_songsLoaded songs indexed' : 'No music found';

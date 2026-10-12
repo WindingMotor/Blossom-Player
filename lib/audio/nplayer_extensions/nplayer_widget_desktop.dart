@@ -1,4 +1,5 @@
 import 'package:blossom/sheets/playing_sheet.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:blossom/tools/utils.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +16,8 @@ class NPlayerWidgetDesktop extends StatefulWidget {
   _NPlayerWidgetDesktopState createState() => _NPlayerWidgetDesktopState();
 }
 
-class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with TickerProviderStateMixin {
+class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop>
+    with TickerProviderStateMixin {
   double _lastVolume = 1.0;
   late final AnimationController _shuffleController;
   late final Animation<double> _shuffleAnimation;
@@ -28,7 +30,7 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
   @override
   void initState() {
     super.initState();
-    
+
     _shuffleController = AnimationController(
       duration: const Duration(milliseconds: 100),
       vsync: this,
@@ -61,13 +63,14 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
       }
     });
 
-    _confettiController = ConfettiController(duration: const Duration(milliseconds: 500));
+    _confettiController =
+        ConfettiController(duration: const Duration(milliseconds: 500));
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    
+
     _shuffleColorAnimation = ColorTween(
       begin: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.7),
       end: Theme.of(context).colorScheme.secondary,
@@ -122,7 +125,10 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                 min: 0.0,
                 max: 1.0,
                 activeColor: Theme.of(context).colorScheme.secondary,
-                inactiveColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+                inactiveColor: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.3),
                 onChanged: (newVolume) {
                   if (newVolume > 0) {
                     _lastVolume = newVolume;
@@ -201,10 +207,10 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: () {
-          showModalBottomSheet(
+          showBlossomSheet(
             context: context,
             isScrollControlled: true,
-      useSafeArea: true,
+            useSafeArea: true,
             backgroundColor: Colors.transparent,
             builder: (context) => const PlayingSongsSheet(),
           );
@@ -220,7 +226,8 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                   fit: BoxFit.cover,
                   image: currentSong.picture != null
                       ? MemoryImage(currentSong.picture!)
-                      : const AssetImage('assets/placeholder.png') as ImageProvider,
+                      : const AssetImage('assets/placeholder.png')
+                          as ImageProvider,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -242,7 +249,10 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                   Text(
                     currentSong.artist,
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6),
                       fontSize: 12,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -260,14 +270,16 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
     final double max = player.duration.inSeconds.toDouble() > 0
         ? player.duration.inSeconds.toDouble()
         : 1.0;
-    final double value = player.currentPosition.inSeconds.toDouble().clamp(0.0, max);
+    final double value =
+        player.currentPosition.inSeconds.toDouble().clamp(0.0, max);
 
     return Row(
       children: [
         Text(
           Utils.formatDuration(player.currentPosition.inSeconds),
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+            color:
+                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
             fontSize: 12,
           ),
         ),
@@ -281,7 +293,10 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
             child: Slider(
               value: value,
               activeColor: Theme.of(context).colorScheme.secondary,
-              inactiveColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+              inactiveColor: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.3),
               min: 0,
               max: max,
               onChanged: (value) {
@@ -296,7 +311,8 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
         Text(
           Utils.formatDuration(player.duration.inSeconds),
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+            color:
+                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
             fontSize: 12,
           ),
         ),
@@ -326,25 +342,32 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 32),
+              icon: const Icon(Icons.skip_previous_rounded,
+                  color: Colors.white, size: 32),
               onPressed: () => player.previousSong(),
               tooltip: 'Previous',
             ),
-                        const SizedBox(width: 5),
+            const SizedBox(width: 5),
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
                   colors: [
                     Theme.of(context).colorScheme.secondary,
-                    Theme.of(context).colorScheme.secondary.withValues(alpha: 0.8),
+                    Theme.of(context)
+                        .colorScheme
+                        .secondary
+                        .withValues(alpha: 0.8),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .secondary
+                        .withValues(alpha: 0.3),
                     blurRadius: 8,
                     spreadRadius: 2,
                   ),
@@ -352,7 +375,9 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
               ),
               child: IconButton(
                 icon: Icon(
-                  player.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  player.isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
                   color: Colors.white,
                   size: 28,
                 ),
@@ -362,7 +387,8 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
             ),
             const SizedBox(width: 5),
             IconButton(
-              icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 32),
+              icon: const Icon(Icons.skip_next_rounded,
+                  color: Colors.white, size: 32),
               onPressed: () => player.nextSong(),
               tooltip: 'Next',
             ),
@@ -372,8 +398,12 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                 animation: _favoriteColorAnimation,
                 builder: (context, child) => IconButton(
                   icon: Icon(
-                    currentSong?.isFavorite == true ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: currentSong?.isFavorite == true ? Colors.red : _favoriteColorAnimation.value,
+                    currentSong?.isFavorite == true
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    color: currentSong?.isFavorite == true
+                        ? Colors.red
+                        : _favoriteColorAnimation.value,
                   ),
                   onPressed: () => _handleFavorite(player),
                   tooltip: 'Favorite',
@@ -421,8 +451,12 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Theme.of(context).scaffoldBackgroundColor.withValues(alpha: isDark ? 0.9 : 0.85),
-                  Theme.of(context).scaffoldBackgroundColor.withValues(alpha: isDark ? 0.7 : 0.6),
+                  Theme.of(context)
+                      .scaffoldBackgroundColor
+                      .withValues(alpha: isDark ? 0.9 : 0.85),
+                  Theme.of(context)
+                      .scaffoldBackgroundColor
+                      .withValues(alpha: isDark ? 0.7 : 0.6),
                 ],
               ),
             ),
@@ -453,7 +487,8 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
             color: Theme.of(context).scaffoldBackgroundColor,
             boxShadow: [
               BoxShadow(
-                color: (isDark ? Colors.black : Colors.grey[400]!).withValues(alpha: 0.1),
+                color: (isDark ? Colors.black : Colors.grey[400]!)
+                    .withValues(alpha: 0.1),
                 blurRadius: 8,
                 offset: const Offset(0, -2),
               ),
@@ -487,12 +522,13 @@ class _NPlayerWidgetDesktopState extends State<NPlayerWidgetDesktop> with Ticker
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.queue_music_rounded, color: Colors.grey),
+                            icon: const Icon(Icons.queue_music_rounded,
+                                color: Colors.grey),
                             onPressed: () {
-                              showModalBottomSheet(
+                              showBlossomSheet(
                                 context: context,
                                 isScrollControlled: true,
-      useSafeArea: true,
+                                useSafeArea: true,
                                 backgroundColor: Colors.transparent,
                                 builder: (context) => const PlayingSongsSheet(),
                               );

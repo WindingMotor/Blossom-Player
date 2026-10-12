@@ -23,13 +23,8 @@ class LyricsSheet extends StatefulWidget {
   _LyricsSheetState createState() => _LyricsSheetState();
 }
 
-class _LyricsSheetState extends State<LyricsSheet>
-    with TickerProviderStateMixin {
+class _LyricsSheetState extends State<LyricsSheet> {
   String _searchQuery = '';
-  late AnimationController _slideController;
-  late AnimationController _fadeController;
-  late Animation<double> _slideAnimation;
-  late Animation<double> _fadeAnimation;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -39,32 +34,13 @@ class _LyricsSheetState extends State<LyricsSheet>
   int _currentMatchIndex = 0;
   int _totalMatches = 0;
   bool _showScrollToTop = false;
+  final http.Client _httpClient = http.Client();
+  int _requestGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     _fetchLyrics();
-
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-
-    _slideAnimation = CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutCubic,
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeIn,
-    );
-
-    _slideController.forward();
-    _fadeController.forward();
 
     _scrollController.addListener(() {
       if (_scrollController.offset > 500 && !_showScrollToTop) {
@@ -77,8 +53,8 @@ class _LyricsSheetState extends State<LyricsSheet>
 
   @override
   void dispose() {
-    _slideController.dispose();
-    _fadeController.dispose();
+    _requestGeneration++;
+    _httpClient.close();
     _scrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -98,6 +74,7 @@ class _LyricsSheetState extends State<LyricsSheet>
   }
 
   Future<void> _fetchLyrics() async {
+    final generation = ++_requestGeneration;
     _isLoadingNotifier.value = true;
     _lyricsNotifier.value = '';
     _currentApiNotifier.value = 'Connecting to LRCLIB...';
@@ -111,7 +88,7 @@ class _LyricsSheetState extends State<LyricsSheet>
     try {
       Log.d(LogTag.ui, 'Fetching lyrics from LRCLIB: $apiUrl');
 
-      final response = await http
+      final response = await _httpClient
           .get(
         Uri.parse(apiUrl),
         headers: _getBrowserHeaders(),
@@ -122,6 +99,8 @@ class _LyricsSheetState extends State<LyricsSheet>
           throw TimeoutException('Request timed out after 10 seconds');
         },
       );
+
+      if (!_isActiveRequest(generation)) return;
 
       Log.d(LogTag.ui, 'LRCLIB response: ${response.statusCode}');
 
@@ -135,7 +114,7 @@ class _LyricsSheetState extends State<LyricsSheet>
           Log.i(LogTag.ui, 'LRCLIB: lyrics loaded (${lyrics.length} chars)');
 
           Future.delayed(const Duration(seconds: 3), () {
-            if (mounted) {
+            if (_isActiveRequest(generation)) {
               _currentApiNotifier.value = '';
             }
           });
@@ -151,21 +130,32 @@ class _LyricsSheetState extends State<LyricsSheet>
       }
     } on SocketException catch (e) {
       Log.w(LogTag.ui, 'LRCLIB socket error: ${e.message}');
-      _showErrorMessage(
-          'Network connection failed. Check your internet connection.');
+      if (_isActiveRequest(generation)) {
+        _showErrorMessage(
+            'Network connection failed. Check your internet connection.');
+      }
     } on TimeoutException catch (e) {
       Log.w(LogTag.ui, 'LRCLIB timeout: ${e.message}');
-      _showErrorMessage('Request timed out. Please try again.');
+      if (_isActiveRequest(generation)) {
+        _showErrorMessage('Request timed out. Please try again.');
+      }
     } on FormatException catch (e) {
       Log.w(LogTag.ui, 'LRCLIB format error: ${e.message}');
-      _showErrorMessage('Invalid response format from LRCLIB.');
+      if (_isActiveRequest(generation)) {
+        _showErrorMessage('Invalid response format from LRCLIB.');
+      }
     } catch (e) {
       Log.e(LogTag.ui, 'LRCLIB unexpected error: $e');
-      _showErrorMessage('Unexpected error occurred: $e');
+      if (_isActiveRequest(generation)) {
+        _showErrorMessage('Unexpected error occurred: $e');
+      }
     }
 
-    _isLoadingNotifier.value = false;
+    if (_isActiveRequest(generation)) _isLoadingNotifier.value = false;
   }
+
+  bool _isActiveRequest(int generation) =>
+      mounted && generation == _requestGeneration;
 
   void _showErrorMessage(String message) {
     _currentApiNotifier.value = 'Failed';
@@ -315,50 +305,38 @@ Try tapping the refresh button to retry''';
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return AnimatedBuilder(
-      animation: _slideAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, (1 - _slideAnimation.value) * 100),
-          child: Opacity(
-            opacity: _fadeAnimation.value,
-            child: child,
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.92,
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.3),
+            blurRadius: 30,
+            spreadRadius: 0,
+            offset: const Offset(0, -10),
           ),
-        );
-      },
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.92,
-        decoration: BoxDecoration(
-          color: colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.3),
-              blurRadius: 30,
-              spreadRadius: 0,
-              offset: const Offset(0, -10),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                _buildDragHandle(),
-                _buildHeader(context),
-                Expanded(
-                  child: _buildLyricsContent(),
-                ),
-              ],
-            ),
-            if (_showScrollToTop)
-              Positioned(
-                right: 16,
-                bottom: 32,
-                child: _buildScrollToTopButton(),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              _buildDragHandle(),
+              _buildHeader(context),
+              Expanded(
+                child: _buildLyricsContent(),
               ),
-          ],
-        ),
+            ],
+          ),
+          if (_showScrollToTop)
+            Positioned(
+              right: 16,
+              bottom: 32,
+              child: _buildScrollToTopButton(),
+            ),
+        ],
       ),
     );
   }

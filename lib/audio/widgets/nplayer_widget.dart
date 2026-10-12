@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:blossom/sheets/playing_sheet.dart';
 import 'package:blossom/sheets/playlist_sheet.dart';
 import 'package:blossom/tools/app_navigation.dart';
@@ -228,13 +229,6 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
             icon,
             color: Colors.white,
             size: size,
-            shadows: const [
-              Shadow(
-                color: Colors.black54,
-                blurRadius: 4,
-                offset: Offset(0, 2),
-              ),
-            ],
           ),
         ),
       ),
@@ -335,7 +329,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
               size: 28,
               onPressed: () {
                 HapticFeedback.lightImpact();
-                showModalBottomSheet(
+                showBlossomSheet(
                   context: context,
                   isScrollControlled: true,
                   useSafeArea: true,
@@ -602,7 +596,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
         player.toggleFavorite();
         break;
       case 'addtoplaylist':
-        showModalBottomSheet(
+        showBlossomSheet(
           context: context,
           isScrollControlled: true,
           useSafeArea: true,
@@ -620,7 +614,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
         );
         break;
       case 'sleep':
-        showModalBottomSheet(
+        showBlossomSheet(
           context: context,
           isScrollControlled: true,
           useSafeArea: true,
@@ -629,7 +623,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
         );
         break;
       case 'edit':
-        showModalBottomSheet(
+        showBlossomSheet(
           context: context,
           isScrollControlled: true,
           useSafeArea: true,
@@ -702,7 +696,7 @@ class _NPlayerWidgetState extends State<NPlayerWidget>
                 } else if (details.primaryVelocity! > 0) {
                   if (!_isPlayerExpanded) {
                     HapticFeedback.lightImpact();
-                    showModalBottomSheet(
+                    showBlossomSheet(
                       context: context,
                       isScrollControlled: true,
                       useSafeArea: true,

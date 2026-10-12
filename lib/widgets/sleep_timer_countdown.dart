@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
 import '../sheets/sleep_timer_sheet.dart';
@@ -10,7 +11,8 @@ class SleepTimerCountdown extends StatefulWidget {
   State<SleepTimerCountdown> createState() => _SleepTimerCountdownState();
 }
 
-class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerProviderStateMixin {
+class _SleepTimerCountdownState extends State<SleepTimerCountdown>
+    with TickerProviderStateMixin {
   Offset position = const Offset(16, 70);
   late AnimationController _fadeController;
   late AnimationController _ringController;
@@ -24,17 +26,17 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
+
     _ringController = AnimationController(
       duration: const Duration(milliseconds: 250),
       vsync: this,
     )..addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _ringController.reverse();
-      } else if (status == AnimationStatus.dismissed && _isRinging) {
-        _ringController.forward();
-      }
-    });
+        if (status == AnimationStatus.completed) {
+          _ringController.reverse();
+        } else if (status == AnimationStatus.dismissed && _isRinging) {
+          _ringController.forward();
+        }
+      });
   }
 
   @override
@@ -46,9 +48,9 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
 
   String _formatDuration(Duration? duration) {
     if (duration == null) return "0:00";
-    
+
     String twoDigits(int n) => n.toString().padLeft(2, '0');
-    
+
     // UPDATED: Handle hours for durations > 60 minutes
     if (duration.inHours > 0) {
       final hours = duration.inHours;
@@ -65,21 +67,21 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
   void _startCloseAnimation() async {
     setState(() => _isRinging = true);
     _ringController.forward();
-    
+
     await Future.delayed(const Duration(seconds: 1));
-    
+
     if (!mounted) return;
-    
+
     setState(() {
       _isRinging = false;
       _isClosing = true;
     });
     _ringController.stop();
-    
+
     await _fadeController.forward();
-    
+
     if (!mounted) return;
-    
+
     Provider.of<NPlayer>(context, listen: false).cancelSleepTimer();
   }
 
@@ -88,14 +90,16 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
     final colorScheme = Theme.of(context).colorScheme;
     final screenSize = MediaQuery.of(context).size;
     final topPadding = MediaQuery.of(context).padding.top;
-    
+
     return Consumer<NPlayer>(
       builder: (context, player, child) {
         if (player.sleepTimerMinutes == null && !_isClosing && !_isRinging) {
           return const SizedBox.shrink();
         }
 
-        if (player.remainingTime?.inSeconds == 0 && !_isClosing && !_isRinging) {
+        if (player.remainingTime?.inSeconds == 0 &&
+            !_isClosing &&
+            !_isRinging) {
           _startCloseAnimation();
         }
 
@@ -107,7 +111,7 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
             builder: (context, child) {
               final scale = 1 - (_fadeController.value * 0.3);
               final opacity = 1 - _fadeController.value;
-              
+
               return Transform.scale(
                 scale: scale,
                 child: Opacity(
@@ -122,7 +126,8 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
                   final newPosition = position + details.delta;
                   position = Offset(
                     newPosition.dx.clamp(0, screenSize.width - 160),
-                    newPosition.dy.clamp(0, screenSize.height - topPadding - 60),
+                    newPosition.dy
+                        .clamp(0, screenSize.height - topPadding - 60),
                   );
                 });
               },
@@ -134,13 +139,14 @@ class _SleepTimerCountdownState extends State<SleepTimerCountdown> with TickerPr
     );
   }
 
-  Widget _buildTimerWidget(BuildContext context, NPlayer player, ColorScheme colorScheme) {
+  Widget _buildTimerWidget(
+      BuildContext context, NPlayer player, ColorScheme colorScheme) {
     return GestureDetector(
       onTap: () {
-        showModalBottomSheet(
+        showBlossomSheet(
           context: context,
           isScrollControlled: true,
-      useSafeArea: true,
+          useSafeArea: true,
           backgroundColor: Colors.transparent,
           builder: (context) => const SleepTimerSheet(),
         );

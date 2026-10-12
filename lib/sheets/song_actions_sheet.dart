@@ -1,14 +1,17 @@
 import 'package:blossom/audio/nplayer.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
+import 'package:blossom/sheets/playlist_sheet.dart';
 import 'package:blossom/song_list/song_list_tile.dart';
 import 'package:blossom/tools/app_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-/// Per-song action sheet: queue actions plus quick navigation.
-/// Opened from the "more" button on song tiles.
+/// Per-song action sheet: playlist/queue actions plus quick navigation.
+/// Opened by long-pressing a song tile.
 class SongActionsSheet extends StatelessWidget {
   final Music song;
+  final VoidCallback? onSelect;
 
   /// True when opened from the playing-queue list, enabling queue removal.
   final bool isInQueueContext;
@@ -17,21 +20,24 @@ class SongActionsSheet extends StatelessWidget {
     Key? key,
     required this.song,
     this.isInQueueContext = false,
+    this.onSelect,
   }) : super(key: key);
 
   static Future<void> show(
     BuildContext context,
     Music song, {
     bool isInQueueContext = false,
+    VoidCallback? onSelect,
   }) {
     HapticFeedback.selectionClick();
-    return showModalBottomSheet(
+    return showBlossomSheet(
       context: context,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => SongActionsSheet(
         song: song,
         isInQueueContext: isInQueueContext,
+        onSelect: onSelect,
       ),
     );
   }
@@ -54,6 +60,32 @@ class SongActionsSheet extends StatelessWidget {
     final isCurrent = player.getCurrentSong()?.path == song.path;
     final canRemoveFromQueue =
         isInQueueContext && !isCurrent && player.isInQueue(song);
+
+    void showPlaylistPicker() {
+      final navigator = Navigator.of(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!navigator.mounted) return;
+        showBlossomSheet(
+          context: navigator.context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => SizedBox(
+            height: MediaQuery.of(context).size.height * 0.8,
+            child: PlaylistSheet(
+              selectedSongs: {song},
+              player: player,
+              onPlaylistAction: (player, playlist) async {
+                if (!song.playlists.contains(playlist)) {
+                  await player.addSongsToPlaylist(playlist, [song]);
+                }
+              },
+              onDeselectAll: () {},
+            ),
+          ),
+        );
+      });
+    }
 
     Widget action(IconData icon, String label, VoidCallback onTap,
         {String? subtitle}) {
@@ -107,6 +139,8 @@ class SongActionsSheet extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
+            action(Icons.playlist_add_rounded, 'Add to playlist',
+                showPlaylistPicker),
             if (!isCurrent)
               action(Icons.playlist_play_rounded, 'Play next', () {
                 player.playNext(song);
@@ -129,6 +163,8 @@ class SongActionsSheet extends StatelessWidget {
             action(Icons.person_rounded, 'Go to artist', () {
               navigation.openArtist(song.artist);
             }, subtitle: song.artist),
+            if (onSelect != null)
+              action(Icons.check_circle_outline_rounded, 'Select', onSelect!),
             const SizedBox(height: 8),
           ],
         ),

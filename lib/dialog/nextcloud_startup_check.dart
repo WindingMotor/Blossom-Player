@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:provider/provider.dart';
 import 'package:blossom/tools/nextcloud_sync.dart';
 import 'package:blossom/audio/nplayer.dart';
@@ -22,18 +23,16 @@ Future<void> checkNextcloudOnStartup(
         Provider.of<NPlayer>(context, listen: false).allSongs,
       );
 
-  if (songs.isEmpty) return;  // nothing to diff against
-
   final diff = await sync.checkForChanges(localMusic: songs);
   if (diff == null || !diff.hasChanges) return;
   if (!context.mounted) return;
 
-  await showModalBottomSheet(
-    context:       context,
+  await showBlossomSheet(
+    context: context,
     isDismissible: true,
     isScrollControlled: true,
     useSafeArea: true,
-    builder:       (ctx) => _SyncPromptSheet(diff: diff),
+    builder: (ctx) => _SyncPromptSheet(diff: diff),
   );
 }
 
@@ -52,10 +51,10 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
     setState(() => _syncing = true);
 
     // FIX: use context directly — NPlayer is registered at the root
-    // MultiProvider so this context (from showModalBottomSheet's builder
+    // MultiProvider so this context (from showBlossomSheet's builder
     // which inherits from the calling route) has access to it.
     final player = Provider.of<NPlayer>(context, listen: false);
-    final nc     = NextcloudSync();
+    final nc = NextcloudSync();
 
     await nc.applySync(
       onReloadNeeded: () => player.reloadSongs(),
@@ -72,7 +71,7 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final diff   = widget.diff;
+    final diff = widget.diff;
 
     return SafeArea(
       child: Padding(
@@ -100,8 +99,8 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                     Text(
                       '${diff.totalChanges} file(s) out of sync',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.onSurface.withValues(alpha: 0.55),
-                      ),
+                            color: colors.onSurface.withValues(alpha: 0.55),
+                          ),
                     ),
                   ],
                 ),
@@ -113,13 +112,13 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
             // ── Change summary ──────────────────────────────────────────────
             if (diff.toDownload.isNotEmpty)
               _ChangeTile(
-                icon:  Icons.download_outlined,
+                icon: Icons.download_outlined,
                 color: Colors.green,
                 label: '${diff.toDownload.length} new/updated on Nextcloud',
               ),
             if (diff.toUpload.isNotEmpty)
               _ChangeTile(
-                icon:  Icons.upload_outlined,
+                icon: Icons.upload_outlined,
                 color: colors.secondary,
                 label: '${diff.toUpload.length} local song(s) not on Nextcloud',
               ),
@@ -153,7 +152,7 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                           Expanded(
                             child: Text(
                               progress?.currentFile ?? 'Preparing…',
-                              style:    Theme.of(context).textTheme.bodySmall,
+                              style: Theme.of(context).textTheme.bodySmall,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -164,7 +163,8 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                                   .textTheme
                                   .bodySmall
                                   ?.copyWith(
-                                    color: colors.onSurface.withValues(alpha: 0.5),
+                                    color:
+                                        colors.onSurface.withValues(alpha: 0.5),
                                   ),
                             ),
                         ],
@@ -178,8 +178,9 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                             Row(
                               children: [
                                 Icon(Icons.speed,
-                                    size:  12,
-                                    color: colors.onSurface.withValues(alpha: 0.4)),
+                                    size: 12,
+                                    color: colors.onSurface
+                                        .withValues(alpha: 0.4)),
                                 const SizedBox(width: 4),
                                 Text(
                                   progress.speedLabel,
@@ -187,7 +188,8 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                                       .textTheme
                                       .bodySmall
                                       ?.copyWith(
-                                        color: colors.onSurface.withValues(alpha: 0.5),
+                                        color: colors.onSurface
+                                            .withValues(alpha: 0.5),
                                       ),
                                 ),
                               ],
@@ -195,8 +197,9 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                             Row(
                               children: [
                                 Icon(Icons.timer_outlined,
-                                    size:  12,
-                                    color: colors.onSurface.withValues(alpha: 0.4)),
+                                    size: 12,
+                                    color: colors.onSurface
+                                        .withValues(alpha: 0.4)),
                                 const SizedBox(width: 4),
                                 Text(
                                   progress.etaLabel,
@@ -204,7 +207,8 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                                       .textTheme
                                       .bodySmall
                                       ?.copyWith(
-                                        color: colors.onSurface.withValues(alpha: 0.5),
+                                        color: colors.onSurface
+                                            .withValues(alpha: 0.5),
                                       ),
                                 ),
                               ],
@@ -237,9 +241,9 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
                   child: ElevatedButton.icon(
                     icon: _syncing
                         ? const SizedBox(
-                            width:  16,
+                            width: 16,
                             height: 16,
-                            child:  CircularProgressIndicator(
+                            child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.sync),
@@ -265,20 +269,20 @@ class _SyncPromptSheetState extends State<_SyncPromptSheet> {
 
 class _ChangeTile extends StatelessWidget {
   final IconData icon;
-  final Color    color;
-  final String   label;
+  final Color color;
+  final String label;
   const _ChangeTile(
       {required this.icon, required this.color, required this.label});
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Row(
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 8),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-      ],
-    ),
-  );
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 8),
+            Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          ],
+        ),
+      );
 }

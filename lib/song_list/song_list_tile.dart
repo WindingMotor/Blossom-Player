@@ -1,5 +1,3 @@
-
-
 import 'dart:collection';
 import 'dart:typed_data';
 
@@ -11,23 +9,23 @@ class SongListTile extends StatelessWidget {
   final Music song;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-  final VoidCallback? onMorePressed;
 
   const SongListTile({
     Key? key,
     required this.song,
     required this.onTap,
     required this.onLongPress,
-    this.onMorePressed,
   }) : super(key: key);
-
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
-    final isDesktopPlatform = [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
-        .contains(Theme.of(context).platform);
+    final isDesktopPlatform = [
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+      TargetPlatform.macOS
+    ].contains(Theme.of(context).platform);
 
     return Card(
       elevation: 0,
@@ -35,51 +33,30 @@ class SongListTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       margin: EdgeInsets.symmetric(
-        horizontal: 8, 
-        vertical: isDesktopPlatform ? 2 : 4
-      ),
+          horizontal: 8, vertical: isDesktopPlatform ? 2 : 4),
       child: ListTile(
-      dense: isDesktopPlatform,
-      visualDensity: isDesktopPlatform 
-          ? VisualDensity.compact 
-          : VisualDensity.standard,
+        dense: isDesktopPlatform,
+        visualDensity:
+            isDesktopPlatform ? VisualDensity.compact : VisualDensity.standard,
         leading: AlbumArtThumbnail(picture: song.picture, songPath: song.path),
-
-title: Text(
-  song.title,
-  style: textTheme.bodyMedium,
-  overflow: TextOverflow.ellipsis,
-),
-subtitle: Text(
-  '${song.artist} • ${song.genre}',
-  style: textTheme.bodySmall?.copyWith(
-    color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
-  ),
-  overflow: TextOverflow.ellipsis,
-),
-trailing: Row(
-  mainAxisSize: MainAxisSize.min,
-  children: [
-    Text(
-      Utils.formatMilliseconds(song.duration),
-      style: textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
-      ),
-    ),
-    if (onMorePressed != null)
-      IconButton(
-        icon: Icon(
-          Icons.more_vert_rounded,
-          size: 20,
-          color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+        title: Text(
+          song.title,
+          style: textTheme.bodyMedium,
+          overflow: TextOverflow.ellipsis,
         ),
-        visualDensity: VisualDensity.compact,
-        padding: EdgeInsets.zero,
-        tooltip: 'Song options',
-        onPressed: onMorePressed,
-      ),
-  ],
-),
+        subtitle: Text(
+          '${song.artist} • ${song.genre}',
+          style: textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Text(
+          Utils.formatMilliseconds(song.duration),
+          style: textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+          ),
+        ),
         onTap: onTap,
         onLongPress: onLongPress,
       ),
@@ -147,5 +124,3 @@ class AlbumArtCache {
     return image;
   }
 }
-
-

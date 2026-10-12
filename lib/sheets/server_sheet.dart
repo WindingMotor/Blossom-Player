@@ -12,31 +12,12 @@ class ServerSheet extends StatefulWidget {
   _ServerSheetState createState() => _ServerSheetState();
 }
 
-class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+class _ServerSheetState extends State<ServerSheet> {
   final TextEditingController _ipController = TextEditingController();
   List<String> _availableServers = [];
   bool _isScanning = false;
   StreamSubscription? _songChangeSubscription;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeAnimation();
-  }
-
-  void _initializeAnimation() {
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    );
-    _controller.forward();
-  }
+  int _scanGeneration = 0;
 
   Future<void> _toggleServer(NPlayer nplayer) async {
     try {
@@ -49,7 +30,8 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
-            content: Text(nplayer.isServerOn ? 'Server started' : 'Server stopped'),
+            content:
+                Text(nplayer.isServerOn ? 'Server started' : 'Server stopped'),
           ),
         );
       }
@@ -66,6 +48,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
   }
 
   Future<void> _scanForServers() async {
+    final generation = ++_scanGeneration;
     setState(() {
       _isScanning = true;
       _availableServers.clear();
@@ -73,6 +56,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
 
     final info = NetworkInfo();
     final wifiIP = await info.getWifiIP();
+    if (!mounted || generation != _scanGeneration) return;
     if (wifiIP == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -82,31 +66,28 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
           ),
         );
       }
-      setState(() {
-        _isScanning = false;
-      });
+      setState(() => _isScanning = false);
       return;
     }
 
     final subnet = wifiIP.substring(0, wifiIP.lastIndexOf('.'));
-    final List<Future<void>> scanFutures = [];
+    final List<Future<String?>> scanFutures = [];
     for (int i = 1; i <= 254; i++) {
       scanFutures.add(_checkServer('$subnet.$i'));
     }
 
-    await Future.wait(scanFutures);
+    final results = await Future.wait(scanFutures);
+    if (!mounted || generation != _scanGeneration) return;
     setState(() {
+      _availableServers
+        ..clear()
+        ..addAll(results.whereType<String>());
       _isScanning = false;
     });
   }
 
-  Future<void> _checkServer(String host) async {
-    if (await NServer.isValidServer(host)) {
-      setState(() {
-        _availableServers.add(host);
-      });
-    }
-  }
+  Future<String?> _checkServer(String host) async =>
+      await NServer.isValidServer(host) ? host : null;
 
   void _connectToServer(NPlayer nplayer, String ip) {
     nplayer.connectToServer(ip, 8080).then((_) {
@@ -134,51 +115,39 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     return Consumer<NPlayer>(
       builder: (context, nplayer, _) {
-        return AnimatedBuilder(
-          animation: _animation,
-          builder: (context, child) {
-            return Transform.translate(
-              offset: Offset(0, (1 - _animation.value) * 100),
-              child: Opacity(
-                opacity: _animation.value,
-                child: child,
-              ),
-            );
-          },
-          child: Container(
-            height: MediaQuery.of(context).size.height * 0.85,
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                _buildHandle(),
-                Expanded(
-                  child: CustomScrollView(
-                    slivers: [
-                      _buildAppBar(nplayer),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildServerStatus(nplayer),
-                              const SizedBox(height: 24),
-                              _buildManualConnection(),
-                              const SizedBox(height: 24),
-                              _buildScanSection(),
-                            ],
-                          ),
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.85,
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              _buildHandle(),
+              Expanded(
+                child: CustomScrollView(
+                  slivers: [
+                    _buildAppBar(nplayer),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildServerStatus(nplayer),
+                            const SizedBox(height: 24),
+                            _buildManualConnection(),
+                            const SizedBox(height: 24),
+                            _buildScanSection(),
+                          ],
                         ),
                       ),
-                      _buildServerList(nplayer),
-                    ],
-                  ),
+                    ),
+                    _buildServerList(nplayer),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -216,7 +185,10 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
   Widget _buildServerStatus(NPlayer nplayer) {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      color: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest
+          .withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -253,7 +225,10 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
   Widget _buildManualConnection() {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      color: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest
+          .withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -284,7 +259,8 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
                   onPressed: () {
                     final ip = _ipController.text.trim();
                     if (ip.isNotEmpty) {
-                      final nplayer = Provider.of<NPlayer>(context, listen: false);
+                      final nplayer =
+                          Provider.of<NPlayer>(context, listen: false);
                       _connectToServer(nplayer, ip);
                     }
                   },
@@ -300,7 +276,10 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
   Widget _buildScanSection() {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      color: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest
+          .withValues(alpha: 0.3),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -329,7 +308,8 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
                       ),
                     )
                   : const Icon(Icons.search),
-              label: Text(_isScanning ? 'Scanning Network...' : 'Scan for Servers'),
+              label: Text(
+                  _isScanning ? 'Scanning Network...' : 'Scan for Servers'),
             ),
           ],
         ),
@@ -389,7 +369,7 @@ class _ServerSheetState extends State<ServerSheet> with SingleTickerProviderStat
 
   @override
   void dispose() {
-    _controller.dispose();
+    _scanGeneration++;
     _songChangeSubscription?.cancel();
     super.dispose();
   }

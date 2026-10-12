@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:blossom/sheets/playlist_sheet.dart';
 import 'package:blossom/sheets/song_actions_sheet.dart';
 import 'package:blossom/song_list/song_list_tile_wrapper.dart';
@@ -114,8 +115,11 @@ class SongListBuilderState extends State<SongListBuilder> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktopPlatform = [TargetPlatform.windows, TargetPlatform.linux, TargetPlatform.macOS]
-        .contains(Theme.of(context).platform);
+    final isDesktopPlatform = [
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+      TargetPlatform.macOS
+    ].contains(Theme.of(context).platform);
 
     return Consumer<NPlayer>(
       builder: (context, player, child) {
@@ -141,11 +145,11 @@ class SongListBuilderState extends State<SongListBuilder> {
                       isCurrentSong: song == player.getCurrentSong(),
                       isSelected: selectedSongs.contains(song),
                       onTap: () => _handleTap(song),
-                      onLongPress: () => _handleLongPress(index),
-                      onMorePressed: () => SongActionsSheet.show(
+                      onLongPress: () => SongActionsSheet.show(
                         context,
                         song,
                         isInQueueContext: widget.isPlayingList,
+                        onSelect: () => _handleLongPress(index),
                       ),
                     );
                   },
@@ -168,7 +172,7 @@ class SongListBuilderState extends State<SongListBuilder> {
   }
 
   void _showPlaylistDialog(BuildContext context, NPlayer player) {
-    showModalBottomSheet(
+    showBlossomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -193,20 +197,17 @@ class SongListBuilderState extends State<SongListBuilder> {
     );
   }
 
-  void _handlePlaylistAction(NPlayer player, String playlist) {
+  Future<void> _handlePlaylistAction(NPlayer player, String playlist) async {
     bool allSongsInPlaylist =
         selectedSongs.every((song) => song.playlists.contains(playlist));
 
     if (allSongsInPlaylist) {
-      for (var song in selectedSongs) {
-        player.removeSongFromPlaylist(playlist, song);
-      }
+      await player.removeSongsFromPlaylist(playlist, selectedSongs);
     } else {
-      for (var song in selectedSongs) {
-        if (!song.playlists.contains(playlist)) {
-          player.addSongToPlaylist(playlist, song);
-        }
-      }
+      await player.addSongsToPlaylist(
+        playlist,
+        selectedSongs.where((song) => !song.playlists.contains(playlist)),
+      );
     }
     if (mounted) {
       setState(() {});

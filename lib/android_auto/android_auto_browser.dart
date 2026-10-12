@@ -1,6 +1,20 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:blossom/audio/nplayer.dart';
 
+/// Maps only the requested page, avoiding full-library temporary allocations.
+List<R> paginateItems<T, R>(
+  List<T> items, {
+  required int page,
+  required int pageSize,
+  required R Function(T) convert,
+}) {
+  if (page < 0 || pageSize <= 0) return <R>[];
+  final start = page * pageSize;
+  if (start >= items.length) return <R>[];
+  final end = (start + pageSize).clamp(0, items.length);
+  return [for (var index = start; index < end; index++) convert(items[index])];
+}
+
 /// Handles Android Auto MediaBrowser content browsing.
 /// Delegated from [CustomAudioHandler] to keep the handler file focused on
 /// audio focus / playback logic.
@@ -43,14 +57,13 @@ class AndroidAutoBrowser {
         ];
 
       case allSongsId:
-        return paginate(
-          _nPlayer.sortedSongs.map(songToMediaItem).toList(),
-          options,
-        );
+        return paginateMapped(_nPlayer.sortedSongs, options, songToMediaItem);
 
       case albumsId:
-        return paginate(
-          _nPlayer.albumMap.entries.map((e) {
+        return paginateMapped(
+          _nPlayer.albumMap.entries.toList(),
+          options,
+          (e) {
             final first = e.value.first;
             return MediaItem(
               id: 'album:${e.key}',
@@ -58,8 +71,7 @@ class AndroidAutoBrowser {
               artist: first.artist,
               playable: false,
             );
-          }).toList(),
-          options,
+          },
         );
 
       case queueId:
@@ -74,13 +86,13 @@ class AndroidAutoBrowser {
             ),
           ];
         }
-        return paginate(queue.map(songToMediaItem).toList(), options);
+        return paginateMapped(queue, options, songToMediaItem);
 
       default:
         if (parentMediaId.startsWith('album:')) {
           final albumName = parentMediaId.substring(6);
           final songs = _nPlayer.albumMap[albumName] ?? [];
-          return paginate(songs.map(songToMediaItem).toList(), options);
+          return paginateMapped(songs, options, songToMediaItem);
         }
         return [];
     }
@@ -101,12 +113,10 @@ class AndroidAutoBrowser {
   /// then falls back to sorted songs list.
   Future<int?> resolvePlayIndex(String mediaId) async {
     // Check queue first so tapping a queue item skips to the right position
-    final queueIdx =
-        _nPlayer.playingSongs.indexWhere((s) => s.path == mediaId);
+    final queueIdx = _nPlayer.playingSongs.indexWhere((s) => s.path == mediaId);
     if (queueIdx != -1) return null; // handled by playSpecificSong
 
-    final sortedIdx =
-        _nPlayer.sortedSongs.indexWhere((s) => s.path == mediaId);
+    final sortedIdx = _nPlayer.sortedSongs.indexWhere((s) => s.path == mediaId);
     return sortedIdx == -1 ? null : sortedIdx;
   }
 
@@ -121,10 +131,18 @@ class AndroidAutoBrowser {
 
   List<MediaItem> paginate(
       List<MediaItem> items, Map<String, dynamic>? options) {
+    return paginateMapped(items, options, (item) => item);
+  }
+
+  List<MediaItem> paginateMapped<T>(List<T> items,
+      Map<String, dynamic>? options, MediaItem Function(T) convert) {
     final page = (options?[_extraPage] as int?) ?? 0;
     final size = (options?[_extraPageSize] as int?) ?? _defaultPageSize;
-    final start = page * size;
-    if (start >= items.length) return [];
-    return items.sublist(start, (start + size).clamp(0, items.length));
+    return paginateItems(
+      items,
+      page: page,
+      pageSize: size,
+      convert: convert,
+    );
   }
 }

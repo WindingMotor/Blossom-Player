@@ -7,6 +7,7 @@ extension NPlayerSongUtils on NPlayer {
     if (currentSong != null) {
       currentSong.isFavorite = !currentSong.isFavorite;
       await SongData.setFavorite(currentSong.path, currentSong.isFavorite);
+      _bumpLibraryRevision();
       _internalNotifyListeners();
     }
   }
@@ -60,8 +61,7 @@ extension NPlayerSongUtils on NPlayer {
 
         // Replace the stale instance in the play queue too, and refresh the
         // media session if it's the song currently playing.
-        final queueIndex =
-            _playingSongs.indexWhere((s) => s.path == song.path);
+        final queueIndex = _playingSongs.indexWhere((s) => s.path == song.path);
         if (queueIndex != -1) {
           _playingSongs[queueIndex] = updated;
           if (queueIndex == _currentSongIndex) {
@@ -72,6 +72,8 @@ extension NPlayerSongUtils on NPlayer {
       // Rebuild the sorted list so it picks up the replaced instance
       // regardless of the active sort key.
       _filterAndSortSongs();
+      buildAlbumMaps();
+      _bumpLibraryRevision();
       _internalNotifyListeners();
     } catch (e) {
       Log.w(LogTag.playback, 'Error updating metadata: $e');
@@ -126,6 +128,8 @@ extension NPlayerSongUtils on NPlayer {
       // 6. Remove from favorites and other song data
       await SongData.removeSongEntry(song.path);
 
+      buildAlbumMaps();
+      _bumpLibraryRevision();
       _internalNotifyListeners();
     } catch (e) {
       Log.e(LogTag.playback, 'Error deleting song: $e');

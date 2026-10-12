@@ -8,7 +8,6 @@ class SongListTileWrapper extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-  final VoidCallback? onMorePressed;
 
   const SongListTileWrapper({
     Key? key,
@@ -17,14 +16,13 @@ class SongListTileWrapper extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     required this.onLongPress,
-    this.onMorePressed,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     Color backgroundColor = Colors.transparent;
-    
+
     if (isCurrentSong) {
       backgroundColor = theme.colorScheme.primary.withValues(alpha: 0.15);
     } else if (isSelected) {
@@ -41,7 +39,6 @@ class SongListTileWrapper extends StatelessWidget {
         song: song,
         onTap: onTap,
         onLongPress: onLongPress,
-        onMorePressed: onMorePressed,
       ),
     );
   }

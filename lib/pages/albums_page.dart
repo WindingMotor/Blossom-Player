@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:blossom/custom/search_bar.dart';
+import 'package:blossom/custom/page_entrance.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:blossom/song_list/song_list_tile.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:blossom/tools/ui_helpers.dart';
@@ -31,7 +33,7 @@ class SongAlbums extends StatefulWidget {
 }
 
 class SongAlbumsState extends State<SongAlbums>
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
   late String _sortBy;
@@ -47,8 +49,8 @@ class SongAlbumsState extends State<SongAlbums>
   List<AlbumInfo> _smallAlbums = [];
 
   Timer? _saveDebounce;
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
+  NPlayer? _player;
+  int _libraryRevision = -1;
 
   @override
   void initState() {
@@ -59,27 +61,36 @@ class SongAlbumsState extends State<SongAlbums>
     _sortAscending = Settings.albumSortAscending;
     _organizeByFolder = Settings.albumOrganizeByFolder;
 
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
-    );
-
     _scrollController.addListener(_onScroll);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _initializeAlbumList(); // sync, instant
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final player = context.read<NPlayer>();
+    if (identical(_player, player)) return;
+    _player?.removeListener(_onPlayerChanged);
+    _player = player;
+    _player!.addListener(_onPlayerChanged);
+  }
+
+  void _onPlayerChanged() {
+    final player = _player;
+    if (!mounted || player == null) return;
+    if (player.libraryRevision != _libraryRevision) _initializeAlbumList();
+  }
+
+  @override
   void dispose() {
+    _player?.removeListener(_onPlayerChanged);
     _saveDebounce?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
-    _animationController.dispose();
     super.dispose();
   }
 
@@ -94,6 +105,7 @@ class SongAlbumsState extends State<SongAlbums>
 
   void _initializeAlbumList() {
     final player = Provider.of<NPlayer>(context, listen: false);
+    _libraryRevision = player.libraryRevision;
     final albumMap = _organizeByFolder ? player.folderMap : player.albumMap;
 
     final list = albumMap.entries
@@ -115,7 +127,6 @@ class SongAlbumsState extends State<SongAlbums>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _animationController.forward();
       final saved = Settings.albumsScrollPosition;
       if (saved > 0 && _scrollController.hasClients) {
         _scrollController.jumpTo(saved);
@@ -269,8 +280,7 @@ class SongAlbumsState extends State<SongAlbums>
               ),
             ),
             Expanded(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
+              child: BlossomPageEntrance(
                 child: _buildContent(),
               ),
             ),
@@ -385,7 +395,7 @@ class SongAlbumsState extends State<SongAlbums>
 
   void _showAlbumSongs(BuildContext context, AlbumInfo album) {
     final player = Provider.of<NPlayer>(context, listen: false);
-    showModalBottomSheet(
+    showBlossomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

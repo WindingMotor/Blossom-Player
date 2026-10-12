@@ -35,31 +35,7 @@ class MusicBottomSheet extends StatefulWidget {
   _MusicBottomSheetState createState() => _MusicBottomSheetState();
 }
 
-class _MusicBottomSheetState extends State<MusicBottomSheet>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    );
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
+class _MusicBottomSheetState extends State<MusicBottomSheet> {
   Future<void> _removeSongFromPlaylist(Music song, NPlayer player) async {
     if (widget.playlistName == null) return;
 
@@ -117,185 +93,169 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
           (total, song) => total + Duration(milliseconds: song.duration),
         );
 
-        return AnimatedBuilder(
-          animation: _animation,
-          builder: (context, child) {
-            return Transform.translate(
-              offset: Offset(0, (1 - _animation.value) * 100),
-              child: Opacity(
-                opacity: _animation.value,
-                child: child,
-              ),
-            );
-          },
-          child: Container(
-            height: MediaQuery.of(context).size.height * 0.8,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Theme.of(context).scaffoldBackgroundColor,
-                  Theme.of(context)
-                      .scaffoldBackgroundColor
-                      .withValues(alpha: 0.8),
-                ],
-              ),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 10,
-                  spreadRadius: 5,
-                ),
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.8,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Theme.of(context).scaffoldBackgroundColor,
+                Theme.of(context)
+                    .scaffoldBackgroundColor
+                    .withValues(alpha: 0.8),
               ],
             ),
-            child: Column(
-              children: [
-                Container(
-                  width: 40,
-                  height: 5,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color:
-                        Theme.of(context).dividerColor.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(2.5),
-                  ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 10,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(2.5),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_rounded),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      const SizedBox(width: 16),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: SizedBox(
-                          width: 60,
-                          height: 60,
-                          child: widget.image ??
-                              (widget.isPlaylist
-                                  ? PlaylistArtwork(
-                                      customImagePath: widget.customImagePath,
-                                      songs: currentSongs,
-                                      size: 60,
-                                    )
-                                  : (currentSongs.isNotEmpty &&
-                                          currentSongs.first.picture != null
-                                      ? Image.memory(
-                                          currentSongs.first.picture!,
-                                          fit: BoxFit.cover)
-                                      : Icon(Icons.album,
-                                          size: 60,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary))),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.title,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                            Text(
-                              '${currentSongs.length} songs',
-                              style: TextStyle(color: Colors.grey[400]),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.play_circle_fill_rounded),
-                        onPressed: () {
-                          if (currentSongs.isNotEmpty) {
-                            widget.onPlayPressed(currentSongs.first);
-                          }
-                        },
-                        color: Theme.of(context).colorScheme.secondary,
-                        iconSize: 48,
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(12),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    const SizedBox(width: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: widget.image ??
+                            (widget.isPlaylist
+                                ? PlaylistArtwork(
+                                    customImagePath: widget.customImagePath,
+                                    songs: currentSongs,
+                                    size: 60,
+                                  )
+                                : (currentSongs.isNotEmpty &&
+                                        currentSongs.first.picture != null
+                                    ? Image.memory(currentSongs.first.picture!,
+                                        fit: BoxFit.cover)
+                                    : Icon(Icons.album,
+                                        size: 60,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary))),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildStatItem(
-                              context, 'Songs', currentSongs.length.toString()),
-                          _buildStatItem(
-                              context,
-                              'Albums',
-                              currentSongs
-                                  .map((s) => s.album)
-                                  .toSet()
-                                  .length
-                                  .toString()),
-                          _buildStatItem(context, 'Total Time',
-                              _formatDuration(totalDuration)),
+                          Text(
+                            widget.title,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          Text(
+                            '${currentSongs.length} songs',
+                            style: TextStyle(color: Colors.grey[400]),
+                          ),
                         ],
                       ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.play_circle_fill_rounded),
+                      onPressed: () {
+                        if (currentSongs.isNotEmpty) {
+                          widget.onPlayPressed(currentSongs.first);
+                        }
+                      },
+                      color: Theme.of(context).colorScheme.secondary,
+                      iconSize: 48,
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatItem(
+                            context, 'Songs', currentSongs.length.toString()),
+                        _buildStatItem(
+                            context,
+                            'Albums',
+                            currentSongs
+                                .map((s) => s.album)
+                                .toSet()
+                                .length
+                                .toString()),
+                        _buildStatItem(context, 'Total Time',
+                            _formatDuration(totalDuration)),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: currentSongs.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.music_note,
-                                size: 64,
-                                color: Colors.grey[600],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: currentSongs.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.music_note,
+                              size: 64,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No songs in this playlist',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[400],
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No songs in this playlist',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[400],
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ScrollConfiguration(
-                          behavior: DesktopScrollBehavior(),
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: widget.isPlaylist &&
-                                    widget.playlistName != null
-                                ? _buildPlaylistSongList(currentSongs, player)
-                                : _buildStaticSongList(currentSongs, player),
-                          ),
+                            ),
+                          ],
                         ),
-                ),
-              ],
-            ),
+                      )
+                    : ScrollConfiguration(
+                        behavior: DesktopScrollBehavior(),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child:
+                              widget.isPlaylist && widget.playlistName != null
+                                  ? _buildPlaylistSongList(currentSongs, player)
+                                  : _buildStaticSongList(currentSongs, player),
+                        ),
+                      ),
+              ),
+            ],
           ),
         );
       },
@@ -320,8 +280,7 @@ class _MusicBottomSheetState extends State<MusicBottomSheet>
           isCurrentSong: song.path == player.getCurrentSong()?.path,
           isSelected: false,
           onTap: () => widget.onPlayPressed(song),
-          onLongPress: () {},
-          onMorePressed: () => SongActionsSheet.show(context, song),
+          onLongPress: () => SongActionsSheet.show(context, song),
         );
       },
     );

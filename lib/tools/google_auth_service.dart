@@ -44,27 +44,37 @@ class GoogleAuthService {
   }
 
   static Future<List<drive.File>> listAudioFiles() async {
-    final driveApi = await getDriveApi();
-    if (driveApi == null) return [];
+    final session = await _createDriveSession();
+    if (session == null) return [];
 
     try {
-      final fileList = await driveApi.files.list(
-        q: "mimeType contains 'audio/'",
-        spaces: 'drive',
-        $fields: 'files(id, name, mimeType, size)',
-      );
-
-      return fileList.files ?? [];
+      final files = <drive.File>[];
+      String? pageToken;
+      do {
+        final fileList = await session.api.files.list(
+          q: "mimeType contains 'audio/' and trashed = false",
+          spaces: 'drive',
+          pageToken: pageToken,
+          pageSize: 1000,
+          $fields: 'nextPageToken, files(id, name, mimeType, size)',
+        );
+        files.addAll(fileList.files ?? const []);
+        pageToken = fileList.nextPageToken;
+      } while (pageToken != null && pageToken.isNotEmpty);
+      return files;
     } catch (e) {
       Log.e(LogTag.ui, 'Error listing audio files: $e');
       return [];
+    } finally {
+      session.client.close();
     }
   }
 
   static Future<bool> downloadFile(drive.File file) async {
-    final driveApi = await getDriveApi();
-    if (driveApi == null) return false;
+    final session = await _createDriveSession();
+    if (session == null) return false;
 
+    File? partialFile;
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final musicDir = Directory('${appDir.path}/Blossom/Music');
@@ -72,25 +82,74 @@ class GoogleAuthService {
         await musicDir.create(recursive: true);
       }
 
-      final savePath = '${musicDir.path}/${file.name}';
-      final saveFile = File(savePath);
-      
-      final response = await driveApi.files.get(
+      final safeName = _safeFileName(file.name);
+      if (safeName.isEmpty) {
+        throw const FormatException('Invalid Drive filename');
+      }
+      final saveFile = await _availableFile(musicDir, safeName);
+      partialFile = File('${saveFile.path}.blossom-part-'
+          '${DateTime.now().microsecondsSinceEpoch}');
+
+      final response = await session.api.files.get(
         file.id!,
         downloadOptions: drive.DownloadOptions.fullMedia,
       ) as drive.Media;
 
-      final List<int> dataStore = [];
-      await response.stream.forEach((data) {
-        dataStore.insertAll(dataStore.length, data);
-      });
-
-      await saveFile.writeAsBytes(dataStore);
+      final sink = partialFile.openWrite();
+      try {
+        await sink.addStream(response.stream);
+      } finally {
+        await sink.close();
+      }
+      final written = await partialFile.length();
+      final expected = int.tryParse(file.size ?? '');
+      if (written <= 0 || (expected != null && expected != written)) {
+        throw FileSystemException(
+            'Incomplete Drive download (expected $expected, got $written)');
+      }
+      await partialFile.rename(saveFile.path);
+      partialFile = null;
       return true;
     } catch (e) {
       Log.e(LogTag.ui, 'Error downloading file: $e');
       return false;
+    } finally {
+      session.client.close();
+      if (partialFile != null && await partialFile.exists()) {
+        try {
+          await partialFile.delete();
+        } catch (_) {}
+      }
     }
+  }
+
+  static Future<({GoogleAuthClient client, drive.DriveApi api})?>
+      _createDriveSession() async {
+    if (_currentUser == null) return null;
+    final client = GoogleAuthClient(await _currentUser!.authHeaders);
+    return (client: client, api: drive.DriveApi(client));
+  }
+
+  static String _safeFileName(String? name) {
+    if (name == null) return '';
+    return name
+        .replaceAll(RegExp(r'[\\/]'), '_')
+        .replaceAll(RegExp(r'[\x00-\x1f]'), '')
+        .replaceAll(RegExp(r'^\.+$'), '')
+        .trim();
+  }
+
+  static Future<File> _availableFile(Directory dir, String name) async {
+    var candidate = File('${dir.path}/$name');
+    if (!await candidate.exists()) return candidate;
+    final dot = name.lastIndexOf('.');
+    final stem = dot > 0 ? name.substring(0, dot) : name;
+    final extension = dot > 0 ? name.substring(dot) : '';
+    for (var suffix = 1; suffix < 10000; suffix++) {
+      candidate = File('${dir.path}/$stem ($suffix)$extension');
+      if (!await candidate.exists()) return candidate;
+    }
+    throw const FileSystemException('Too many files with the same name');
   }
 }
 
@@ -105,4 +164,7 @@ class GoogleAuthClient extends http.BaseClient {
     request.headers.addAll(_headers);
     return _client.send(request);
   }
+
+  @override
+  void close() => _client.close();
 }

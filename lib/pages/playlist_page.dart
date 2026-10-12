@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:blossom/custom/search_bar.dart';
+import 'package:blossom/custom/page_entrance.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:blossom/tools/ui_helpers.dart';
 import 'package:flutter/material.dart';
@@ -20,7 +22,7 @@ class PlaylistPage extends StatefulWidget {
 }
 
 class PlaylistPageState extends State<PlaylistPage>
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -28,21 +30,16 @@ class PlaylistPageState extends State<PlaylistPage>
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   Timer? _saveDebounce;
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _isMounted = true;
 
-    _animationController = UIHelpers.createFadeAnimationController(this);
-    _fadeAnimation = UIHelpers.createFadeAnimation(_animationController);
     _scrollController.addListener(_onScroll);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _animationController.forward();
         final saved = Settings.playlistScrollPosition;
         if (saved > 0 && _scrollController.hasClients) {
           _scrollController.jumpTo(saved);
@@ -64,7 +61,6 @@ class PlaylistPageState extends State<PlaylistPage>
     _saveDebounce?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
-    _animationController.dispose();
     super.dispose();
   }
 
@@ -111,8 +107,7 @@ class PlaylistPageState extends State<PlaylistPage>
               .surfaceContainerHighest
               .withValues(alpha: 0.1),
           body: SafeArea(
-            child: FadeTransition(
-              opacity: _fadeAnimation,
+            child: BlossomPageEntrance(
               child: Column(
                 children: [
                   // Search bar with add playlist button
@@ -210,7 +205,7 @@ class PlaylistPageState extends State<PlaylistPage>
 
   void _showPlaylistBottomSheet(BuildContext context, NPlayer player,
       String playlist, List<Music> songs) {
-    showModalBottomSheet(
+    showBlossomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -277,7 +272,7 @@ class PlaylistPageState extends State<PlaylistPage>
   }
 
   void _showCreatePlaylistDialog(BuildContext context, NPlayer player) {
-    showModalBottomSheet(
+    showBlossomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -297,7 +292,7 @@ class PlaylistPageState extends State<PlaylistPage>
 
   void _showDeletePlaylistDialog(
       BuildContext context, NPlayer player, String playlist) {
-    showModalBottomSheet(
+    showBlossomSheet(
       context: context,
       enableDrag: true,
       isDismissible: true,

@@ -6,8 +6,26 @@ extension NPlayerPlayback on NPlayer {
   /// Centralized method to handle starting playback of any song queue.
   /// Centralized method to handle starting playback of any song queue.
   Future<void> _startPlayback(List<Music> queue, int startIndex) async {
-    // Ensure AudioHandler is initialized before proceeding
+    final requestId = ++_playbackRequestId;
+    final requestedQueue = List<Music>.from(queue);
+    final previousTransition = _playbackTransition;
+    final transition = () async {
+      try {
+        await previousTransition;
+      } catch (_) {
+        // A failed transition must not poison all later playback requests.
+      }
+      if (_isDisposed || requestId != _playbackRequestId) return;
+      await _performStartPlayback(requestedQueue, startIndex, requestId);
+    }();
+    _playbackTransition = transition;
+    await transition;
+  }
+
+  Future<void> _performStartPlayback(
+      List<Music> queue, int startIndex, int requestId) async {
     await _ensureInitialized();
+    if (_isDisposed || requestId != _playbackRequestId) return;
 
     if (_audioHandler == null) {
       Log.e(LogTag.playback,
@@ -22,23 +40,29 @@ extension NPlayerPlayback on NPlayer {
       return;
     }
 
-    _playingSongs = List.from(queue);
-    _currentSongIndex = startIndex;
-    _preShuffleQueue = null; // new queue — old un-shuffle snapshot is invalid
-    final songToPlay = _playingSongs[startIndex];
+    final songToPlay = queue[startIndex];
 
     // Ensure media item is updated BEFORE starting playback
     await _audioHandler!.updateMediaItemFromSong(songToPlay);
+    if (_isDisposed || requestId != _playbackRequestId) return;
 
     try {
       await _audioHandler!.ensureAudioFocus();
+      if (_isDisposed || requestId != _playbackRequestId) return;
+      _playingSongs = queue;
+      _currentSongIndex = startIndex;
+      _preShuffleQueue = null; // new queue — old un-shuffle snapshot is invalid
       await _audioPlayer.play(ap.DeviceFileSource(songToPlay.path));
+      if (_isDisposed || requestId != _playbackRequestId) return;
       // A short delay and resume check can help on some platforms.
       Future.delayed(Duration(milliseconds: 100), () async {
         try {
           // Skip if the user paused/stopped in the meantime — otherwise this
           // would override their action.
-          if (_isPlaying && _audioPlayer.state != ap.PlayerState.playing) {
+          if (!_isDisposed &&
+              requestId == _playbackRequestId &&
+              _isPlaying &&
+              _audioPlayer.state != ap.PlayerState.playing) {
             await _audioPlayer.resume();
           }
         } catch (e) {
@@ -134,13 +158,15 @@ extension NPlayerPlayback on NPlayer {
     await _startPlayback(queue, 0);
   }
 
-  /// Plays a specific song if it's in the current queue.
+  /// Plays a specific song, preserving the current queue when it is already
+  /// present and otherwise creating a one-item queue for external sources.
   Future<void> playSpecificSong(Music song) async {
     int index = _playingSongs.indexWhere((queued) => queued.path == song.path);
     if (index != -1) {
       await _startPlayback(_playingSongs, index);
     } else {
-      Log.d(LogTag.playback, 'Song not found in current queue');
+      _playbackSource = const PlaybackSource(PlaybackSourceType.library);
+      await _startPlayback([song], 0);
     }
   }
 
@@ -254,6 +280,7 @@ extension NPlayerPlayback on NPlayer {
     final Music? currentSong = getCurrentSong();
     if (currentSong != null) {
       await SongData.incrementPlayCount(currentSong.path);
+      _bumpLibraryRevision();
     }
 
     if (_repeatMode == 'one' && _currentSongIndex != null) {
@@ -373,8 +400,7 @@ extension NPlayerPlayback on NPlayer {
   }
 
   /// Whether [song] is somewhere in the queue.
-  bool isInQueue(Music song) =>
-      _playingSongs.any((s) => s.path == song.path);
+  bool isInQueue(Music song) => _playingSongs.any((s) => s.path == song.path);
 
   Future<void> shuffle() async {
     if (_playingSongs.isEmpty) return;

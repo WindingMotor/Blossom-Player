@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import 'package:blossom/custom/page_entrance.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'settings.dart';
@@ -12,12 +14,16 @@ class Downloader extends StatefulWidget {
 }
 
 class _DownloaderState extends State<Downloader> {
+  static const int _maxOutputCharacters = 200000;
+  static const String _spotDlVersion = '4.2.11';
   String _output = '';
   bool _isLoading = false;
   bool _ffmpegInstalled = false;
   bool _spotdlInstalled = false;
   final TextEditingController _urlController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final List<StreamSubscription<String>> _processSubscriptions = [];
+  Process? _activeProcess;
 
   @override
   void initState() {
@@ -110,11 +116,27 @@ class _DownloaderState extends State<Downloader> {
           'Checking if spotdl is installed. If not wait for it to download.\n');
     }
 
-    // Install spotdl
+    // Avoid hitting PyPI and changing executable code every time this page opens.
     final pipPath =
         Platform.isWindows ? '$venvPath\\Scripts\\pip' : '$venvPath/bin/pip';
+    final spotdlPath = Platform.isWindows
+        ? '$venvPath\\Scripts\\spotdl'
+        : '$venvPath/bin/spotdl';
+    ProcessResult? installed;
+    if (await File(spotdlPath).exists()) {
+      installed = await Process.run(spotdlPath, ['--version']);
+    }
+    if (installed?.exitCode == 0) {
+      if (mounted) {
+        setState(() {
+          _appendOutput('spotdl is installed and ready.\n');
+          _spotdlInstalled = true;
+        });
+      }
+      return;
+    }
     final spotdlInstallResult =
-        await Process.run(pipPath, ['install', 'spotdl']);
+        await Process.run(pipPath, ['install', 'spotdl==$_spotDlVersion']);
     if (spotdlInstallResult.exitCode != 0) {
       if (mounted) {
         setState(() => _output +=
@@ -169,39 +191,56 @@ class _DownloaderState extends State<Downloader> {
           '--sponsor-block',
         ],
       );
+      _activeProcess = process;
 
-      process.stdout.transform(utf8.decoder).listen((data) {
+      _processSubscriptions
+          .add(process.stdout.transform(utf8.decoder).listen((data) {
+        if (!mounted) return;
         setState(() {
-          _output += data;
+          _appendOutput(data);
           _scrollToBottom();
         });
-      });
+      }));
 
-      process.stderr.transform(utf8.decoder).listen((data) {
+      _processSubscriptions
+          .add(process.stderr.transform(utf8.decoder).listen((data) {
+        if (!mounted) return;
         setState(() {
-          _output += 'Error: $data';
+          _appendOutput('Error: $data');
           _scrollToBottom();
         });
-      });
+      }));
 
       final exitCode = await process.exitCode;
 
+      _activeProcess = null;
+      if (!mounted) return;
       if (exitCode == 0) {
-        setState(() =>
-            _output += 'Song downloaded successfully to ${songDir}\n');
+        setState(
+            () => _output += 'Song downloaded successfully to ${songDir}\n');
         _showDownloadCompleteDialog();
       } else {
-        setState(() =>
-            _output += 'Error downloading song. Exit code: $exitCode\n');
+        setState(
+            () => _output += 'Error downloading song. Exit code: $exitCode\n');
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _output += 'Error downloading song: $e\n');
     } finally {
-      setState(() => _isLoading = false);
+      _activeProcess = null;
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _appendOutput(String text) {
+    _output += text;
+    if (_output.length > _maxOutputCharacters) {
+      _output = _output.substring(_output.length - _maxOutputCharacters);
     }
   }
 
   void _scrollToBottom() {
+    if (!_scrollController.hasClients) return;
     _scrollController.animateTo(
       _scrollController.position.maxScrollExtent,
       duration: const Duration(milliseconds: 200),
@@ -210,142 +249,164 @@ class _DownloaderState extends State<Downloader> {
   }
 
   @override
+  void dispose() {
+    _activeProcess?.kill();
+    for (final subscription in _processSubscriptions) {
+      subscription.cancel();
+    }
+    _urlController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Status indicators
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStatusIndicator(
-                    context,
-                    'FFmpeg',
-                    _ffmpegInstalled,
-                    Icons.video_library_rounded,
-                  ),
-                  _buildStatusIndicator(
-                    context,
-                    'SpotDL',
-                    _spotdlInstalled,
-                    Icons.music_note_rounded,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // URL Input field
-            TextField(
-              controller: _urlController,
-              decoration: InputDecoration(
-                hintText: 'Enter song URL or search query',
-                prefixIcon: const Icon(Icons.link_rounded),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: Theme.of(context).colorScheme.primary,
-                    width: 2,
-                  ),
-                ),
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.surface,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // Download button
-            ElevatedButton.icon(
-              onPressed: _isLoading ? null : () => _downloadSong(_urlController.text),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Icon(Icons.download_rounded),
-              label: Text(_isLoading ? 'Downloading...' : 'Download'),
-            ),
-            const SizedBox(height: 24),
-            
-            // Output console
-            Expanded(
-              child: Container(
+    return BlossomPageEntrance(
+      child: Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Status indicators
+              Container(
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
-                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                child: Stack(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    if (_output.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: SingleChildScrollView(
-                          controller: _scrollController,
-                          child: Text(
-                            _output,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Theme.of(context).colorScheme.onSurface,
-                              height: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (_output.isEmpty)
-                      Center(
-                        child: Text(
-                          'Console output will appear here',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      ),
+                    _buildStatusIndicator(
+                      context,
+                      'FFmpeg',
+                      _ffmpegInstalled,
+                      Icons.video_library_rounded,
+                    ),
+                    _buildStatusIndicator(
+                      context,
+                      'SpotDL',
+                      _spotdlInstalled,
+                      Icons.music_note_rounded,
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+
+              // URL Input field
+              TextField(
+                controller: _urlController,
+                decoration: InputDecoration(
+                  hintText: 'Enter song URL or search query',
+                  prefixIcon: const Icon(Icons.link_rounded),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surface,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Download button
+              ElevatedButton.icon(
+                onPressed: _isLoading
+                    ? null
+                    : () => _downloadSong(_urlController.text),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.download_rounded),
+                label: Text(_isLoading ? 'Downloading...' : 'Download'),
+              ),
+              const SizedBox(height: 24),
+
+              // Output console
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      if (_output.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: SingleChildScrollView(
+                            controller: _scrollController,
+                            child: Text(
+                              _output,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_output.isEmpty)
+                        Center(
+                          child: Text(
+                            'Console output will appear here',
+                            style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -5,8 +5,9 @@ extension NPlayerServer on NPlayer {
 
   Future<void> startServer({int port = 8080}) async {
     Log.d(LogTag.server, 'Starting server on port $port');
-    _server = NServer(this);
-    await _server!.start(port: port);
+    final server = NServer(this);
+    await server.start(port: port);
+    _server = server;
     _isServerOn = true;
     _internalNotifyListeners();
   }

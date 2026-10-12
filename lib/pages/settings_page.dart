@@ -635,13 +635,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     ], (String value) async {
                       if (value != '-') {
                         await Settings.setAppTheme(value);
+                        if (!mounted) return;
                         Log.d(LogTag.settings, 'New theme set: $value');
+                        appThemeNotifier.value = value;
                         widget.onThemeChanged();
                         setState(() {});
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (context) => MyApp()),
-                          (Route<dynamic> route) => false,
-                        );
                       }
                     }, context),
                   ],

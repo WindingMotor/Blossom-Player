@@ -39,7 +39,8 @@ class PlaylistArtwork extends StatelessWidget {
     }
 
     // For multiple songs, create a grid of up to 4 album arts
-    List<Music> artSongs = songs.where((s) => s.picture != null).take(4).toList();
+    List<Music> artSongs =
+        songs.where((s) => s.picture != null).take(4).toList();
     if (artSongs.isEmpty) {
       return Container(
         color: Colors.grey[800],

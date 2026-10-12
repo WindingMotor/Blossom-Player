@@ -8,7 +8,7 @@ import 'dart:async';
 class PlaylistSheet extends StatefulWidget {
   final Set<Music> selectedSongs;
   final NPlayer player;
-  final Function(NPlayer, String) onPlaylistAction;
+  final Future<void> Function(NPlayer, String) onPlaylistAction;
   final VoidCallback onDeselectAll;
 
   const PlaylistSheet({
@@ -24,13 +24,10 @@ class PlaylistSheet extends StatefulWidget {
 }
 
 class _PlaylistSheetState extends State<PlaylistSheet>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late final TextEditingController _searchController;
   late final TextEditingController _newPlaylistController;
-  late final AnimationController _animationController;
   late final AnimationController _searchAnimationController;
-  late final Animation<double> _fadeAnimation;
-  late final Animation<double> _slideAnimation;
   late final Animation<double> _searchAnimation;
 
   List<String> _filteredPlaylists = [];
@@ -67,35 +64,15 @@ class _PlaylistSheetState extends State<PlaylistSheet>
   }
 
   void _initializeAnimations() {
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-
     _searchAnimationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
 
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    );
-
-    _slideAnimation = Tween<double>(
-      begin: 30.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
-
     _searchAnimation = CurvedAnimation(
       parent: _searchAnimationController,
       curve: Curves.easeInOut,
     );
-
-    _animationController.forward();
   }
 
   @override
@@ -103,7 +80,6 @@ class _PlaylistSheetState extends State<PlaylistSheet>
     _searchDebouncer?.cancel();
     _searchController.dispose();
     _newPlaylistController.dispose();
-    _animationController.dispose();
     _searchAnimationController.dispose();
     _searchFocusNode.dispose();
     _newPlaylistFocusNode.dispose();
@@ -186,11 +162,15 @@ class _PlaylistSheetState extends State<PlaylistSheet>
     }
 
     try {
-      widget.onPlaylistAction(widget.player, playlist);
-
+      await widget.onPlaylistAction(widget.player, playlist);
+      if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
-      if (mounted) {}
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update playlist: $e')),
+        );
+      }
     }
   }
 
@@ -223,21 +203,26 @@ class _PlaylistSheetState extends State<PlaylistSheet>
     HapticFeedback.lightImpact();
 
     try {
-      widget.player.createPlaylist(name);
+      await widget.player.createPlaylist(name);
+      if (!mounted) return;
+      setState(() {
+        _filteredPlaylists = List.from(widget.player.playlists);
+        _showNewPlaylistField = false;
+        _isCreatingPlaylist = false;
+      });
 
+      _newPlaylistController.clear();
+
+      // Auto-select the new playlist
+      await _handlePlaylistAction(name);
+    } catch (e) {
       if (mounted) {
-        setState(() {
-          _filteredPlaylists = List.from(widget.player.playlists);
-          _showNewPlaylistField = false;
-          _isCreatingPlaylist = false;
-        });
-
-        _newPlaylistController.clear();
-
-        // Auto-select the new playlist
-        await _handlePlaylistAction(name);
+        setState(() => _isCreatingPlaylist = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not create playlist: $e')),
+        );
       }
-    } catch (e) {}
+    }
   }
 
   Widget _buildPlaylistTile(String playlist, int index) {
@@ -351,92 +336,81 @@ class _PlaylistSheetState extends State<PlaylistSheet>
     final isDesktop = screenSize.width > 600;
     final keyboardVisible = bottomPadding > 0;
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: AnimatedBuilder(
-        animation: _slideAnimation,
-        builder: (context, child) {
-          return Transform.translate(
-            offset: Offset(0, _slideAnimation.value),
-            child: Container(
-              width: isDesktop ? screenSize.width * 0.4 : screenSize.width,
-              constraints: BoxConstraints(
-                maxWidth: 600,
-                minWidth: 300,
-                maxHeight: screenSize.height * (keyboardVisible ? 0.6 : 0.8),
-              ),
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    spreadRadius: 0,
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Drag Handle
-                  Container(
-                    margin: const EdgeInsets.only(top: 12, bottom: 8),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurfaceVariant
-                          .withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-
-                  // Header
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isDesktop ? 24 : 16,
-                      vertical: 8,
-                    ),
-                    child: _buildHeader(isDesktop),
-                  ),
-
-                  // Search/New Playlist Fields
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    child: Column(
-                      children: [
-                        if (_showSearchField) _buildSearchField(),
-                        if (_showNewPlaylistField) _buildNewPlaylistField(),
-                      ],
-                    ),
-                  ),
-
-                  // Playlist List
-                  Flexible(
-                    child: _filteredPlaylists.isEmpty
-                        ? _buildEmptyState()
-                        : ListView.builder(
-                            padding: EdgeInsets.only(
-                              bottom: bottomPadding + 16,
-                              top: 8,
-                            ),
-                            itemCount: _filteredPlaylists.length,
-                            itemBuilder: (context, index) {
-                              return _buildPlaylistTile(
-                                  _filteredPlaylists[index], index);
-                            },
-                          ),
-                  ),
-                ],
-              ),
+    return Container(
+      width: isDesktop ? screenSize.width * 0.4 : screenSize.width,
+      constraints: BoxConstraints(
+        maxWidth: 600,
+        minWidth: 300,
+        maxHeight: screenSize.height * (keyboardVisible ? 0.6 : 0.8),
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag Handle
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurfaceVariant
+                  .withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
             ),
-          );
-        },
+          ),
+
+          // Header
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isDesktop ? 24 : 16,
+              vertical: 8,
+            ),
+            child: _buildHeader(isDesktop),
+          ),
+
+          // Search/New Playlist Fields
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: Column(
+              children: [
+                if (_showSearchField) _buildSearchField(),
+                if (_showNewPlaylistField) _buildNewPlaylistField(),
+              ],
+            ),
+          ),
+
+          // Playlist List
+          Flexible(
+            child: _filteredPlaylists.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: EdgeInsets.only(
+                      bottom: bottomPadding + 16,
+                      top: 8,
+                    ),
+                    itemCount: _filteredPlaylists.length,
+                    itemBuilder: (context, index) {
+                      return _buildPlaylistTile(
+                          _filteredPlaylists[index], index);
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:provider/provider.dart';
 import '../audio/nplayer.dart';
 import '../sheets/sleep_timer_sheet.dart';
@@ -46,7 +47,7 @@ class SleepTimerWidget extends StatelessWidget {
   }
 
   void _showSleepTimerSheet(BuildContext context) {
-    showModalBottomSheet(
+    showBlossomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:blossom/custom/search_bar.dart';
+import 'package:blossom/custom/page_entrance.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:blossom/song_list/song_list_tile.dart';
 import 'package:blossom/tools/settings.dart';
 import 'package:blossom/tools/ui_helpers.dart';
@@ -15,42 +17,49 @@ class ArtistsPage extends StatefulWidget {
   ArtistsPageState createState() => ArtistsPageState();
 }
 
-class ArtistsPageState extends State<ArtistsPage>
-    with TickerProviderStateMixin {
+class ArtistsPageState extends State<ArtistsPage> {
   late String _sortBy;
   late bool _sortAscending;
   final TextEditingController _searchController = TextEditingController();
   List<ArtistInfo> _artistList = [];
   final ScrollController _scrollController = ScrollController();
   Timer? _saveDebounce;
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
   final GlobalKey _sortButtonKey = GlobalKey();
+  NPlayer? _player;
+  int _libraryRevision = -1;
 
   @override
   void initState() {
     super.initState();
 
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
-    );
-
     _loadSortPreferences();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _initializeArtistList();
       if (mounted) {
-        _animationController.forward();
         final saved = Settings.artistsScrollPosition;
         if (saved > 0 && _scrollController.hasClients) {
           _scrollController.jumpTo(saved);
         }
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final player = context.read<NPlayer>();
+    if (identical(_player, player)) return;
+    _player?.removeListener(_onPlayerChanged);
+    _player = player;
+    _player!.addListener(_onPlayerChanged);
+  }
+
+  void _onPlayerChanged() {
+    final player = _player;
+    if (!mounted || player == null) return;
+    if (player.libraryRevision != _libraryRevision) _initializeArtistList();
   }
 
   void _onScroll() {
@@ -62,10 +71,10 @@ class ArtistsPageState extends State<ArtistsPage>
 
   @override
   void dispose() {
+    _player?.removeListener(_onPlayerChanged);
     _saveDebounce?.cancel();
     _searchController.dispose();
     _scrollController.dispose();
-    _animationController.dispose();
     super.dispose();
   }
 
@@ -78,6 +87,7 @@ class ArtistsPageState extends State<ArtistsPage>
 
   void _initializeArtistList() {
     final player = Provider.of<NPlayer>(context, listen: false);
+    _libraryRevision = player.libraryRevision;
     final artistMap = <String, List<Music>>{};
     for (final song in player.allSongs) {
       artistMap.putIfAbsent(song.artist, () => []).add(song);
@@ -152,8 +162,7 @@ class ArtistsPageState extends State<ArtistsPage>
           .surfaceContainerHighest
           .withValues(alpha: 0.1),
       body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
+        child: BlossomPageEntrance(
           child: Column(
             children: [
               OptimizedSearchBar(
@@ -220,7 +229,7 @@ class ArtistsPageState extends State<ArtistsPage>
   void _showArtistSongs(BuildContext context, ArtistInfo artist) {
     final player = Provider.of<NPlayer>(context, listen: false);
 
-    showModalBottomSheet(
+    showBlossomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

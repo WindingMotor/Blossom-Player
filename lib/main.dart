@@ -38,8 +38,12 @@ import 'widgets/sleep_timer_countdown.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 
+/// Rebuilds the single root [MaterialApp] when the persisted theme changes.
+final ValueNotifier<String> appThemeNotifier = ValueNotifier<String>('system');
+
 /// Requests necessary permissions for file access safely
 Future<void> requestPermissions() async {
+  if (kIsWeb) return;
   if (Platform.isAndroid) {
     try {
       final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -73,6 +77,14 @@ void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
+    // Blossom's player and library currently depend on dart:io and native
+    // plugins. Do not partially initialize them on web: several of those
+    // plugins have no browser implementation.
+    if (kIsWeb) {
+      runApp(const _UnsupportedWebApp());
+      return;
+    }
+
     try {
       if (!kIsWeb && (Platform.isLinux || Platform.isWindows)) {
         sqfliteFfiInit();
@@ -86,6 +98,7 @@ void main() {
       }
 
       await Settings.init();
+      appThemeNotifier.value = Settings.appTheme;
       await NextcloudSync().initialize();
       final notifier = SyncNotificationManager.instance;
       try {
@@ -154,26 +167,66 @@ void main() {
 }
 
 /// Root widget of the application
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  _MyAppState createState() => _MyAppState();
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: appThemeNotifier,
+      builder: (context, themeName, _) {
+        final theme = getThemeData(themeName);
+        return MaterialApp(
+          title: 'Blossom',
+          theme: theme,
+          debugShowCheckedModeBanner: false,
+          home: Container(
+            color: theme.scaffoldBackgroundColor,
+            child: const MainStructure(),
+          ),
+        );
+      },
+    );
+  }
 }
 
-class _MyAppState extends State<MyApp> {
+class _UnsupportedWebApp extends StatelessWidget {
+  const _UnsupportedWebApp();
+
   @override
   Widget build(BuildContext context) {
-    final theme = getThemeData(Settings.appTheme);
     return MaterialApp(
       title: 'Blossom',
-      theme: theme,
       debugShowCheckedModeBanner: false,
-      // LoadingPage is now inside MainStructure so onLoaded has access to the
-      // fully-mounted NPlayer context when it fires.
-      home: Container(
-        color: theme.scaffoldBackgroundColor,
-        child: const MainStructure(),
+      home: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: const Padding(
+                padding: EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.library_music_rounded, size: 64),
+                    SizedBox(height: 20),
+                    Text(
+                      'Blossom is not available in a web browser yet',
+                      textAlign: TextAlign.center,
+                      style:
+                          TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'Use the Android, iOS, Windows, macOS, or Linux app to access your local music library.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -255,6 +308,7 @@ class _MainStructureState extends State<MainStructure>
   }
 
   bool _isLandscape(BuildContext context) {
+    if (kIsWeb) return false;
     try {
       return MediaQuery.of(context).orientation == Orientation.landscape &&
           (Platform.isAndroid || Platform.isIOS);
@@ -413,8 +467,7 @@ class _MainStructureState extends State<MainStructure>
     return index == -1 ? 0 : index;
   }
 
-  List<Widget> _getPages() =>
-      _buildPageEntries().map((e) => e.page).toList();
+  List<Widget> _getPages() => _buildPageEntries().map((e) => e.page).toList();
 
   String _getAppBarTitle() {
     final entries = _buildPageEntries();
@@ -533,7 +586,7 @@ class _MainStructureState extends State<MainStructure>
       child: _isLandscape(context)
           ? const StandbyPage()
           : Scaffold(
-              appBar: !Platform.isIOS && !Platform.isAndroid
+              appBar: !kIsWeb && !Platform.isIOS && !Platform.isAndroid
                   ? CustomAppBar(
                       titleWidget: Text(
                         _getAppBarTitle(),

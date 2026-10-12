@@ -2,6 +2,7 @@
 /// Bottom sheet that displays library statistics and provides JSON/CSV export.
 
 import 'package:blossom/audio/nplayer.dart';
+import 'package:blossom/sheets/blossom_sheet.dart';
 import 'package:blossom/tools/library_stats.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -11,7 +12,7 @@ import 'package:provider/provider.dart';
 // ---------------------------------------------------------------------------
 
 void showLibraryStatsSheet(BuildContext context) {
-  showModalBottomSheet(
+  showBlossomSheet(
     context: context,
     isScrollControlled: true,
       useSafeArea: true,

@@ -27,6 +27,36 @@ extension NPlayerPlaylistManagement on NPlayer {
     _internalNotifyListeners();
   }
 
+  Future<void> addSongsToPlaylist(
+      String playlistName, Iterable<Music> songs) async {
+    final selected = songs.toList(growable: false);
+    await PlaylistManager.updateSongsInPlaylist(
+      playlistName,
+      selected.map((song) => song.path),
+      add: true,
+    );
+    for (final song in selected) {
+      if (!song.playlists.contains(playlistName)) {
+        song.playlists.add(playlistName);
+      }
+    }
+    _internalNotifyListeners();
+  }
+
+  Future<void> removeSongsFromPlaylist(
+      String playlistName, Iterable<Music> songs) async {
+    final selected = songs.toList(growable: false);
+    await PlaylistManager.updateSongsInPlaylist(
+      playlistName,
+      selected.expand((song) => [song.path, song.title]),
+      add: false,
+    );
+    for (final song in selected) {
+      song.playlists.remove(playlistName);
+    }
+    _internalNotifyListeners();
+  }
+
   List<Music> getPlaylistSongs(String playlistName) {
     final songIds = PlaylistManager.getPlaylistSongs(playlistName);
     final songsByPath = {for (final song in _allSongs) song.path: song};
